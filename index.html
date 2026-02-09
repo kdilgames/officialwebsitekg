@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KDILGAMES | Game Development Studio</title>
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Space+Grotesk:wght@500;700&family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
+    
+    <!-- Tailwind CSS (via CDN for rapid prototyping/styling) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#0F172A',
+                        accent: '#38BDF8',
+                        bg: '#0F172A',
+                        dark: '#020617',
+                        surface: '#1E293B',
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        heading: ['Space Grotesk', 'sans-serif'],
+                        body: ['Poppins', 'sans-serif'],
+                    },
+                    animation: {
+                        'fade-in-up': 'fadeInUp 1s ease-out forwards',
+                        'float': 'float 6s ease-in-out infinite',
+                    },
+                    keyframes: {
+                        fadeInUp: {
+                            '0%': { opacity: '0', transform: 'translateY(20px)' },
+                            '100%': { opacity: '1', transform: 'translateY(0)' },
+                        },
+                        float: {
+                            '0%, 100%': { transform: 'translateY(0)' },
+                            '50%': { transform: 'translateY(-10px)' },
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        /* Custom Styles for Framer-like feel */
+        body {
+            background-color: #0F172A;
+            color: #F8FAFC;
+            overflow-x: hidden;
+            scroll-behavior: smooth;
+        }
+
+        .glass-nav {
+            background: rgba(15, 23, 42, 0.8);
+            backdrop-filter: blur(16px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .hero-video-wrapper {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            z-index: -1;
+            background: #0F172A;
+        }
+
+        .hero-video-wrapper video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            opacity: 0.4;
+            filter: saturate(1.1);
+        }
+
+        .hero-overlay {
+            background: linear-gradient(to bottom, rgba(15, 23, 42, 0.3), #0F172A);
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+        }
+
+        .btn-primary {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px -5px rgba(56, 189, 248, 0.4);
+        }
+
+        .game-card {
+            transition: transform 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94), box-shadow 0.4s ease;
+            border-radius: 1.5rem;
+            background-color: #1E293B;
+            border: 1px solid #334155;
+        }
+
+        .game-card:hover {
+            transform: scale(1.02) translateY(-8px);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+        }
+
+        .game-card img {
+            transition: transform 0.6s ease;
+        }
+
+        .game-card:hover img {
+            transform: scale(1.1);
+        }
+
+        .game-overlay {
+            background: rgba(15, 23, 42, 0.8);
+            backdrop-filter: blur(8px);
+            opacity: 0;
+            transition: opacity 0.4s ease;
+        }
+
+        .game-card:hover .game-overlay {
+            opacity: 1;
+        }
+
+        /* Staggered Reveal Animation */
+        .reveal {
+            opacity: 0;
+            transform: translateY(40px);
+            transition: all 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .reveal.active {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        /* Smooth Scrollbar */
+        ::-webkit-scrollbar {
+            width: 10px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0F172A;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #334155;
+            border-radius: 5px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #475569;
+        }
+    </style>
+</head>
+<body class="font-sans antialiased">
+
+    <!-- NAVIGATION -->
+    <nav class="fixed w-full z-50 glass-nav transition-all duration-300" id="navbar">
+        <div class="max-w-7xl mx-auto px-6 lg:px-8">
+            <div class="flex justify-between items-center h-20">
+                <!-- Logo -->
+                <div class="flex-shrink-0 flex items-center cursor-pointer" onclick="window.scrollTo(0,0)">
+                    <span class="font-heading font-bold text-2xl tracking-tight text-white">KDIL<span class="text-accent">GAMES</span></span>
+                </div>
+                
+                <!-- Desktop Menu -->
+                <div class="hidden md:flex space-x-8 items-center">
+                    <a href="#games" class="text-white hover:text-accent font-medium transition-colors">Games</a>
+                    <a href="#about" class="text-white hover:text-accent font-medium transition-colors">About</a>
+                    <a href="#contact" class="px-5 py-2.5 rounded-full bg-accent text-white font-medium hover:bg-sky-400 transition-all btn-primary">Contact Us</a>
+                </div>
+
+                <!-- Mobile Menu Button -->
+                <div class="md:hidden flex items-center">
+                    <button id="mobile-menu-btn" class="text-white hover:text-accent focus:outline-none">
+                        <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Mobile Menu -->
+        <div id="mobile-menu" class="hidden md:hidden bg-slate-900/95 backdrop-blur-md absolute w-full border-b border-slate-800">
+            <div class="px-6 pt-2 pb-6 space-y-2">
+                <a href="#games" class="block px-3 py-2 rounded-md text-base font-medium text-slate-300 hover:text-accent hover:bg-slate-800">Games</a>
+                <a href="#about" class="block px-3 py-2 rounded-md text-base font-medium text-slate-300 hover:text-accent hover:bg-slate-800">About</a>
+                <a href="#contact" class="block px-3 py-2 rounded-md text-base font-medium text-accent font-semibold">Contact Us</a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- HERO SECTION -->
+    <section class="relative h-screen flex items-center justify-center overflow-hidden">
+        <!-- Background Video -->
+        <div class="hero-video-wrapper">
+            <!-- Placeholder video: Abstract digital waves -->
+            <video autoplay loop muted playsinline poster="https://images.pexels.com/photos/3165335/pexels-photo-3165335.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1">
+                <source src="https://videos.pexels.com/video-files/3129671/3129671-hd_1920_1080_30fps.mp4" type="video/mp4">
+                Your browser does not support the video tag.
+            </video>
+        </div>
+        <div class="hero-overlay"></div>
+
+        <div class="relative z-10 text-center px-6 max-w-4xl mx-auto mt-16">
+            <h1 class="font-heading text-5xl md:text-7xl font-bold text-white mb-6 tracking-tight animate-fade-in-up">
+                KDIL<span class="text-accent">GAMES</span>
+            </h1>
+            <p class="font-body text-xl md:text-2xl text-slate-300 mb-10 max-w-2xl mx-auto animate-fade-in-up" style="animation-delay: 0.2s; opacity: 0; animation-fill-mode: forwards;">
+                Game Development Studio
+            </p>
+            <div class="flex flex-col sm:flex-row justify-center gap-4 animate-fade-in-up" style="animation-delay: 0.4s; opacity: 0; animation-fill-mode: forwards;">
+                <a href="#games" class="px-8 py-4 rounded-full bg-accent text-white font-semibold text-lg btn-primary flex items-center justify-center gap-2">
+                    <span>View Games</span>
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                </a>
+                <a href="#contact" class="px-8 py-4 rounded-full bg-transparent text-white border border-slate-600 font-semibold text-lg hover:bg-slate-800 transition-all shadow-sm hover:shadow-md flex items-center justify-center">
+                    Contact Us
+                </a>
+            </div>
+        </div>
+        
+        <!-- Scroll Indicator -->
+        <div class="absolute bottom-10 left-1/2 transform -translate-x-1/2 animate-bounce opacity-70">
+            <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3"></path></svg>
+        </div>
+    </section>
+
+    <!-- GAMES SECTION -->
+    <section id="games" class="py-24 bg-bg">
+        <div class="max-w-7xl mx-auto px-6">
+            <div class="text-center mb-16 reveal">
+                <h2 class="font-heading text-4xl md:text-5xl font-bold text-white mb-4">Our Projects</h2>
+                <p class="text-slate-400 text-lg max-w-2xl mx-auto">Immersive experiences crafted with passion and precision.</p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                <!-- Game Card 1 -->
+                <div class="game-card group relative bg-surface rounded-2xl overflow-hidden shadow-sm border border-slate-700 reveal">
+                    <div class="h-64 overflow-hidden relative">
+                        <!-- Placeholder Image -->
+                        <img src="https://images.unsplash.com/photo-1552820728-8b83bb6b773f?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80" alt="Cyber Odyssey" class="w-full h-full object-cover">
+                        <div class="game-overlay absolute inset-0 flex items-center justify-center">
+                            <button class="bg-accent text-white px-6 py-2 rounded-full font-semibold transform translate-y-4 group-hover:translate-y-0 transition-transform duration-300">View Game</button>
+                        </div>
+                    </div>
+                    <div class="p-6">
+                        <h3 class="font-heading text-2xl font-bold text-white mb-2">Cyber Odyssey</h3>
+                        <p class="text-slate-400 mb-4 line-clamp-2">A futuristic open-world RPG where your choices define the fate of a neon-drenched metropolis.</p>
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs font-semibold px-3 py-1 bg-slate-700 text-slate-300 rounded-full">RPG</span>
+                            <span class="text-accent font-medium text-sm">Coming Soon</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Game Card 2 -->
+                <div class="game-card group relative bg-surface rounded-2xl overflow-hidden shadow-sm border border-slate-700 reveal" style="transition-delay: 0.1s;">
+                    <div class="h-64 overflow-hidden relative">
+                        <img src="https://images.unsplash.com/photo-1538481199705-c710c4e965fc?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80" alt="Pixel Arena" class="w-full h-full object-cover">
+                        <div class="game-overlay absolute inset-0 flex items-center justify-center">
+                            <button class="bg-accent text-white px-6 py-2 rounded-full font-semibold transform translate-y-4 group-hover:translate-y-0 transition-transform duration-300">View Game</button>
+                        </div>
+                    </div>
+                    <div class="p-6">
+                        <h3 class="font-heading text-2xl font-bold text-white mb-2">Block Rivals</h3>
+                        <p class="text-slate-400 mb-4 line-clamp-2">Fast-paced competitive shooter with destructible voxel environments and custom character builds.</p>
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs font-semibold px-3 py-1 bg-slate-700 text-slate-300 rounded-full">FPS</span>
+                            <span class="text-green-500 font-medium text-sm">Live Now</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Game Card 3 -->
+                <div class="game-card group relative bg-surface rounded-2xl overflow-hidden shadow-sm border border-slate-700 reveal" style="transition-delay: 0.2s;">
+                    <div class="h-64 overflow-hidden relative">
+                        <img src="https://images.unsplash.com/photo-1605901309584-818e25960b8f?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80" alt="Stellar Drift" class="w-full h-full object-cover">
+                        <div class="game-overlay absolute inset-0 flex items-center justify-center">
+                            <button class="bg-accent text-white px-6 py-2 rounded-full font-semibold transform translate-y-4 group-hover:translate-y-0 transition-transform duration-300">View Game</button>
+                        </div>
+                    </div>
+                    <div class="p-6">
+                        <h3 class="font-heading text-2xl font-bold text-white mb-2">Stellar Drift</h3>
+                        <p class="text-slate-400 mb-4 line-clamp-2">High-octane arcade racing across the galaxy. Defy gravity and master the drift.</p>
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs font-semibold px-3 py-1 bg-slate-700 text-slate-300 rounded-full">Racing</span>
+                            <span class="text-accent font-medium text-sm">Beta Access</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ABOUT SECTION -->
+    <section id="about" class="py-24 relative overflow-hidden">
+        <!-- Decorative bg elements -->
+        <div class="absolute top-0 right-0 w-1/3 h-full bg-slate-800/50 -skew-x-12 transform translate-x-20 z-0"></div>
+
+        <div class="max-w-7xl mx-auto px-6 relative z-10">
+            <div class="flex flex-col lg:flex-row items-center gap-16">
+                <div class="lg:w-1/2 reveal">
+                    <h2 class="font-heading text-4xl md:text-5xl font-bold text-white mb-6">We Craft Digital Worlds</h2>
+                    <div class="space-y-6 text-lg text-slate-300 font-body">
+                        <p>
+                            KDILGAMES is a modern game development studio dedicated to pushing the boundaries of interactive entertainment. We blend cutting-edge technology with artistic vision to create games that leave a lasting impact.
+                        </p>
+                        <p>
+                            Founded by a team of passionate gamers and creators, we believe in gameplay first, community always. Whether it's high-fidelity visuals or addictive mechanics, we strive for perfection in every pixel.
+                        </p>
+                    </div>
+                    
+                    <div class="mt-8 flex gap-8">
+                        <div>
+                            <span class="block text-4xl font-bold text-accent">5+</span>
+                            <span class="text-sm text-slate-400 uppercase tracking-wide">Years Exp</span>
+                        </div>
+                        <div>
+                            <span class="block text-4xl font-bold text-accent">10M+</span>
+                            <span class="text-sm text-slate-400 uppercase tracking-wide">Players</span>
+                        </div>
+                        <div>
+                            <span class="block text-4xl font-bold text-accent">3</span>
+                            <span class="text-sm text-slate-400 uppercase tracking-wide">Major Titles</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="lg:w-1/2 relative reveal" style="transition-delay: 0.2s;">
+                    <div class="grid grid-cols-2 gap-4">
+                        <img src="https://images.unsplash.com/photo-1542751371-adc38448a05e?ixlib=rb-1.2.1&auto=format&fit=crop&w=600&q=80" alt="Studio Life" class="rounded-2xl shadow-lg transform translate-y-8">
+                        <img src="https://images.unsplash.com/photo-1556438050-9bbc88d84f85?ixlib=rb-1.2.1&auto=format&fit=crop&w=600&q=80" alt="Coding" class="rounded-2xl shadow-lg">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- CONTACT SECTION -->
+    <section id="contact" class="py-24 bg-dark text-white relative">
+        <div class="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-5"></div>
+        
+        <div class="max-w-4xl mx-auto px-6 relative z-10">
+            <div class="text-center mb-12 reveal">
+                <h2 class="font-heading text-4xl md:text-5xl font-bold text-white mb-4">Let's Create Together</h2>
+                <p class="text-slate-400 text-lg">Have a project in mind or just want to say hi?</p>
+            </div>
+
+            <div class="bg-primary/50 backdrop-blur-lg p-8 md:p-12 rounded-3xl border border-slate-800 shadow-2xl reveal">
+                <form class="space-y-6">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label class="block text-sm font-medium text-slate-400 mb-2">Name</label>
+                            <input type="text" class="w-full px-4 py-3 rounded-lg bg-slate-900/50 border border-slate-700 text-white focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-all" placeholder="John Doe">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-400 mb-2">Email</label>
+                            <input type="email" class="w-full px-4 py-3 rounded-lg bg-slate-900/50 border border-slate-700 text-white focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-all" placeholder="john@example.com">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-400 mb-2">Message</label>
+                        <textarea rows="4" class="w-full px-4 py-3 rounded-lg bg-slate-900/50 border border-slate-700 text-white focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-all" placeholder="Tell us about your project..."></textarea>
+                    </div>
+                    <button type="submit" class="w-full py-4 bg-accent hover:bg-sky-400 text-white font-bold rounded-lg transition-all transform hover:scale-[1.02] shadow-lg shadow-accent/20">
+                        Send Message
+                    </button>
+                </form>
+                <div class="mt-8 text-center text-slate-400">
+                    <p>Or email us directly at <a href="mailto:kdilgames@gmail.com" class="text-accent hover:underline">kdilgames@gmail.com</a></p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- FOOTER -->
+    <footer class="bg-primary pt-16 pb-8 border-t border-slate-800">
+        <div class="max-w-7xl mx-auto px-6">
+            <div class="flex flex-col md:flex-row justify-between items-center mb-12">
+                <div class="mb-8 md:mb-0">
+                    <span class="font-heading font-bold text-3xl tracking-tight text-white">KDIL<span class="text-accent">GAMES</span></span>
+                    <p class="text-slate-400 mt-2">Next-Gen Game Development</p>
+                </div>
+                
+                <div class="flex space-x-6">
+                    <!-- Social Icons -->
+                    <a href="https://discord.gg/cRxsQbqgXw" target="_blank" class="text-slate-400 hover:text-white transition-colors p-2 bg-slate-800/50 rounded-full hover:bg-accent/20">
+                        <span class="sr-only">Discord</span>
+                        <svg class="h-6 w-6" fill="currentColor" viewBox="0 0 24 24"><path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037 13.687 13.687 0 0 0-.622 1.28 18.347 18.347 0 0 0-5.462 0 14.125 14.125 0 0 0-.623-1.28.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057l.004.003c4.187 2.924 9.43 3.63 13.518 2.378a.078.078 0 0 0 .044-.029 13.843 13.843 0 0 0 2.824-4.524.08.08 0 0 0-.033-.083 9.423 9.423 0 0 1-3.692-1.747.076.076 0 0 1-.004-.124 6.746 6.746 0 0 0 .23-.178.075.075 0 0 1 .116.012 11.66 11.66 0 0 0 9.096 4.352c2.722-.054 5.253-1.127 7.027-2.906a.078.078 0 0 0 .007-.107 19.64 19.64 0 0 0-4.885-1.515.074.074 0 0 0-.079.037z"/></svg>
+                    </a>
+                    <a href="#" class="text-slate-400 hover:text-white transition-colors p-2 bg-slate-800/50 rounded-full hover:bg-accent/20">
+                        <span class="sr-only">Twitter</span>
+                        <svg class="h-6 w-6" fill="currentColor" viewBox="0 0 24 24"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+                    </a>
+                    <a href="#" class="text-slate-400 hover:text-white transition-colors p-2 bg-slate-800/50 rounded-full hover:bg-accent/20">
+                        <span class="sr-only">YouTube</span>
+                        <svg class="h-6 w-6" fill="currentColor" viewBox="0 0 24 24"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
+                    </a>
+                    <a href="#" class="text-slate-400 hover:text-white transition-colors p-2 bg-slate-800/50 rounded-full hover:bg-accent/20">
+                        <span class="sr-only">Instagram</span>
+                        <svg class="h-6 w-6" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/></svg>
+                    </a>
+                </div>
+            </div>
+            
+            <div class="flex flex-col md:flex-row justify-between items-center border-t border-slate-800 pt-8 text-sm text-slate-400">
+                <p>&copy; 2026 KDILGAMES. All rights reserved.</p>
+                <div class="flex space-x-6 mt-4 md:mt-0">
+                    <a href="#" class="hover:text-white transition-colors">Privacy Policy</a>
+                    <a href="#" class="hover:text-white transition-colors">Terms of Service</a>
+                    <a href="#" class="hover:text-white transition-colors">EULA</a>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- INTERACTION SCRIPT -->
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // Mobile Menu Toggle
+            const mobileBtn = document.getElementById('mobile-menu-btn');
+            const mobileMenu = document.getElementById('mobile-menu');
+            
+            mobileBtn.addEventListener('click', () => {
+                mobileMenu.classList.toggle('hidden');
+            });
+
+            // Navbar Scroll Effect
+            const navbar = document.getElementById('navbar');
+            window.addEventListener('scroll', () => {
+                if (window.scrollY > 50) {
+                    navbar.classList.add('shadow-md');
+                    navbar.style.background = 'rgba(15, 23, 42, 0.95)';
+                } else {
+                    navbar.classList.remove('shadow-md');
+                    navbar.style.background = 'rgba(15, 23, 42, 0.8)';
+                }
+            });
+
+            // Scroll Reveal Animation (Intersection Observer)
+            const revealElements = document.querySelectorAll('.reveal');
+            
+            const revealObserver = new IntersectionObserver((entries, observer) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        entry.target.classList.add('active');
+                        // Optional: Unobserve after revealing to animate only once
+                        // observer.unobserve(entry.target);
+                    }
+                });
+            }, {
+                root: null,
+                threshold: 0.15, // Trigger when 15% visible
+                rootMargin: "0px"
+            });
+
+            revealElements.forEach(el => revealObserver.observe(el));
+        });
+    </script>
+</body>
+</html>
