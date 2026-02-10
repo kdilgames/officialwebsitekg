@@ -53,13 +53,31 @@
             background-color: #0F172A;
             color: #F8FAFC;
             overflow-x: hidden;
-            scroll-behavior: smooth;
         }
 
         .glass-nav {
             background: rgba(15, 23, 42, 0.8);
             backdrop-filter: blur(16px);
             border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        /* Animated Background */
+        .animated-bg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            background: linear-gradient(-45deg, #0F172A, #1e293b, #020617, #0F172A);
+            background-size: 400% 400%;
+            animation: gradientBG 15s ease infinite;
+        }
+
+        @keyframes gradientBG {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
         }
 
         .hero-video-wrapper {
@@ -70,15 +88,14 @@
             height: 100%;
             overflow: hidden;
             z-index: -1;
-            background: #0F172A;
         }
-
-        .hero-video-wrapper video {
+        
+        #hero-canvas {
             width: 100%;
             height: 100%;
-            object-fit: cover;
-            opacity: 0.4;
-            filter: saturate(1.1);
+            position: absolute;
+            top: 0;
+            left: 0;
         }
 
         .hero-overlay {
@@ -144,6 +161,35 @@
         }
 
         /* Smooth Scrollbar */
+        html {
+            scroll-behavior: smooth;
+        }
+
+        /* Nav Link Animation */
+        .nav-link {
+            position: relative;
+            transition: color 0.3s ease;
+        }
+        
+        .nav-link::after {
+            content: '';
+            position: absolute;
+            width: 0;
+            height: 2px;
+            bottom: -4px;
+            left: 0;
+            background-color: #38BDF8;
+            transition: width 0.3s ease;
+        }
+        
+        .nav-link:hover::after {
+            width: 100%;
+        }
+        
+        .nav-link:hover {
+            color: #38BDF8;
+        }
+
         ::-webkit-scrollbar {
             width: 10px;
         }
@@ -183,6 +229,7 @@
             <div class="flex justify-between items-center h-20">
                 <!-- Logo -->
                 <div class="flex-shrink-0 flex items-center cursor-pointer" onclick="window.scrollTo(0,0)">
+                    <img src="kdil.png" alt="KDILGAMES Logo" class="h-10 w-auto mr-3 rounded-full">
                     <span class="font-heading font-bold text-2xl tracking-tight text-white">KDIL<span class="text-accent">GAMES</span></span>
                 </div>
                 
@@ -203,9 +250,10 @@
                         </a>
                     </div>
                     <div class="flex space-x-8 items-center">
-                        <a href="#games" class="text-white hover:text-accent font-medium transition-colors">Games</a>
-                        <a href="#about" class="text-white hover:text-accent font-medium transition-colors">About</a>
-                        <a href="#contact" class="px-5 py-2.5 rounded-full bg-accent text-white font-medium hover:bg-sky-400 transition-all btn-primary">Contact Us</a>
+                        <a href="#" class="text-white font-medium nav-link">Home</a>
+                        <a href="#about" class="text-white font-medium nav-link">About Us</a>
+                        <a href="#games" class="text-white font-medium nav-link">Games</a>
+                        <a href="#contact" class="px-5 py-2.5 rounded-full bg-accent text-white font-medium hover:bg-sky-400 transition-all btn-primary hover:scale-105 shadow-lg hover:shadow-accent/50">Contact Us</a>
                     </div>
                 </div>
 
@@ -223,22 +271,20 @@
         <!-- Mobile Menu -->
         <div id="mobile-menu" class="hidden md:hidden bg-slate-900/95 backdrop-blur-md absolute w-full border-b border-slate-800">
             <div class="px-6 pt-2 pb-6 space-y-2">
-                <a href="#games" class="block px-3 py-2 rounded-md text-base font-medium text-slate-300 hover:text-accent hover:bg-slate-800">Games</a>
-                <a href="#about" class="block px-3 py-2 rounded-md text-base font-medium text-slate-300 hover:text-accent hover:bg-slate-800">About</a>
-                <a href="#contact" class="block px-3 py-2 rounded-md text-base font-medium text-accent font-semibold">Contact Us</a>
+                <a href="#" class="block px-3 py-2 rounded-md text-base font-medium text-slate-300 hover:text-accent hover:bg-slate-800 transition-all">Home</a>
+                <a href="#about" class="block px-3 py-2 rounded-md text-base font-medium text-slate-300 hover:text-accent hover:bg-slate-800 transition-all">About Us</a>
+                <a href="#games" class="block px-3 py-2 rounded-md text-base font-medium text-slate-300 hover:text-accent hover:bg-slate-800 transition-all">Games</a>
+                <a href="#contact" class="block px-3 py-2 rounded-md text-base font-medium text-accent font-semibold hover:bg-slate-800 transition-all">Contact Us</a>
             </div>
         </div>
     </nav>
 
     <!-- HERO SECTION -->
     <section class="relative h-screen flex items-center justify-center overflow-hidden">
-        <!-- Background Video -->
+        <!-- Background Animation -->
         <div class="hero-video-wrapper">
-            <!-- Placeholder video: Abstract digital waves -->
-            <video autoplay loop muted playsinline poster="https://images.pexels.com/photos/3165335/pexels-photo-3165335.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1">
-                <source src="https://videos.pexels.com/video-files/3129671/3129671-hd_1920_1080_30fps.mp4" type="video/mp4">
-                Your browser does not support the video tag.
-            </video>
+            <div class="animated-bg"></div>
+            <canvas id="hero-canvas"></canvas>
         </div>
         <div class="hero-overlay"></div>
 
@@ -285,8 +331,8 @@
                         </div>
                     </div>
                     <div class="p-6">
-                        <h3 class="font-heading text-2xl font-bold text-white mb-2">Cyber Odyssey</h3>
-                        <p class="text-slate-400 mb-4 line-clamp-2">A futuristic open-world RPG where your choices define the fate of a neon-drenched metropolis.</p>
+                        <h3 class="font-heading text-2xl font-bold text-white mb-2">Balkan Bloodline</h3>
+                        <p class="text-slate-400 mb-4 line-clamp-2">A gritty, narrative-driven survival experience set in the heart of the Balkans. Fight for legacy and honor.</p>
                         <div class="flex items-center justify-between">
                             <span class="text-xs font-semibold px-3 py-1 bg-slate-700 text-slate-300 rounded-full">RPG</span>
                             <span class="text-accent font-medium text-sm">Coming Soon</span>
@@ -370,7 +416,7 @@
                 <div class="lg:w-1/2 relative reveal" style="transition-delay: 0.2s;">
                     <div class="grid grid-cols-2 gap-4">
                         <img src="https://images.unsplash.com/photo-1542751371-adc38448a05e?ixlib=rb-1.2.1&auto=format&fit=crop&w=600&q=80" alt="Studio Life" class="rounded-2xl shadow-lg transform translate-y-8">
-                        <img src="https://images.unsplash.com/photo-1556438050-9bbc88d84f85?ixlib=rb-1.2.1&auto=format&fit=crop&w=600&q=80" alt="Coding" class="rounded-2xl shadow-lg">
+                        <img src="https://images.unsplash.com/photo-1555099962-4199c345e5dd?ixlib=rb-1.2.1&auto=format&fit=crop&w=600&q=80" alt="Coding" class="rounded-2xl shadow-lg">
                     </div>
                 </div>
             </div>
@@ -388,20 +434,20 @@
             </div>
 
             <div class="bg-primary/50 backdrop-blur-lg p-8 md:p-12 rounded-3xl border border-slate-800 shadow-2xl reveal">
-                <form class="space-y-6">
+                <form action="https://formspree.io/f/xeeleanl" method="POST" class="space-y-6">
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
                             <label class="block text-sm font-medium text-slate-400 mb-2">Name</label>
-                            <input type="text" class="w-full px-4 py-3 rounded-lg bg-slate-900/50 border border-slate-700 text-white focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-all" placeholder="John Doe">
+                            <input type="text" name="name" required class="w-full px-4 py-3 rounded-lg bg-slate-900/50 border border-slate-700 text-white focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-all" placeholder="John Doe">
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-slate-400 mb-2">Email</label>
-                            <input type="email" class="w-full px-4 py-3 rounded-lg bg-slate-900/50 border border-slate-700 text-white focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-all" placeholder="john@example.com">
+                            <input type="email" name="email" required class="w-full px-4 py-3 rounded-lg bg-slate-900/50 border border-slate-700 text-white focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-all" placeholder="john@example.com">
                         </div>
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-slate-400 mb-2">Message</label>
-                        <textarea rows="4" class="w-full px-4 py-3 rounded-lg bg-slate-900/50 border border-slate-700 text-white focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-all" placeholder="Tell us about your project..."></textarea>
+                        <textarea name="message" rows="4" required class="w-full px-4 py-3 rounded-lg bg-slate-900/50 border border-slate-700 text-white focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-all" placeholder="Tell us about your project..."></textarea>
                     </div>
                     <button type="submit" class="w-full py-4 bg-accent hover:bg-sky-400 text-white font-bold rounded-lg transition-all transform hover:scale-[1.02] shadow-lg shadow-accent/20">
                         Send Message
@@ -433,9 +479,12 @@
     <footer class="bg-primary pt-16 pb-8 border-t border-slate-800">
         <div class="max-w-7xl mx-auto px-6">
             <div class="flex flex-col md:flex-row justify-between items-center mb-12">
-                <div class="mb-8 md:mb-0">
-                    <span class="font-heading font-bold text-3xl tracking-tight text-white">KDIL<span class="text-accent">GAMES</span></span>
-                    <p class="text-slate-400 mt-2">Next-Gen Game Development</p>
+                <div class="mb-8 md:mb-0 flex items-center">
+                    <img src="kdil.png" alt="KDILGAMES Logo" class="h-16 w-auto mr-4 rounded-full border-2 border-slate-700/50">
+                    <div>
+                        <span class="font-heading font-bold text-3xl tracking-tight text-white">KDIL<span class="text-accent">GAMES</span></span>
+                        <p class="text-slate-400 mt-2">Next-Gen Game Development</p>
+                    </div>
                 </div>
                 
                 <div class="flex space-x-6">
@@ -511,6 +560,89 @@
             });
 
             revealElements.forEach(el => revealObserver.observe(el));
+
+            // Hero Background Canvas Animation
+            const canvas = document.getElementById('hero-canvas');
+            if (canvas) {
+                const ctx = canvas.getContext('2d');
+                let width, height;
+                let particles = [];
+                
+                function resize() {
+                    width = canvas.width = window.innerWidth;
+                    height = canvas.height = window.innerHeight;
+                }
+                
+                class Particle {
+                    constructor() {
+                        this.x = Math.random() * width;
+                        this.y = Math.random() * height;
+                        this.vx = (Math.random() - 0.5) * 0.5;
+                        this.vy = (Math.random() - 0.5) * 0.5;
+                        this.size = Math.random() * 2;
+                        this.alpha = Math.random() * 0.5 + 0.1;
+                    }
+                    
+                    update() {
+                        this.x += this.vx;
+                        this.y += this.vy;
+                        
+                        if (this.x < 0) this.x = width;
+                        if (this.x > width) this.x = 0;
+                        if (this.y < 0) this.y = height;
+                        if (this.y > height) this.y = 0;
+                    }
+                    
+                    draw() {
+                        ctx.fillStyle = `rgba(56, 189, 248, ${this.alpha})`;
+                        ctx.beginPath();
+                        ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+                }
+                
+                function init() {
+                    resize();
+                    particles = [];
+                    for (let i = 0; i < 100; i++) {
+                        particles.push(new Particle());
+                    }
+                }
+                
+                function animate() {
+                    ctx.clearRect(0, 0, width, height);
+                    
+                    particles.forEach(p => {
+                        p.update();
+                        p.draw();
+                    });
+                    
+                    // Connect particles
+                    particles.forEach((p1, i) => {
+                        for (let j = i + 1; j < particles.length; j++) {
+                            const p2 = particles[j];
+                            const dx = p1.x - p2.x;
+                            const dy = p1.y - p2.y;
+                            const distance = Math.sqrt(dx * dx + dy * dy);
+                            
+                            if (distance < 150) {
+                                ctx.strokeStyle = `rgba(56, 189, 248, ${0.1 * (1 - distance / 150)})`;
+                                ctx.lineWidth = 1;
+                                ctx.beginPath();
+                                ctx.moveTo(p1.x, p1.y);
+                                ctx.lineTo(p2.x, p2.y);
+                                ctx.stroke();
+                            }
+                        }
+                    });
+                    
+                    requestAnimationFrame(animate);
+                }
+                
+                window.addEventListener('resize', resize);
+                init();
+                animate();
+            }
         });
     </script>
 </body>
