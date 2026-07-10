@@ -1,735 +1,472 @@
 <!DOCTYPE html>
-<html lang="en" class="scroll-smooth">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="KDILGAMES is an independent game development studio creating high-quality multiplayer experiences.">
+    <meta name="theme-color" content="#0A0A0A">
+    <title>KDILGAMES - Game Development Studio</title>
     
-    <title>KDILGAMES | Official Studio of Balkan Bloodlines 3</title>
-    <meta name="description" content="KDILGAMES is an independent game studio developing Balkan Bloodlines 3, a dark story-driven Balkan survival experience built around atmosphere, choices, and tension.">
-    <meta name="keywords" content="KDILGAMES, Balkan Bloodlines 3, Balkan Bloodlines, indie game studio, Balkan survival game, story-driven game, game development">
-    
-    <meta property="og:type" content="website">
-    <meta property="og:url" content="https://kdilgames.xyz">
-    <meta property="og:title" content="KDILGAMES | Official Studio of Balkan Bloodlines 3">
-    <meta property="og:description" content="Independent game studio creating Balkan Bloodlines 3 — a dark, story-driven Balkan survival experience.">
-    <meta property="og:image" content="kdil.png">
-
-    <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:url" content="https://kdilgames.xyz">
-    <meta name="twitter:title" content="KDILGAMES | Official Studio of Balkan Bloodlines 3">
-    <meta name="twitter:description" content="Independent game studio creating Balkan Bloodlines 3 — a dark, story-driven Balkan survival experience.">
-    <meta name="twitter:image" content="kdil.png">
-
     <!-- Favicons -->
-    <link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png?v=5">
-    <link rel="icon" type="image/png" href="kdilgames-favicon.png?v=5">
-    <link rel="shortcut icon" type="image/png" href="kdilgames-favicon.png?v=5">
-    <link rel="apple-touch-icon" href="kdilgames-favicon.png?v=5">
+    <link rel="icon" type="image/png" sizes="16x16" href="kdilgames-favicon.png">
+    <link rel="apple-touch-icon" href="kdilgames-favicon.png">
     <link rel="manifest" href="site.webmanifest">
-    <meta name="theme-color" content="#020617">
     
+    <!-- Font -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
             theme: {
                 extend: {
                     colors: {
-                        dark: '#020617',
-                        'dark-lighter': '#0f172a',
-                        accent: {
-                            red: '#ef4444',
-                            purple: '#a855f7',
-                            blue: '#3b82f6',
-                        }
+                        bg: '#0A0A0A',
+                        card: '#141414',
+                        border: '#232323',
+                        secondary: '#B8B8B8',
+                        accent: '#5B8CFF'
                     },
                     fontFamily: {
-                        sans: ['Plus Jakarta Sans', 'sans-serif'],
-                        heading: ['Space Grotesk', 'sans-serif'],
+                        sans: ['Inter', 'sans-serif']
                     }
                 }
             }
         }
     </script>
-
+    
     <style>
         body {
-            background-color: #020617;
-            color: #f8fafc;
-            overflow-x: hidden;
+            font-family: 'Inter', sans-serif;
+            background-color: #0A0A0A;
+            color: #FFFFFF;
         }
-
-        .glass-panel {
-            background: rgba(15, 23, 42, 0.6);
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
-            border: 1px solid rgba(255, 255, 255, 0.05);
-        }
-
-        .glass-nav {
-            background: rgba(2, 6, 23, 0.86);
-            backdrop-filter: blur(16px);
-            -webkit-backdrop-filter: blur(16px);
-            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-            padding-top: 14px !important;
-            padding-bottom: 14px !important;
-        }
-
-        .grid-overlay {
-            background-image:
-                linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
-            background-size: 50px 50px;
-            mask-image: radial-gradient(ellipse at center, black, transparent 80%);
-            -webkit-mask-image: radial-gradient(ellipse at center, black, transparent 80%);
-        }
-
-        .kdil-cursor-glow {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 500px;
-            height: 500px;
-            background: radial-gradient(circle, rgba(59, 130, 246, 0.1) 0%, transparent 70%);
-            pointer-events: none;
-            z-index: 1;
-            transform: translate(-50%, -50%);
-            transition: opacity 0.3s ease;
-        }
-
-        .kdil-reveal {
+        
+        /* Scroll reveal classes */
+        .fade-up {
             opacity: 0;
-            transform: translateY(30px);
-            transition: all 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+            transform: translateY(24px);
+            transition: opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1), transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
         }
-
-        .kdil-visible {
+        
+        .fade-up.visible {
             opacity: 1;
             transform: translateY(0);
         }
-
-        .btn-shine {
-            position: relative;
-            overflow: hidden;
+        
+        /* Hover effect for cards */
+        .card-hover {
+            transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.3s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.3s ease-out;
         }
         
-        .btn-shine::after {
-            content: '';
-            position: absolute;
-            top: -50%;
-            left: -50%;
-            width: 200%;
-            height: 200%;
-            background: linear-gradient(
-                45deg,
-                transparent,
-                rgba(255, 255, 255, 0.12),
-                transparent
-            );
-            transform: rotate(45deg);
-            transition: 0.5s;
+        .card-hover:hover {
+            transform: translateY(-4px);
+            border-color: #333;
         }
-
-        .btn-shine:hover::after {
-            left: 100%;
-            top: 100%;
-        }
-
-        ::-webkit-scrollbar {
-            width: 8px;
-        }
-
-        ::-webkit-scrollbar-track {
-            background: #020617;
-        }
-
-        ::-webkit-scrollbar-thumb {
-            background: #1e293b;
-            border-radius: 10px;
-        }
-
-        ::-webkit-scrollbar-thumb:hover {
-            background: #334155;
-        }
-
-        .noise-texture {
-            position: fixed;
-            inset: 0;
-            background-image: url('https://grainy-gradients.vercel.app/noise.svg');
-            opacity: 0.03;
-            pointer-events: none;
-            z-index: 9998;
-        }
-
-        .hero-orb {
-            position: absolute;
-            border-radius: 50%;
-            filter: blur(80px);
-            z-index: 0;
-            opacity: 0.4;
-            animation: orbFloat 20s infinite alternate ease-in-out;
-        }
-
-        @keyframes orbFloat {
-            0% {
-                transform: translate(0, 0) scale(1);
-            }
-
-            100% {
-                transform: translate(50px, 50px) scale(1.1);
-            }
-        }
-
-        .nav-link {
-            position: relative;
-        }
-
-        .nav-link::after {
-            content: '';
-            position: absolute;
-            bottom: -2px;
-            left: 0;
-            width: 0;
-            height: 1px;
-            background: currentColor;
-            transition: width 0.3s ease;
-        }
-
-        .nav-link:hover::after {
-            width: 100%;
-        }
-
-        .kdil-particles {
-            position: absolute;
-            inset: 0;
-            pointer-events: none;
-            overflow: hidden;
-        }
-
-        .kdil-particle {
-            position: absolute;
-            width: 2px;
-            height: 2px;
-            background: white;
-            border-radius: 50%;
-            animation: particleMove var(--duration) linear infinite;
-            box-shadow: 0 0 14px rgba(59, 130, 246, 0.8);
-        }
-
-        @keyframes particleMove {
-            0% {
-                transform: translate(0, 0);
-                opacity: 0;
-            }
-
-            50% {
-                opacity: 1;
-            }
-
-            100% {
-                transform: translate(var(--move-x), var(--move-y));
-                opacity: 0;
-            }
-        }
-
-        .social-btn {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            transition: all 0.3s ease;
-        }
-
-        @media (prefers-reduced-motion: reduce) {
-            *,
-            *::before,
-            *::after {
-                animation: none !important;
-                transition: none !important;
-                scroll-behavior: auto !important;
-            }
-
-            .kdil-reveal {
-                opacity: 1;
-                transform: none;
-            }
-
-            .kdil-cursor-glow,
-            .kdil-particles {
-                display: none !important;
-            }
+        
+        /* Navbar transition */
+        .navbar-transition {
+            transition: background-color 0.3s ease-out, border-bottom 0.3s ease-out, backdrop-filter 0.3s ease-out;
         }
     </style>
 </head>
-
-<body class="font-sans antialiased selection:bg-accent-blue/30 selection:text-white">
-    
-    <div class="noise-texture"></div>
-    <div id="cursor-glow" class="kdil-cursor-glow hidden lg:block"></div>
-
-    <!-- Navigation -->
-    <nav id="navbar" class="fixed w-full z-[100] transition-all duration-500 py-6">
-        <div class="max-w-7xl mx-auto px-6 flex justify-between items-center">
-            <a href="#" class="flex items-center gap-3 group">
-                <div class="relative w-10 h-10 overflow-hidden rounded-full border border-white/10 bg-white/[0.04] p-1 group-hover:border-accent-blue/40 transition-all">
-                    <img src="kdilgames-favicon.png" alt="KDILGAMES Logo" class="w-full h-full object-contain">
-                </div>
-                <span class="font-heading font-bold text-xl tracking-tight text-white uppercase">
-                    KDIL<span class="text-accent-blue">GAMES</span>
-                </span>
-            </a>
-
-            <div class="hidden lg:flex items-center gap-10">
-                <a href="#" class="text-sm font-semibold text-white nav-link">Home</a>
-                <a href="#game" class="text-sm font-semibold text-white/60 hover:text-white transition-colors nav-link">Game</a>
-                <a href="#studio" class="text-sm font-semibold text-white/60 hover:text-white transition-colors nav-link">Studio</a>
-                <a href="/leaderboard" class="text-sm font-semibold text-white/60 hover:text-white transition-colors nav-link">Leaderboard</a>
-                <a href="#roadmap" class="text-sm font-semibold text-white/60 hover:text-white transition-colors nav-link">Roadmap</a>
-                <a href="#contact" class="text-sm font-semibold text-white/60 hover:text-white transition-colors nav-link">Contact</a>
-                <a href="balkan-bloodline.html" class="px-6 py-2.5 rounded-full bg-white text-dark text-sm font-bold hover:bg-accent-blue hover:text-white transition-all btn-shine">
-                    View Game
+<body>
+    <!-- Navbar -->
+    <header id="navbar" class="navbar-transition fixed top-0 left-0 right-0 z-50">
+        <div class="max-w-7xl mx-auto px-6 sm:px-8">
+            <div class="flex items-center justify-between h-20">
+                <!-- Logo -->
+                <a href="#" class="flex items-center gap-3">
+                    <img src="kdil.png" alt="KDILGAMES" class="w-9 h-9 rounded-md">
+                    <span class="font-extrabold text-xl tracking-tight">KDILGAMES</span>
                 </a>
+                
+                <!-- Desktop Links -->
+                <nav class="hidden md:flex items-center gap-8">
+                    <a href="#about" class="text-secondary hover:text-white transition-colors font-medium">About</a>
+                    <a href="#work" class="text-secondary hover:text-white transition-colors font-medium">Work</a>
+                    <a href="store.html" class="text-secondary hover:text-white transition-colors font-medium">Store</a>
+                    <a href="#careers" class="text-secondary hover:text-white transition-colors font-medium">Careers</a>
+                    <a href="https://discord.gg/cRxsQbqgXw" target="_blank" class="bg-white text-bg px-5 py-2.5 rounded-full font-semibold hover:bg-opacity-90 transition-colors">Discord</a>
+                </nav>
+                
+                <!-- Mobile Hamburger -->
+                <button id="hamburger" class="md:hidden p-2">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                        <line x1="3" y1="6" x2="21" y2="6"></line>
+                        <line x1="3" y1="12" x2="21" y2="12"></line>
+                        <line x1="3" y1="18" x2="21" y2="18"></line>
+                    </svg>
+                </button>
             </div>
-
-            <button id="mobile-toggle" class="lg:hidden text-white p-2" aria-label="Open menu">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-7 h-7">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 9h16.5m-16.5 6.75h16.5" />
-                </svg>
-            </button>
         </div>
-    </nav>
-
-    <!-- Mobile Menu -->
-    <div id="mobile-menu" class="fixed inset-0 z-[150] bg-dark/95 backdrop-blur-2xl translate-x-full transition-transform duration-500 lg:hidden flex flex-col items-center justify-center gap-8">
-        <button id="mobile-close" class="absolute top-8 right-8 text-white" aria-label="Close menu">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-8 h-8">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
-            </svg>
-        </button>
-
-        <a href="#" class="text-2xl font-bold text-white mobile-link">Home</a>
-        <a href="#game" class="text-2xl font-bold text-white mobile-link">Game</a>
-        <a href="#studio" class="text-2xl font-bold text-white mobile-link">Studio</a>
-        <a href="/leaderboard" class="text-2xl font-bold text-white mobile-link">Leaderboard</a>
-        <a href="#roadmap" class="text-2xl font-bold text-white mobile-link">Roadmap</a>
-        <a href="#contact" class="text-2xl font-bold text-white mobile-link">Contact</a>
-        <a href="balkan-bloodline.html" class="mt-4 px-8 py-4 rounded-full bg-white text-dark font-bold">View Game</a>
-    </div>
-
-    <!-- Hero -->
-    <header class="relative min-h-screen flex items-center justify-center overflow-hidden pt-20">
-        <div id="hero-particles" class="kdil-particles"></div>
-        <div class="absolute inset-0 grid-overlay"></div>
-        <div class="hero-orb w-[600px] h-[600px] bg-accent-blue/20 -top-40 -left-20"></div>
-        <div class="hero-orb w-[500px] h-[500px] bg-accent-purple/10 bottom-0 -right-20" style="animation-delay: -5s;"></div>
-        <div class="hero-orb w-[400px] h-[400px] bg-accent-red/10 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" style="animation-delay: -10s;"></div>
         
-        <div class="max-w-7xl mx-auto px-6 relative z-10 grid lg:grid-cols-2 gap-16 items-center">
-            <div class="text-left">
-                <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-xs font-bold text-white/60 uppercase tracking-widest mb-6 kdil-reveal">
-                    <span class="w-1.5 h-1.5 rounded-full bg-accent-blue animate-pulse"></span>
-                    Independent Game Studio
-                </div>
-
-                <h1 class="font-heading text-6xl md:text-8xl font-black text-white leading-tight mb-6 kdil-reveal" style="transition-delay: 100ms;">
-                    KDIL<span class="text-transparent bg-clip-text bg-gradient-to-r from-accent-blue via-accent-purple to-accent-red">GAMES</span>
-                </h1>
-
-                <h2 class="text-2xl md:text-3xl font-bold text-white/90 mb-6 kdil-reveal" style="transition-delay: 200ms;">
-                    Home of Balkan Bloodlines 3.
-                </h2>
-
-                <p class="text-lg text-white/60 max-w-xl leading-relaxed mb-10 kdil-reveal" style="transition-delay: 300ms;">
-                    KDILGAMES is an independent game studio creating Balkan Bloodlines 3 — a dark, story-driven Balkan survival experience built around atmosphere, choices, and tension.
-                </p>
-
-                <div class="flex flex-wrap gap-5 kdil-reveal" style="transition-delay: 400ms;">
-                    <a href="balkan-bloodline.html" class="px-8 py-4 rounded-xl bg-accent-blue text-white font-bold hover:bg-blue-500 transition-all btn-shine shadow-2xl shadow-accent-blue/20">
-                        View Balkan Bloodlines 3
-                    </a>
-                    <a href="#contact" class="px-8 py-4 rounded-xl glass-panel text-white font-bold hover:bg-white/5 transition-all">
-                        Contact Studio
-                    </a>
-                </div>
-
-                <div class="mt-12 flex flex-wrap gap-3 kdil-reveal" style="transition-delay: 500ms;">
-                    <span class="px-4 py-1.5 rounded-lg bg-white/5 border border-white/10 text-xs font-semibold text-white/40">Balkan Bloodlines 3</span>
-                    <span class="px-4 py-1.5 rounded-lg bg-white/5 border border-white/10 text-xs font-semibold text-white/40">Story-Driven</span>
-                    <span class="px-4 py-1.5 rounded-lg bg-white/5 border border-white/10 text-xs font-semibold text-white/40">Survival</span>
-                    <span class="px-4 py-1.5 rounded-lg bg-white/5 border border-white/10 text-xs font-semibold text-white/40">In Development</span>
-                </div>
-            </div>
-
-            <div class="hidden lg:flex justify-center items-center relative kdil-reveal" style="transition-delay: 600ms;">
-                <div class="relative z-10 w-full max-w-[420px] glass-panel rounded-[2.5rem] p-8 overflow-hidden border-white/10 group shadow-2xl">
-                    <div class="absolute inset-0 bg-gradient-to-br from-accent-blue/5 to-transparent"></div>
-
-                    <div class="relative flex justify-center mb-8">
-                        <div class="w-32 h-32 p-3 rounded-2xl bg-black/40 border border-white/10 flex items-center justify-center shadow-inner">
-                            <img src="kdil.png" alt="KDILGAMES Studio" class="w-full h-full object-contain drop-shadow-[0_0_15px_rgba(59,130,246,0.2)]">
-                        </div>
-                    </div>
-
-                    <div class="relative text-center">
-                        <div class="inline-block px-3 py-1 rounded-full bg-accent-blue/10 border border-accent-blue/20 text-[10px] font-bold text-accent-blue uppercase tracking-widest mb-4">
-                            Main Project / In Development
-                        </div>
-
-                        <h3 class="font-heading text-2xl font-black text-white uppercase tracking-tight mb-4">
-                            Balkan Bloodlines 3
-                        </h3>
-
-                        <div class="flex flex-wrap justify-center gap-2">
-                            <span class="px-3 py-1 rounded-md bg-white/5 border border-white/5 text-[9px] font-bold text-white/40 uppercase">Story-Driven</span>
-                            <span class="px-3 py-1 rounded-md bg-white/5 border border-white/5 text-[9px] font-bold text-white/40 uppercase">Survival</span>
-                            <span class="px-3 py-1 rounded-md bg-white/5 border border-white/5 text-[9px] font-bold text-white/40 uppercase">Balkan Atmosphere</span>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-accent-blue/20 blur-[100px] -z-10"></div>
+        <!-- Mobile Menu -->
+        <div id="mobile-menu" class="md:hidden hidden bg-bg border-b border-border">
+            <div class="px-6 py-8 flex flex-col gap-6">
+                <a href="#about" class="text-lg font-medium">About</a>
+                <a href="#work" class="text-lg font-medium">Work</a>
+                <a href="store.html" class="text-lg font-medium">Store</a>
+                <a href="#careers" class="text-lg font-medium">Careers</a>
+                <a href="https://discord.gg/cRxsQbqgXw" target="_blank" class="bg-white text-bg px-5 py-2.5 rounded-full font-semibold text-center">Discord</a>
             </div>
         </div>
     </header>
 
-    <!-- Featured Game -->
-    <section id="game" class="py-32 relative overflow-hidden">
-        <div class="max-w-7xl mx-auto px-6">
-            <div class="text-center mb-20 kdil-reveal">
-                <h2 class="font-heading text-4xl md:text-5xl font-black text-white mb-6 uppercase tracking-tighter">Featured Project</h2>
-                <div class="w-24 h-1 bg-gradient-to-r from-accent-blue to-accent-purple mx-auto"></div>
-            </div>
-
-            <div class="game-card group relative w-full aspect-[21/9] min-h-[500px] rounded-[3rem] overflow-hidden glass-panel kdil-reveal">
-                <div class="absolute inset-0 bg-black">
-                    <img src="balkanbloodlineslogo.png" alt="Balkan Bloodlines 3 official artwork" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-1000">
-                    <div class="absolute inset-0 bg-gradient-to-t from-dark via-dark/60 to-transparent"></div>
-                    <div class="absolute inset-0 bg-gradient-to-r from-dark/80 via-dark/40 to-transparent"></div>
-                </div>
-
-                <div class="absolute inset-0 p-8 md:p-16 flex flex-col justify-end items-start">
-                    <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-accent-blue/20 border border-accent-blue/30 text-[10px] font-bold text-accent-blue uppercase tracking-widest mb-6">
-                        Main Project / In Development
-                    </div>
-
-                    <h3 class="font-heading text-4xl md:text-6xl font-black text-white mb-6 uppercase">
-                        Balkan Bloodlines 3
-                    </h3>
-
-                    <p class="text-lg text-white/70 max-w-2xl mb-10 leading-relaxed">
-                        A dark, story-driven Balkan survival experience built around atmosphere, choices, tension, and a world shaped by conflict.
+    <main>
+        <!-- Hero Section -->
+        <section class="pt-56 pb-32">
+            <div class="max-w-7xl mx-auto px-6 sm:px-8">
+                <div class="max-w-5xl mx-auto text-center fade-up">
+                    <p class="text-accent font-semibold mb-4 tracking-widest uppercase text-sm">Independent Game Studio</p>
+                    <h1 class="text-5xl sm:text-6xl md:text-7xl font-extrabold tracking-tight leading-tight mb-8">
+                        Crafting Worlds That Matter.
+                    </h1>
+                    <p class="text-xl text-secondary mb-12 max-w-3xl mx-auto leading-relaxed">
+                        We build multiplayer games where gameplay, community, and quality come first. Small team, big ambitions.
                     </p>
-
-                    <div class="flex flex-wrap items-center gap-6">
-                        <a href="balkan-bloodline.html" class="px-10 py-4 rounded-xl bg-white text-dark font-black uppercase text-sm tracking-widest hover:bg-accent-blue hover:text-white transition-all btn-shine">
-                            View Project
-                        </a>
-
-                        <div class="flex flex-wrap gap-3">
-                            <span class="px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-xs font-semibold text-white/60">Story-Driven</span>
-                            <span class="px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-xs font-semibold text-white/60">Survival</span>
-                            <span class="px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-xs font-semibold text-white/60">Balkan Atmosphere</span>
-                        </div>
+                    <div class="flex flex-col sm:flex-row gap-4 justify-center">
+                        <a href="#about" class="bg-white text-bg px-8 py-4 rounded-full font-semibold text-lg hover:bg-opacity-90 transition-colors">Learn More</a>
+                        <a href="https://discord.gg/cRxsQbqgXw" target="_blank" class="bg-card border border-border px-8 py-4 rounded-full font-semibold text-lg hover:border-accent transition-colors">Join Discord</a>
                     </div>
                 </div>
-
-                <div class="absolute inset-0 border border-white/0 group-hover:border-accent-blue/50 transition-colors duration-500 rounded-[3rem] pointer-events-none"></div>
             </div>
-        </div>
-    </section>
+        </section>
 
-    <!-- Studio -->
-    <section id="studio" class="py-32 bg-dark-lighter/30 relative overflow-hidden">
-        <div class="absolute inset-0 grid-overlay opacity-25"></div>
-        <div class="absolute top-20 right-0 w-[420px] h-[420px] rounded-full bg-accent-blue/10 blur-[120px]"></div>
-        <div class="absolute bottom-0 left-0 w-[360px] h-[360px] rounded-full bg-accent-purple/10 blur-[120px]"></div>
-
-        <div class="max-w-7xl mx-auto px-6 relative z-10">
-            <div class="grid lg:grid-cols-[1fr_0.9fr] gap-16 items-center">
-                <div class="kdil-reveal">
-                    <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-xs font-bold text-white/50 uppercase tracking-widest mb-6">
-                        <span class="w-1.5 h-1.5 rounded-full bg-accent-purple shadow-[0_0_10px_rgba(168,85,247,0.9)]"></span>
-                        Studio Identity
-                    </div>
-
-                    <h2 class="font-heading text-4xl md:text-6xl font-black text-white mb-7 uppercase tracking-tighter leading-tight">
-                        The Studio
-                    </h2>
-
-                    <p class="text-lg md:text-xl text-white/65 leading-relaxed max-w-2xl mb-10">
-                        KDILGAMES is an independent studio building Balkan Bloodlines 3 — a dark, story-driven survival experience shaped around atmosphere, choices, tension, and player feedback.
-                    </p>
-
-                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-10">
-                        <div class="rounded-2xl border border-white/10 bg-white/[0.035] p-5 hover:border-accent-blue/40 transition-all">
-                            <div class="mb-5 h-10 w-10 rounded-xl bg-accent-blue/10 flex items-center justify-center text-accent-blue font-black">01</div>
-                            <h3 class="text-white font-black text-lg mb-1">Main Project</h3>
-                            <p class="text-xs text-white/40 font-semibold leading-relaxed">Balkan Bloodlines 3</p>
-                        </div>
-
-                        <div class="rounded-2xl border border-white/10 bg-white/[0.035] p-5 hover:border-accent-purple/40 transition-all">
-                            <div class="mb-5 h-10 w-10 rounded-xl bg-accent-purple/10 flex items-center justify-center text-accent-purple font-black">02</div>
-                            <h3 class="text-white font-black text-lg mb-1">Indie Studio</h3>
-                            <p class="text-xs text-white/40 font-semibold leading-relaxed">Independent development</p>
-                        </div>
-
-                        <div class="rounded-2xl border border-white/10 bg-white/[0.035] p-5 hover:border-accent-red/40 transition-all">
-                            <div class="mb-5 h-10 w-10 rounded-xl bg-accent-red/10 flex items-center justify-center text-accent-red font-black">03</div>
-                            <h3 class="text-white font-black text-lg mb-1">Player Focused</h3>
-                            <p class="text-xs text-white/40 font-semibold leading-relaxed">Community direction</p>
+        <!-- About Section -->
+        <section id="about" class="py-32">
+            <div class="max-w-7xl mx-auto px-6 sm:px-8">
+                <div class="grid lg:grid-cols-2 gap-20 items-center">
+                    <div class="fade-up">
+                        <p class="text-accent font-semibold mb-3 tracking-widest uppercase text-sm">About Us</p>
+                        <h2 class="text-3xl sm:text-4xl font-extrabold mb-8 tracking-tight">We're a small team<br>making big games.</h2>
+                        <div class="space-y-6">
+                            <p class="text-secondary text-lg leading-relaxed">
+                                Founded in 2020, KDILGAMES is an independent game development studio focused on creating multiplayer experiences that players genuinely love.
+                            </p>
+                            <p class="text-secondary text-lg leading-relaxed">
+                                We believe in iterative design, listening to our community, and taking the time to build something that stands the test of time. No shortcuts, just great games.
+                            </p>
                         </div>
                     </div>
-
-                    <div class="grid gap-4">
-                        <div class="flex items-start gap-4 rounded-2xl border border-white/10 bg-black/20 px-5 py-4">
-                            <span class="mt-1 h-2.5 w-2.5 shrink-0 rounded-full bg-accent-blue shadow-[0_0_12px_rgba(59,130,246,0.9)]"></span>
-                            <div>
-                                <h4 class="text-sm font-black text-white">Atmosphere first</h4>
-                                <p class="text-xs text-white/40 mt-1 leading-relaxed">Every system should support mood, tension, and immersion.</p>
+                    <div class="fade-up" style="transition-delay: 150ms">
+                        <div class="grid grid-cols-2 gap-6">
+                            <div class="bg-card border border-border rounded-3xl p-8 text-center">
+                                <div class="text-4xl font-extrabold mb-2">2020</div>
+                                <div class="text-secondary">Founded</div>
                             </div>
-                        </div>
-
-                        <div class="flex items-start gap-4 rounded-2xl border border-white/10 bg-black/20 px-5 py-4">
-                            <span class="mt-1 h-2.5 w-2.5 shrink-0 rounded-full bg-accent-purple shadow-[0_0_12px_rgba(168,85,247,0.9)]"></span>
-                            <div>
-                                <h4 class="text-sm font-black text-white">Story-driven survival</h4>
-                                <p class="text-xs text-white/40 mt-1 leading-relaxed">A darker experience shaped around choices, risk, and progression.</p>
+                            <div class="bg-card border border-border rounded-3xl p-8 text-center" style="margin-top: 24px">
+                                <div class="text-4xl font-extrabold mb-2">1+</div>
+                                <div class="text-secondary">Projects</div>
                             </div>
-                        </div>
-
-                        <div class="flex items-start gap-4 rounded-2xl border border-white/10 bg-black/20 px-5 py-4">
-                            <span class="mt-1 h-2.5 w-2.5 shrink-0 rounded-full bg-accent-red shadow-[0_0_12px_rgba(239,68,68,0.9)]"></span>
-                            <div>
-                                <h4 class="text-sm font-black text-white">Player feedback focused</h4>
-                                <p class="text-xs text-white/40 mt-1 leading-relaxed">Community feedback helps guide future testing and improvements.</p>
+                            <div class="bg-card border border-border rounded-3xl p-8 text-center">
+                                <div class="text-4xl font-extrabold mb-2">Small</div>
+                                <div class="text-secondary">Team</div>
+                            </div>
+                            <div class="bg-card border border-border rounded-3xl p-8 text-center" style="margin-top: 24px">
+                                <div class="text-4xl font-extrabold mb-2">Global</div>
+                                <div class="text-secondary">Community</div>
                             </div>
                         </div>
                     </div>
                 </div>
+            </div>
+        </section>
+        
+        <!-- Values Section -->
+        <section id="work" class="py-32 bg-card/40">
+            <div class="max-w-7xl mx-auto px-6 sm:px-8">
+                <div class="max-w-3xl mx-auto text-center mb-16 fade-up">
+                    <p class="text-accent font-semibold mb-3 tracking-widest uppercase text-sm">Our Philosophy</p>
+                    <h2 class="text-3xl sm:text-4xl font-extrabold tracking-tight">What We Stand For</h2>
+                </div>
+                
+                <div class="grid md:grid-cols-3 gap-8">
+                    <div class="card-hover bg-bg border border-border rounded-3xl p-10 fade-up">
+                        <div class="w-14 h-14 bg-accent/10 rounded-2xl flex items-center justify-center mb-8">
+                            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#5B8CFF" stroke-width="2" stroke-linecap="round">
+                                <polygon points="13,2 3,14 12,14 11,22 21,10 12,10"></polygon>
+                            </svg>
+                        </div>
+                        <h3 class="text-2xl font-bold mb-4">Gameplay First</h3>
+                        <p class="text-secondary leading-relaxed">Every decision starts with gameplay. We build experiences that are fun first, pretty second.</p>
+                    </div>
+                    
+                    <div class="card-hover bg-bg border border-border rounded-3xl p-10 fade-up" style="transition-delay: 100ms">
+                        <div class="w-14 h-14 bg-accent/10 rounded-2xl flex items-center justify-center mb-8">
+                            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#5B8CFF" stroke-width="2" stroke-linecap="round">
+                                <path d="M22,11.08V12c0,5.52-4.48,10-10,10S2,17.52,2,12 6.48,2,12,2c0.52,0,1.04,0.04,1.54,0.12"></path>
+                                <polyline points="22,4 12,14.01 9,11.01"></polyline>
+                            </svg>
+                        </div>
+                        <h3 class="text-2xl font-bold mb-4">Quality Over Quantity</h3>
+                        <p class="text-secondary leading-relaxed">We take our time. Polishing, testing, and iterating until every detail feels right.</p>
+                    </div>
+                    
+                    <div class="card-hover bg-bg border border-border rounded-3xl p-10 fade-up" style="transition-delay: 200ms">
+                        <div class="w-14 h-14 bg-accent/10 rounded-2xl flex items-center justify-center mb-8">
+                            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#5B8CFF" stroke-width="2" stroke-linecap="round">
+                                <path d="M17,21l3,3"></path>
+                                <circle cx="9" cy="7" r="4"></circle>
+                                <path d="M3,21v-2a4,4,0,0,1,4-4h4a4,4,0,0,1,4,4v2"></path>
+                            </svg>
+                        </div>
+                        <h3 class="text-2xl font-bold mb-4">Community First</h3>
+                        <p class="text-secondary leading-relaxed">Our players drive our roadmap. We listen, adapt, and grow together as a community.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+        
+        <!-- Careers Section -->
+        <section id="careers" class="py-32">
+            <div class="max-w-7xl mx-auto px-6 sm:px-8">
+                <div class="max-w-3xl mx-auto text-center mb-16 fade-up">
+                    <p class="text-accent font-semibold mb-3 tracking-widest uppercase text-sm">Careers</p>
+                    <h2 class="text-3xl sm:text-4xl font-extrabold tracking-tight">Build the Future of Games.</h2>
+                    <p class="text-xl text-secondary mt-6 leading-relaxed">
+                        KDILGAMES is growing and looking for passionate developers, designers, and creators to join our team.
+                    </p>
+                </div>
 
-                <div class="relative kdil-reveal" style="transition-delay: 200ms;">
-                    <div class="relative rounded-[2.5rem] border border-white/10 bg-white/[0.035] p-5 backdrop-blur-xl shadow-2xl overflow-hidden">
-                        <div class="absolute inset-0 bg-gradient-to-br from-accent-blue/10 via-transparent to-accent-red/10"></div>
-
-                        <div class="relative min-h-[420px] rounded-[2rem] bg-black overflow-hidden flex items-center justify-center">
-                            <img src="balkanbloodlineslogo.png" alt="Balkan Bloodlines 3 official artwork" class="w-full h-full object-contain p-10 opacity-95">
-
-                            <div class="absolute inset-0 bg-gradient-to-t from-dark/80 via-transparent to-transparent"></div>
-
-                            <div class="absolute left-6 bottom-6 right-6">
-                                <div class="rounded-2xl border border-white/10 bg-black/55 backdrop-blur-xl p-5">
-                                    <p class="text-[10px] font-black uppercase tracking-[0.25em] text-accent-blue mb-2">
-                                        Main Project
-                                    </p>
-                                    <h3 class="text-2xl font-black text-white mb-2">
-                                        Balkan Bloodlines 3
-                                    </h3>
-                                    <p class="text-sm text-white/45 leading-relaxed">
-                                        A dark Balkan-inspired survival experience built around tension and atmosphere.
-                                    </p>
+                <div class="grid lg:grid-cols-2 gap-12">
+                    <!-- Left Column: Role Cards -->
+                    <div class="space-y-4 fade-up">
+                        <div class="card-hover bg-card border border-border rounded-2xl p-6">
+                            <div class="flex items-start gap-4">
+                                <div class="w-12 h-12 bg-accent/10 rounded-xl flex items-center justify-center shrink-0">
+                                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#5B8CFF" stroke-width="2" stroke-linecap="round">
+                                        <polyline points="16,18 22,12 16,6"></polyline>
+                                        <polyline points="8,6 2,12 8,18"></polyline>
+                                    </svg>
+                                </div>
+                                <div class="flex-1">
+                                    <h4 class="font-bold text-lg mb-1">Gameplay Developer</h4>
+                                    <p class="text-secondary text-sm">Build core gameplay systems and mechanics.</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card-hover bg-card border border-border rounded-2xl p-6">
+                            <div class="flex items-start gap-4">
+                                <div class="w-12 h-12 bg-accent/10 rounded-xl flex items-center justify-center shrink-0">
+                                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#5B8CFF" stroke-width="2" stroke-linecap="round">
+                                        <rect x="3" y="3" width="18" height="18" rx="2"></rect>
+                                        <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                                        <polyline points="21,15 16,10 5,21"></polyline>
+                                    </svg>
+                                </div>
+                                <div class="flex-1">
+                                    <h4 class="font-bold text-lg mb-1">UI/UX Designer</h4>
+                                    <p class="text-secondary text-sm">Create intuitive, beautiful user interfaces.</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card-hover bg-card border border-border rounded-2xl p-6">
+                            <div class="flex items-start gap-4">
+                                <div class="w-12 h-12 bg-accent/10 rounded-xl flex items-center justify-center shrink-0">
+                                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#5B8CFF" stroke-width="2" stroke-linecap="round">
+                                        <path d="M3,9l9-6,9,6"></path>
+                                        <path d="M19,21V9L5,9v12"></path>
+                                    </svg>
+                                </div>
+                                <div class="flex-1">
+                                    <h4 class="font-bold text-lg mb-1">Builder / Level Designer</h4>
+                                    <p class="text-secondary text-sm">Design and build engaging game worlds.</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card-hover bg-card border border-border rounded-2xl p-6">
+                            <div class="flex items-start gap-4">
+                                <div class="w-12 h-12 bg-accent/10 rounded-xl flex items-center justify-center shrink-0">
+                                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#5B8CFF" stroke-width="2" stroke-linecap="round">
+                                        <path d="M12,2l3.09,6.26L22,9.27l-5,4.87 1.18,6.88L12,17.77l-6.18,3.25L7,14.14 2,9.27l6.91-1.01L12,2z"></path>
+                                    </svg>
+                                </div>
+                                <div class="flex-1">
+                                    <h4 class="font-bold text-lg mb-1">3D Artist</h4>
+                                    <p class="text-secondary text-sm">Create stunning 3D assets and environments.</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card-hover bg-card border border-border rounded-2xl p-6">
+                            <div class="flex items-start gap-4">
+                                <div class="w-12 h-12 bg-accent/10 rounded-xl flex items-center justify-center shrink-0">
+                                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#5B8CFF" stroke-width="2" stroke-linecap="round">
+                                        <path d="M17,21l3,3"></path>
+                                        <circle cx="9" cy="7" r="4"></circle>
+                                        <path d="M3,21v-2a4,4,0,0,1,4-4h4a4,4,0,0,1,4,4v2"></path>
+                                    </svg>
+                                </div>
+                                <div class="flex-1">
+                                    <h4 class="font-bold text-lg mb-1">Community Manager</h4>
+                                    <p class="text-secondary text-sm">Build and nurture our amazing community.</p>
                                 </div>
                             </div>
                         </div>
                     </div>
-
-                    <div class="absolute -bottom-8 -right-8 w-40 h-40 bg-accent-blue/20 blur-3xl"></div>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- Roadmap -->
-    <section id="roadmap" class="py-32">
-        <div class="max-w-7xl mx-auto px-6">
-            <div class="text-center mb-24 kdil-reveal">
-                <h2 class="font-heading text-4xl md:text-5xl font-black text-white mb-6 uppercase tracking-tighter">Roadmap</h2>
-                <p class="text-white/40 font-bold uppercase tracking-[0.3em] text-xs">Balkan Bloodlines 3 Development</p>
-            </div>
-
-            <div class="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
-                <div class="p-8 rounded-[2rem] glass-panel border-white/5 hover:border-accent-blue/20 transition-all kdil-reveal">
-                    <div class="w-12 h-12 rounded-xl bg-accent-blue/10 flex items-center justify-center text-accent-blue font-black text-xl mb-6">01</div>
-                    <div class="inline-block px-3 py-1 rounded-full bg-green-500/10 text-[10px] font-bold text-green-500 uppercase tracking-widest mb-4">Active</div>
-                    <h4 class="text-xl font-bold text-white mb-4">Core Gameplay</h4>
-                    <p class="text-sm text-white/50 leading-relaxed">Building the main survival systems, movement, interaction, and player progression.</p>
-                </div>
-
-                <div class="p-8 rounded-[2rem] glass-panel border-white/5 hover:border-accent-purple/20 transition-all kdil-reveal" style="transition-delay: 100ms;">
-                    <div class="w-12 h-12 rounded-xl bg-accent-purple/10 flex items-center justify-center text-accent-purple font-black text-xl mb-6">02</div>
-                    <div class="inline-block px-3 py-1 rounded-full bg-green-500/10 text-[10px] font-bold text-green-500 uppercase tracking-widest mb-4">Active</div>
-                    <h4 class="text-xl font-bold text-white mb-4">Story & Atmosphere</h4>
-                    <p class="text-sm text-white/50 leading-relaxed">Developing the Balkan-inspired world, narrative direction, tone, and environmental mood.</p>
-                </div>
-
-                <div class="p-8 rounded-[2rem] glass-panel border-white/5 hover:border-accent-red/20 transition-all kdil-reveal" style="transition-delay: 200ms;">
-                    <div class="w-12 h-12 rounded-xl bg-accent-red/10 flex items-center justify-center text-accent-red font-black text-xl mb-6">03</div>
-                    <div class="inline-block px-3 py-1 rounded-full bg-accent-blue/10 text-[10px] font-bold text-accent-blue uppercase tracking-widest mb-4">In Progress</div>
-                    <h4 class="text-xl font-bold text-white mb-4">Missions & Experience</h4>
-                    <p class="text-sm text-white/50 leading-relaxed">Designing missions, tension moments, choices, and replayable gameplay flow.</p>
-                </div>
-
-                <div class="p-8 rounded-[2rem] glass-panel border-white/5 hover:border-white/20 transition-all kdil-reveal" style="transition-delay: 300ms;">
-                    <div class="w-12 h-12 rounded-xl bg-white/5 flex items-center justify-center text-white/40 font-black text-xl mb-6">04</div>
-                    <div class="inline-block px-3 py-1 rounded-full bg-white/5 text-[10px] font-bold text-white/30 uppercase tracking-widest mb-4">Planned</div>
-                    <h4 class="text-xl font-bold text-white mb-4">Community Feedback</h4>
-                    <p class="text-sm text-white/50 leading-relaxed">Preparing future testing, feedback collection, and improvements based on player response.</p>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- Studio Updates -->
-    <section class="py-32 bg-dark-lighter/20">
-        <div class="max-w-7xl mx-auto px-6">
-            <div class="flex flex-col md:flex-row justify-between items-end mb-16 gap-6 kdil-reveal">
-                <div>
-                    <h2 class="font-heading text-4xl md:text-5xl font-black text-white mb-4 uppercase tracking-tighter">Studio Updates</h2>
-                    <p class="text-white/40 font-bold uppercase tracking-widest text-xs">Latest from Balkan Bloodlines 3</p>
-                </div>
-            </div>
-
-            <div class="grid md:grid-cols-3 gap-8">
-                <div class="group cursor-pointer kdil-reveal">
-                    <div class="aspect-[16/10] rounded-3xl overflow-hidden mb-6 relative bg-black">
-                        <img src="balkanbloodlines1.png" alt="Balkan Bloodlines 3 development focus" class="w-full h-full object-contain p-6 group-hover:scale-110 transition-transform duration-700">
-                        <div class="absolute inset-0 bg-gradient-to-t from-dark to-transparent opacity-60"></div>
-                    </div>
-                    <h4 class="text-xl font-bold text-white mb-4 group-hover:text-accent-blue transition-colors leading-tight">Balkan Bloodlines 3 is the main focus</h4>
-                    <p class="text-sm text-white/50 leading-relaxed">Current development is focused on building a stronger atmosphere, better progression, and a more memorable player experience.</p>
-                </div>
-
-                <div class="group cursor-pointer kdil-reveal" style="transition-delay: 100ms;">
-                    <div class="aspect-[16/10] rounded-3xl overflow-hidden mb-6 relative">
-                        <img src="balkanbloodlines2.png" alt="Atmosphere" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700">
-                        <div class="absolute inset-0 bg-gradient-to-t from-dark to-transparent opacity-60"></div>
-                    </div>
-                    <h4 class="text-xl font-bold text-white mb-4 group-hover:text-accent-purple transition-colors leading-tight">Atmosphere and survival systems</h4>
-                    <p class="text-sm text-white/50 leading-relaxed">The project is being shaped around tension, survival, exploration, and a darker Balkan-inspired setting.</p>
-                </div>
-
-                <div class="group cursor-pointer kdil-reveal" style="transition-delay: 200ms;">
-                    <div class="aspect-[16/10] rounded-3xl overflow-hidden mb-6 relative">
-                        <img src="balkanbloodlines3.png" alt="Community" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700">
-                        <div class="absolute inset-0 bg-gradient-to-t from-dark to-transparent opacity-60"></div>
-                    </div>
-                    <h4 class="text-xl font-bold text-white mb-4 group-hover:text-accent-red transition-colors leading-tight">Community-driven development</h4>
-                    <p class="text-sm text-white/50 leading-relaxed">KDILGAMES is preparing the project with player feedback, future testing, and long-term improvements in mind.</p>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- Contact -->
-    <section id="contact" class="pt-32 pb-20 relative overflow-hidden">
-        <div class="absolute inset-0 grid-overlay opacity-50"></div>
-
-        <div class="max-w-4xl mx-auto px-6 relative z-10">
-            <div class="text-center mb-16 kdil-reveal">
-                <h2 class="font-heading text-4xl md:text-5xl font-black text-white mb-6 uppercase tracking-tighter">Contact Studio</h2>
-                <p class="text-white/40 font-bold uppercase tracking-widest text-xs">Get in touch with the team</p>
-            </div>
-
-            <div class="glass-panel rounded-[3rem] p-8 md:p-16 kdil-reveal">
-                <form action="https://formspree.io/f/xeeleanl" method="POST" class="space-y-8">
-                    <div class="grid md:grid-cols-2 gap-8">
-                        <div class="space-y-3">
-                            <label class="text-[10px] font-black text-white/40 uppercase tracking-[0.2em] ml-2">Full Name</label>
-                            <input type="text" name="name" required placeholder="Enter your name" class="w-full px-8 py-5 rounded-2xl bg-white/5 border border-white/10 text-white placeholder:text-white/20 focus:outline-none focus:border-accent-blue transition-all">
+                    
+                    <!-- Right Column: Why Work With Us -->
+                    <div class="fade-up" style="transition-delay: 100ms">
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div class="bg-card border border-border rounded-2xl p-6">
+                                <div class="flex items-center gap-3 mb-4">
+                                    <span class="text-2xl">🚀</span>
+                                    <h4 class="font-bold">Ambitious Projects</h4>
+                                </div>
+                                <p class="text-secondary text-sm">Work on games that push boundaries and excite players worldwide.</p>
+                            </div>
+                            <div class="bg-card border border-border rounded-2xl p-6">
+                                <div class="flex items-center gap-3 mb-4">
+                                    <span class="text-2xl">🌍</span>
+                                    <h4 class="font-bold">Remote-First</h4>
+                                </div>
+                                <p class="text-secondary text-sm">Work from anywhere in the world, on your schedule.</p>
+                            </div>
+                            <div class="bg-card border border-border rounded-2xl p-6">
+                                <div class="flex items-center gap-3 mb-4">
+                                    <span class="text-2xl">📈</span>
+                                    <h4 class="font-bold">Grow With Us</h4>
+                                </div>
+                                <p class="text-secondary text-sm">Learn, develop, and shape the future of the studio.</p>
+                            </div>
+                            <div class="bg-card border border-border rounded-2xl p-6">
+                                <div class="flex items-center gap-3 mb-4">
+                                    <span class="text-2xl">🤝</span>
+                                    <h4 class="font-bold">Big Impact</h4>
+                                </div>
+                                <p class="text-secondary text-sm">Small team means your work directly impacts our games.</p>
+                            </div>
                         </div>
-
-                        <div class="space-y-3">
-                            <label class="text-[10px] font-black text-white/40 uppercase tracking-[0.2em] ml-2">Email Address</label>
-                            <input type="email" name="email" required placeholder="your@email.com" class="w-full px-8 py-5 rounded-2xl bg-white/5 border border-white/10 text-white placeholder:text-white/20 focus:outline-none focus:border-accent-blue transition-all">
+                        
+                        <!-- CTA -->
+                        <div class="mt-12 bg-card border border-border rounded-3xl p-10">
+                            <h3 class="text-2xl font-bold mb-4">Ready to Build Something Amazing?</h3>
+                            <p class="text-secondary mb-8 leading-relaxed">Join KDILGAMES and help create unforgettable multiplayer experiences for players around the world.</p>
+                            <div class="flex flex-col sm:flex-row gap-4">
+                                <a href="mailto:kdilgames@gmail.com" class="bg-accent text-white px-8 py-3.5 rounded-full font-semibold text-center hover:bg-accent/90 transition-colors">View Open Positions</a>
+                                <a href="https://discord.gg/cRxsQbqgXw" target="_blank" class="bg-bg border border-border px-8 py-3.5 rounded-full font-semibold text-center hover:border-accent transition-colors">Join Our Discord</a>
+                            </div>
                         </div>
                     </div>
-
-                    <div class="space-y-3">
-                        <label class="text-[10px] font-black text-white/40 uppercase tracking-[0.2em] ml-2">Message</label>
-                        <textarea name="message" rows="6" required placeholder="Tell us what's on your mind..." class="w-full px-8 py-5 rounded-2xl bg-white/5 border border-white/10 text-white placeholder:text-white/20 focus:outline-none focus:border-accent-blue transition-all resize-none"></textarea>
-                    </div>
-
-                    <button type="submit" class="w-full py-6 rounded-2xl bg-white text-dark font-black uppercase tracking-widest hover:bg-accent-blue hover:text-white transition-all btn-shine">
-                        Send Inquiry
-                    </button>
-                </form>
-
-                <div class="mt-12 pt-10 border-t border-white/5 flex items-center justify-center">
-                    <a href="mailto:kdilgames@gmail.com" class="inline-flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.04] px-5 py-3 text-white/50 hover:text-white hover:border-accent-blue/40 hover:bg-accent-blue/10 transition-all">
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.6" stroke="currentColor" class="w-5 h-5">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 0 1-2.25 2.25h-15a2.25 2.25 0 0 1-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0 0 19.5 4.5h-15a2.25 2.25 0 0 0-2.25 2.25m19.5 0v.243a2.25 2.25 0 0 1-1.07 1.916l-7.5 4.615a2.25 2.25 0 0 1-2.36 0L3.32 8.91a2.25 2.25 0 0 1-1.07-1.916V6.75" />
-                        </svg>
-                        <span class="text-sm font-bold tracking-wide">kdilgames@gmail.com</span>
-                    </a>
                 </div>
             </div>
-        </div>
-    </section>
-
+        </section>
+    </main>
+    
     <!-- Footer -->
-    <footer class="py-14 bg-dark relative overflow-hidden border-t border-white/5">
-        <div class="absolute inset-0 bg-gradient-to-b from-dark-lighter/10 to-transparent pointer-events-none"></div>
-        <div class="max-w-7xl mx-auto px-6 relative z-10">
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12 md:gap-8 items-start">
-                
-                <div class="flex flex-col items-start">
-                    <a href="/" class="flex items-center gap-3 mb-6 group">
-                        <img src="kdil.png" alt="KDILGAMES" class="w-10 h-10 rounded-full border border-white/10 group-hover:border-white/20 transition-all">
-                        <span class="font-heading font-black text-xl tracking-tighter text-white uppercase">
-                            KDIL<span class="text-accent-blue">GAMES</span>
-                        </span>
-                    </a>
-
-                    <p class="text-white/40 text-sm leading-relaxed max-w-xs mb-6">
-                        Official KDILGAMES studio portal and home of Balkan Bloodlines 3, and premium Roblox digital systems.
+    <footer id="contact" class="bg-card border-t border-border py-16">
+        <div class="max-w-7xl mx-auto px-6 sm:px-8">
+            <div class="grid md:grid-cols-2 lg:grid-cols-4 gap-12 mb-12">
+                <!-- Brand -->
+                <div class="lg:col-span-2">
+                    <div class="flex items-center gap-3 mb-6">
+                        <img src="kdil.png" alt="KDILGAMES" class="w-9 h-9 rounded-md">
+                        <span class="font-extrabold text-xl tracking-tight">KDILGAMES</span>
+                    </div>
+                    <p class="text-secondary max-w-md mb-8">
+                        Independent game development studio creating high-quality multiplayer experiences.
                     </p>
-
-                    <div class="text-[10px] font-bold text-white/20 uppercase tracking-[0.2em]">
-                        © 2026 KDILGAMES. All rights reserved.
-                    </div>
-                </div>
-
-                <div class="flex flex-col items-start">
-                    <h4 class="text-[10px] font-black text-white uppercase tracking-[0.3em] mb-6">Legal</h4>
-                    <nav class="flex flex-col gap-3">
-                        <a href="/privacy-policy" class="text-sm font-bold text-white/40 hover:text-white transition-colors">Privacy Policy</a>
-                        <a href="/terms-of-service" class="text-sm font-bold text-white/40 hover:text-white transition-colors">Terms of Service</a>
-                        <a href="/license-agreement" class="text-sm font-bold text-white/40 hover:text-white transition-colors">License Agreement</a>
-                        <a href="/refund-policy" class="text-sm font-bold text-white/40 hover:text-white transition-colors">Refund Policy</a>
-                    </nav>
-                </div>
-
-                <div class="flex flex-col items-start">
-                    <h4 class="text-[10px] font-black text-white uppercase tracking-[0.3em] mb-6">Support</h4>
-                    <nav class="flex flex-col gap-3">
-                        <a href="/leaderboard" class="text-sm font-bold text-white/40 hover:text-white transition-colors">Leaderboard</a>
-                        <a href="/support-policy" class="text-sm font-bold text-white/40 hover:text-white transition-colors">Support Policy</a>
-                        <a href="#contact" class="text-sm font-bold text-white/40 hover:text-white transition-colors">Contact</a>
-                        <a href="/cookie-policy" class="text-sm font-bold text-white/40 hover:text-white transition-colors">Cookie Policy</a>
-                        <a href="/community-guidelines" class="text-sm font-bold text-white/40 hover:text-white transition-colors">Community Guidelines</a>
-                    </nav>
-                </div>
-
-                <div class="flex flex-col items-start">
-                    <h4 class="text-[10px] font-black text-white uppercase tracking-[0.3em] mb-6">Connect</h4>
-                    <div class="flex flex-col gap-4 items-start mb-6">
-                        <a href="https://discord.gg/cRxsQbqgXw" target="_blank" aria-label="Join KDILGAMES on Discord" 
-                           class="flex items-center gap-3 px-5 py-2.5 rounded-full glass-panel border-white/5 hover:border-accent-blue/30 hover:bg-accent-blue/5 transition-all group">
-                            <span class="text-xs font-bold text-white/40 group-hover:text-accent-blue transition-colors">Discord</span>
+                    <div class="flex gap-3">
+                        <a href="https://discord.gg/cRxsQbqgXw" target="_blank" class="w-10 h-10 bg-bg border border-border rounded-lg flex items-center justify-center hover:border-accent transition-colors">
+                            <svg width="19" height="19" viewBox="0 0 24 24" fill="#B8B8B8" class="hover:fill-white transition-colors">
+                                <path d="M20.317,4.37C18.878,3.69,17.346,3.21,15.768,2.97c-0.21,0.391-0.466,0.91-0.664,1.306c-1.582-0.237-3.17-0.237-4.736,0c-0.198-0.396-0.455-0.915-0.664-1.306c-1.578,0.24-3.11,0.72-4.549,1.4C2.689,7.844,1.671,11.259,2.037,14.642c2.261,1.68,4.887,2.755,7.647,3.15c0.373-0.512,0.727-1.041,1.06-1.59c-0.915-0.346-1.789-0.807-2.614-1.36c0.226-0.163,0.447-0.333,0.66-0.511c3.682,1.707,7.803,1.707,11.455,0c0.213,0.178,0.434,0.348,0.66,0.511c-0.824,0.553-1.698,1.014-2.614,1.36c0.333,0.549,0.687,1.078,1.06,1.59c2.76-0.395,5.386-1.47,7.647-3.15C23.362,10.58,22.756,7.26,20.317,4.37z M8.31,13.917c-1.183,0-2.153-1.085-2.153-2.419s0.952-2.419,2.153-2.419s2.173,1.085,2.173,2.419S9.493,13.917,8.31,13.917z M15.69,13.917c-1.183,0-2.153-1.085-2.153-2.419s0.952-2.419,2.153-2.419s2.173,1.085,2.173,2.419S16.873,13.917,15.69,13.917z"></path>
+                            </svg>
                         </a>
-                        <a href="https://www.instagram.com/kdilgames/" target="_blank" aria-label="Follow KDILGAMES on Instagram" 
-                           class="flex items-center gap-3 px-5 py-2.5 rounded-full glass-panel border-white/5 hover:border-accent-purple/30 hover:bg-accent-purple/5 transition-all group">
-                            <span class="text-xs font-bold text-white/40 group-hover:text-accent-purple transition-colors">Instagram</span>
+                        <a href="https://www.instagram.com/kdilgames/" target="_blank" class="w-10 h-10 bg-bg border border-border rounded-lg flex items-center justify-center hover:border-accent transition-colors">
+                            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#B8B8B8" stroke-width="2" stroke-linecap="round" class="hover:stroke-white transition-colors">
+                                <rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect>
+                                <path d="M16,11.37A4,4,0,1,1,12.63,8,4,4,0,0,1,16,11.37z"></path>
+                                <line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line>
+                            </svg>
                         </a>
                     </div>
-                    <a href="/disclaimer" class="text-sm font-bold text-white/40 hover:text-white transition-colors">Disclaimer</a>
                 </div>
-
+                
+                <!-- Links -->
+                <div>
+                    <h4 class="font-semibold mb-6">Studio</h4>
+                    <nav class="flex flex-col gap-3 text-secondary">
+                        <a href="#about" class="hover:text-white transition-colors">About Us</a>
+                        <a href="#work" class="hover:text-white transition-colors">Our Philosophy</a>
+                        <a href="store.html" class="hover:text-white transition-colors">Store</a>
+                        <a href="#careers" class="hover:text-white transition-colors">Careers</a>
+                    </nav>
+                </div>
+                
+                <!-- Legal -->
+                <div>
+                    <h4 class="font-semibold mb-6">Legal</h4>
+                    <nav class="flex flex-col gap-3 text-secondary">
+                        <a href="privacy-policy.html" class="hover:text-white transition-colors">Privacy Policy</a>
+                        <a href="terms-of-service.html" class="hover:text-white transition-colors">Terms of Service</a>
+                        <a href="license-agreement.html" class="hover:text-white transition-colors">License Agreement</a>
+                    </nav>
+                </div>
+            </div>
+            
+            <div class="pt-8 border-t border-border flex flex-col md:flex-row justify-between items-center gap-4">
+                <p class="text-secondary text-sm">© 2026 KDILGAMES. All rights reserved.</p>
+                <div class="flex gap-8 text-sm text-secondary">
+                    <a href="privacy-policy.html" class="hover:text-white transition-colors">Privacy</a>
+                    <a href="terms-of-service.html" class="hover:text-white transition-colors">Terms</a>
+                </div>
             </div>
         </div>
     </footer>
 
-    <script src="Animations.js"></script>
+    <script>
+        // Navbar scroll effect
+        const navbar = document.getElementById('navbar');
+        window.addEventListener('scroll', () => {
+            if (window.scrollY > 50) {
+                navbar.style.backgroundColor = 'rgba(10, 10, 10, 0.9)';
+                navbar.style.borderBottom = '1px solid #232323';
+                navbar.style.backdropFilter = 'blur(16px)';
+            } else {
+                navbar.style.backgroundColor = 'transparent';
+                navbar.style.borderBottom = 'none';
+                navbar.style.backdropFilter = 'none';
+            }
+        });
+        
+        // Mobile menu
+        const hamburger = document.getElementById('hamburger');
+        const mobileMenu = document.getElementById('mobile-menu');
+        hamburger.addEventListener('click', () => {
+            mobileMenu.classList.toggle('hidden');
+        });
+        
+        // Scroll reveal
+        const observerOptions = {
+            root: null,
+            rootMargin: '0px',
+            threshold: 0.1
+        };
+        
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('visible');
+                }
+            });
+        }, observerOptions);
+        
+        document.querySelectorAll('.fade-up').forEach(el => observer.observe(el));
+        
+        // Smooth scroll
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                const target = document.querySelector(this.getAttribute('href'));
+                if (target) {
+                    target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+                mobileMenu.classList.add('hidden');
+            });
+        });
+    </script>
 </body>
 </html>
