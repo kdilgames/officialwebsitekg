@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Official KDILGAMES Store — Merch, game keys, and digital content.">
+    <meta name="theme-color" content="#0A0A0A">
+    <title>Store — KDILGAMES</title>
+    
+    <!-- Favicons -->
+    <link rel="icon" type="image/png" sizes="16x16" href="kdilgames-favicon.png">
+    <link rel="apple-touch-icon" href="kdilgames-favicon.png">
+    <link rel="manifest" href="site.webmanifest">
+    
+    <!-- Font -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        bg: '#0A0A0A',
+                        card: '#141414',
+                        border: '#232323',
+                        secondary: '#B8B8B8',
+                        accent: '#5B8CFF'
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif']
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0A0A0A;
+            color: #FFFFFF;
+        }
+        
+        .fade-up {
+            opacity: 0;
+            transform: translateY(24px);
+            transition: opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1), transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        
+        .fade-up.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        
+        .card-hover {
+            transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.3s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.3s ease-out;
+        }
+        
+        .card-hover:hover {
+            transform: translateY(-4px);
+            border-color: #333;
+        }
+        
+        .navbar-transition {
+            transition: background-color 0.3s ease-out, border-bottom 0.3s ease-out, backdrop-filter 0.3s ease-out;
+        }
+        
+        .product-badge {
+            position: absolute;
+            top: 16px;
+            right: 16px;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 0.05em;
+            padding: 6px 14px;
+            border-radius: 9999px;
+            text-transform: uppercase;
+        }
+        
+        .buy-btn {
+            background: #FFFFFF;
+            color: #0A0A0A;
+            padding: 12px 24px;
+            border-radius: 9999px;
+            font-weight: 600;
+            font-size: 14px;
+            transition: all 0.2s ease-out;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            white-space: nowrap;
+        }
+        
+        .buy-btn:hover {
+            background: #E8E8E8;
+            transform: scale(1.02);
+        }
+        
+        .buy-btn:active {
+            transform: scale(0.98);
+        }
+        
+        .category-filter {
+            padding: 10px 24px;
+            border-radius: 9999px;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.2s ease-out;
+            border: 1px solid #232323;
+            background: transparent;
+            color: #B8B8B8;
+            cursor: pointer;
+        }
+        
+        .category-filter:hover, .category-filter.active {
+            background: #FFFFFF;
+            color: #0A0A0A;
+            border-color: #FFFFFF;
+        }
+
+        /* Fix for image placeholders */
+        .product-image {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+    </style>
+</head>
+<body>
+    <!-- Navbar -->
+    <header id="navbar" class="navbar-transition fixed top-0 left-0 right-0 z-50">
+        <div class="max-w-7xl mx-auto px-6 sm:px-8">
+            <div class="flex items-center justify-between h-20">
+                <a href="index.html" class="flex items-center gap-3">
+                    <img src="kdil.png" alt="KDILGAMES" class="w-9 h-9 rounded-md">
+                    <span class="font-extrabold text-xl tracking-tight">KDILGAMES</span>
+                </a>
+                
+                <nav class="hidden md:flex items-center gap-8">
+                    <a href="index.html#about" class="text-secondary hover:text-white transition-colors font-medium">About</a>
+                    <a href="index.html#work" class="text-secondary hover:text-white transition-colors font-medium">Work</a>
+                    <a href="store.html" class="text-white font-medium">Store</a>
+                    <a href="index.html#careers" class="text-secondary hover:text-white transition-colors font-medium">Careers</a>
+                    <a href="https://discord.gg/cRxsQbqgXw" target="_blank" class="bg-white text-bg px-5 py-2.5 rounded-full font-semibold hover:bg-opacity-90 transition-colors">Discord</a>
+                </nav>
+                
+                <button id="hamburger" class="md:hidden p-2">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                        <line x1="3" y1="6" x2="21" y2="6"></line>
+                        <line x1="3" y1="12" x2="21" y2="12"></line>
+                        <line x1="3" y1="18" x2="21" y2="18"></line>
+                    </svg>
+                </button>
+            </div>
+        </div>
+        
+        <div id="mobile-menu" class="md:hidden hidden bg-bg border-b border-border">
+            <div class="px-6 py-8 flex flex-col gap-6">
+                <a href="index.html#about" class="text-lg font-medium">About</a>
+                <a href="index.html#work" class="text-lg font-medium">Work</a>
+                <a href="store.html" class="text-lg font-medium text-white">Store</a>
+                <a href="index.html#careers" class="text-lg font-medium">Careers</a>
+                <a href="https://discord.gg/cRxsQbqgXw" target="_blank" class="bg-white text-bg px-5 py-2.5 rounded-full font-semibold text-center">Discord</a>
+            </div>
+        </div>
+    </header>
+
+    <main>
+        <!-- Hero -->
+        <section class="pt-48 pb-16">
+            <div class="max-w-7xl mx-auto px-6 sm:px-8">
+                <div class="max-w-3xl fade-up">
+                    <p class="text-accent font-semibold mb-4 tracking-widest uppercase text-sm">Official Merchandise</p>
+                    <h1 class="text-5xl sm:text-6xl font-extrabold tracking-tight leading-tight mb-6">
+                        Support the Studio.
+                    </h1>
+                    <p class="text-xl text-secondary leading-relaxed max-w-2xl">
+                        Every purchase directly funds our games. Grab exclusive merch, early access keys, and digital content.
+                    </p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Filters -->
+        <section class="pb-12">
+            <div class="max-w-7xl mx-auto px-6 sm:px-8">
+                <div class="flex flex-wrap gap-3 fade-up">
+                    <button class="category-filter active" data-filter="all">All</button>
+                    <button class="category-filter" data-filter="merch">Merch</button>
+                    <button class="category-filter" data-filter="digital">Digital</button>
+                    <button class="category-filter" data-filter="keys">Game Keys</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Products Grid -->
+        <section class="pb-32">
+            <div class="max-w-7xl mx-auto px-6 sm:px-8">
+                <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-6" id="products-grid">
+                    
+                    <!-- Product 1: Hoodie -->
+                    <div class="card-hover bg-card border border-border rounded-3xl overflow-hidden fade-up product-card" data-category="merch">
+                        <div class="aspect-[4/3] bg-gradient-to-br from-accent/15 to-border/20 flex items-center justify-center relative">
+                            <!-- 👇 Replace this with your product image 👇 -->
+                            <img src="https://placehold.co/800x600/141414/5B8CFF?text=Balkan+Bloodlines+Hoodie" alt="Balkan Bloodlines Hoodie" class="product-image">
+                            <span class="product-badge bg-accent text-white">New</span>
+                        </div>
+                        <div class="p-7">
+                            <div class="flex items-center gap-2 mb-3">
+                                <span class="text-xs font-semibold text-accent uppercase tracking-widest">Merch</span>
+                                <span class="text-xs text-secondary">• Free shipping</span>
+                            </div>
+                            <h3 class="text-xl font-bold mb-2">Balkan Bloodlines Hoodie</h3>
+                            <p class="text-secondary text-sm mb-6 leading-relaxed">Premium cotton blend hoodie with embroidered studio logo. Limited first run of 100 pieces.</p>
+                            <div class="flex items-center justify-between gap-4">
+                                <div class="shrink-0">
+                                    <span class="text-2xl font-extrabold">€49.00</span>
+                                    <span class="text-secondary text-sm ml-2">EUR</span>
+                                </div>
+                                <a href="https://buy.stripe.com/REPLACE_WITH_YOUR_LINK" target="_blank" class="buy-btn">
+                                    Buy Now
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                                        <line x1="5" y1="12" x2="19" y2="12"></line>
+                                        <polyline points="12,5 19,12 12,19"></polyline>
+                                    </svg>
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Product 2: Early Access Key -->
+                    <div class="card-hover bg-card border border-border rounded-3xl overflow-hidden fade-up product-card" data-category="keys">
+                        <div class="aspect-[4/3] bg-gradient-to-br from-accent/15 to-border/20 flex items-center justify-center relative">
+                            <!-- 👇 Replace this with your product image 👇 -->
+                            <img src="https://placehold.co/800x600/141414/5B8CFF?text=Early+Access+Key" alt="Balkan Bloodlines Early Access" class="product-image">
+                            <span class="product-badge bg-white text-bg">Limited</span>
+                        </div>
+                        <div class="p-7">
+                            <div class="flex items-center gap-2 mb-3">
+                                <span class="text-xs font-semibold text-accent uppercase tracking-widest">Game Key</span>
+                                <span class="text-xs text-secondary">• Instant delivery</span>
+                            </div>
+                            <h3 class="text-xl font-bold mb-2">Balkan Bloodlines — Early Access</h3>
+                            <p class="text-secondary text-sm mb-6 leading-relaxed">Get early access to Balkan Bloodlines before the official release. Includes exclusive founder badge.</p>
+                            <div class="flex items-center justify-between gap-4">
+                                <div class="shrink-0">
+                                    <span class="text-2xl font-extrabold">€19.99</span>
+                                    <span class="text-secondary text-sm ml-2">EUR</span>
+                                </div>
+                                <a href="https://buy.stripe.com/REPLACE_WITH_YOUR_LINK" target="_blank" class="buy-btn">
+                                    Buy Now
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                                        <line x1="5" y1="12" x2="19" y2="12"></line>
+                                        <polyline points="12,5 19,12 12,19"></polyline>
+                                    </svg>
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Product 3: Digital Art Pack -->
+                    <div class="card-hover bg-card border border-border rounded-3xl overflow-hidden fade-up product-card" data-category="digital">
+                        <div class="aspect-[4/3] bg-gradient-to-br from-accent/15 to-border/20 flex items-center justify-center relative">
+                            <!-- 👇 Replace this with your product image 👇 -->
+                            <img src="https://placehold.co/800x600/141414/5B8CFF?text=Concept+Art+Pack" alt="Concept Art Pack Vol. 1" class="product-image">
+                        </div>
+                        <div class="p-7">
+                            <div class="flex items-center gap-2 mb-3">
+                                <span class="text-xs font-semibold text-accent uppercase tracking-widest">Digital</span>
+                                <span class="text-xs text-secondary">• Download</span>
+                            </div>
+                            <h3 class="text-xl font-bold mb-2">Concept Art Pack Vol. 1</h3>
+                            <p class="text-secondary text-sm mb-6 leading-relaxed">50+ high-resolution concept art pieces from Balkan Bloodlines. PNG & PSD formats included.</p>
+                            <div class="flex items-center justify-between gap-4">
+                                <div class="shrink-0">
+                                    <span class="text-2xl font-extrabold">€9.99</span>
+                                    <span class="text-secondary text-sm ml-2">EUR</span>
+                                </div>
+                                <a href="https://buy.stripe.com/REPLACE_WITH_YOUR_LINK" target="_blank" class="buy-btn">
+                                    Buy Now
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                                        <line x1="5" y1="12" x2="19" y2="12"></line>
+                                        <polyline points="12,5 19,12 12,19"></polyline>
+                                    </svg>
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Product 4: T-Shirt -->
+                    <div class="card-hover bg-card border border-border rounded-3xl overflow-hidden fade-up product-card" data-category="merch">
+                        <div class="aspect-[4/3] bg-gradient-to-br from-accent/15 to-border/20 flex items-center justify-center relative">
+                            <!-- 👇 Replace this with your product image 👇 -->
+                            <img src="https://placehold.co/800x600/141414/5B8CFF?text=KDILGAMES+Logo+T-Shirt" alt="KDILGAMES Logo T-Shirt" class="product-image">
+                        </div>
+                        <div class="p-7">
+                            <div class="flex items-center gap-2 mb-3">
+                                <span class="text-xs font-semibold text-accent uppercase tracking-widest">Merch</span>
+                                <span class="text-xs text-secondary">• Free shipping</span>
+                            </div>
+                            <h3 class="text-xl font-bold mb-2">KDILGAMES Logo T-Shirt</h3>
+                            <p class="text-secondary text-sm mb-6 leading-relaxed">Minimalist black tee with small embroidered logo. 100% organic cotton. Unisex fit.</p>
+                            <div class="flex items-center justify-between gap-4">
+                                <div class="shrink-0">
+                                    <span class="text-2xl font-extrabold">€29.00</span>
+                                    <span class="text-secondary text-sm ml-2">EUR</span>
+                                </div>
+                                <a href="https://buy.stripe.com/REPLACE_WITH_YOUR_LINK" target="_blank" class="buy-btn">
+                                    Buy Now
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                                        <line x1="5" y1="12" x2="19" y2="12"></line>
+                                        <polyline points="12,5 19,12 12,19"></polyline>
+                                    </svg>
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Product 5: Soundtrack -->
+                    <div class="card-hover bg-card border border-border rounded-3xl overflow-hidden fade-up product-card" data-category="digital">
+                        <div class="aspect-[4/3] bg-gradient-to-br from-accent/15 to-border/20 flex items-center justify-center relative">
+                            <!-- 👇 Replace this with your product image 👇 -->
+                            <img src="https://placehold.co/800x600/141414/5B8CFF?text=OST+Soundtrack" alt="Balkan Bloodlines OST" class="product-image">
+                        </div>
+                        <div class="p-7">
+                            <div class="flex items-center gap-2 mb-3">
+                                <span class="text-xs font-semibold text-accent uppercase tracking-widest">Digital</span>
+                                <span class="text-xs text-secondary">• Download</span>
+                            </div>
+                            <h3 class="text-xl font-bold mb-2">Balkan Bloodlines OST</h3>
+                            <p class="text-secondary text-sm mb-6 leading-relaxed">Full original soundtrack. 12 tracks in FLAC & MP3 320kbps. Over 45 minutes of music.</p>
+                            <div class="flex items-center justify-between gap-4">
+                                <div class="shrink-0">
+                                    <span class="text-2xl font-extrabold">€7.99</span>
+                                    <span class="text-secondary text-sm ml-2">EUR</span>
+                                </div>
+                                <a href="https://buy.stripe.com/REPLACE_WITH_YOUR_LINK" target="_blank" class="buy-btn">
+                                    Buy Now
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                                        <line x1="5" y1="12" x2="19" y2="12"></line>
+                                        <polyline points="12,5 19,12 12,19"></polyline>
+                                    </svg>
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Product 6: Supporter Pack -->
+                    <div class="card-hover bg-card border border-border rounded-3xl overflow-hidden fade-up product-card" data-category="keys">
+                        <div class="aspect-[4/3] bg-gradient-to-br from-accent/15 to-border/20 flex items-center justify-center relative">
+                            <!-- 👇 Replace this with your product image 👇 -->
+                            <img src="https://placehold.co/800x600/141414/5B8CFF?text=Supporter+Pack" alt="Supporter Pack" class="product-image">
+                            <span class="product-badge bg-accent text-white">Best Value</span>
+                        </div>
+                        <div class="p-7">
+                            <div class="flex items-center gap-2 mb-3">
+                                <span class="text-xs font-semibold text-accent uppercase tracking-widest">Bundle</span>
+                                <span class="text-xs text-secondary">• Save €15</span>
+                            </div>
+                            <h3 class="text-xl font-bold mb-2">Supporter Pack</h3>
+                            <p class="text-secondary text-sm mb-6 leading-relaxed">Early Access key + OST + Art Pack + exclusive Discord role. Everything in one bundle.</p>
+                            <div class="flex items-center justify-between gap-4">
+                                <div class="shrink-0">
+                                    <span class="text-lg text-secondary line-through mr-2">€36.98</span>
+                                    <span class="text-2xl font-extrabold">€24.99</span>
+                                    <span class="text-secondary text-sm ml-2">EUR</span>
+                                </div>
+                                <a href="https://buy.stripe.com/REPLACE_WITH_YOUR_LINK" target="_blank" class="buy-btn">
+                                    Buy Now
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                                        <line x1="5" y1="12" x2="19" y2="12"></line>
+                                        <polyline points="12,5 19,12 12,19"></polyline>
+                                    </svg>
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </section>
+
+        <!-- Trust Section -->
+        <section class="py-24 bg-card/40 border-y border-border">
+            <div class="max-w-7xl mx-auto px-6 sm:px-8">
+                <div class="grid md:grid-cols-3 gap-8 text-center fade-up">
+                    <div>
+                        <div class="w-14 h-14 bg-accent/10 rounded-2xl flex items-center justify-center mx-auto mb-5">
+                            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#5B8CFF" stroke-width="2" stroke-linecap="round">
+                                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                                <path d="M7 11V7a5 5 0 0110 0v4"></path>
+                            </svg>
+                        </div>
+                        <h4 class="font-bold text-lg mb-2">Secure Payments</h4>
+                        <p class="text-secondary text-sm">All transactions processed through Stripe. Your data is encrypted and safe.</p>
+                    </div>
+                    <div>
+                        <div class="w-14 h-14 bg-accent/10 rounded-2xl flex items-center justify-center mx-auto mb-5">
+                            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#5B8CFF" stroke-width="2" stroke-linecap="round">
+                                <circle cx="12" cy="12" r="10"></circle>
+                                <polyline points="12,6 12,12 16,14"></polyline>
+                            </svg>
+                        </div>
+                        <h4 class="font-bold text-lg mb-2">Instant Delivery</h4>
+                        <p class="text-secondary text-sm">Digital products are delivered immediately after purchase. No waiting.</p>
+                    </div>
+                    <div>
+                        <div class="w-14 h-14 bg-accent/10 rounded-2xl flex items-center justify-center mx-auto mb-5">
+                            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#5B8CFF" stroke-width="2" stroke-linecap="round">
+                                <path d="M22,11.08V12c0,5.52-4.48,10-10,10S2,17.52,2,12 6.48,2,12,2c0.52,0,1.04,0.04,1.54,0.12"></path>
+                                <polyline points="22,4 12,14.01 9,11.01"></polyline>
+                            </svg>
+                        </div>
+                        <h4 class="font-bold text-lg mb-2">Satisfaction Guaranteed</h4>
+                        <p class="text-secondary text-sm">Not happy? Contact us within 14 days for a full refund. No questions asked.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- FAQ -->
+        <section class="py-32">
+            <div class="max-w-3xl mx-auto px-6 sm:px-8">
+                <div class="text-center mb-16 fade-up">
+                    <p class="text-accent font-semibold mb-3 tracking-widest uppercase text-sm">FAQ</p>
+                    <h2 class="text-3xl sm:text-4xl font-extrabold tracking-tight">Common Questions</h2>
+                </div>
+                
+                <div class="space-y-4 fade-up">
+                    <div class="bg-card border border-border rounded-2xl p-6">
+                        <h4 class="font-bold text-lg mb-2">How do I receive digital products?</h4>
+                        <p class="text-secondary">After purchase, you'll receive an email with a download link. The link stays active for 30 days and allows 3 downloads.</p>
+                    </div>
+                    <div class="bg-card border border-border rounded-2xl p-6">
+                        <h4 class="font-bold text-lg mb-2">When will merch items ship?</h4>
+                        <p class="text-secondary">Physical items ship within 3-5 business days. You'll get a tracking number via email once your order is dispatched.</p>
+                    </div>
+                    <div class="bg-card border border-border rounded-2xl p-6">
+                        <h4 class="font-bold text-lg mb-2">Can I get a refund?</h4>
+                        <p class="text-secondary">Yes. Digital products can be refunded within 14 days if not downloaded. Physical items can be returned within 30 days in original condition.</p>
+                    </div>
+                    <div class="bg-card border border-border rounded-2xl p-6">
+                        <h4 class="font-bold text-lg mb-2">What payment methods are accepted?</h4>
+                        <p class="text-secondary">We accept all major credit and debit cards (Visa, Mastercard, Amex), Apple Pay, Google Pay, and iDEAL.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-card border-t border-border py-16">
+        <div class="max-w-7xl mx-auto px-6 sm:px-8">
+            <div class="grid md:grid-cols-2 lg:grid-cols-4 gap-12 mb-12">
+                <div class="lg:col-span-2">
+                    <div class="flex items-center gap-3 mb-6">
+                        <img src="kdil.png" alt="KDILGAMES" class="w-9 h-9 rounded-md">
+                        <span class="font-extrabold text-xl tracking-tight">KDILGAMES</span>
+                    </div>
+                    <p class="text-secondary max-w-md mb-8">
+                        Independent game development studio creating high-quality multiplayer experiences.
+                    </p>
+                    <div class="flex gap-3">
+                        <a href="https://discord.gg/cRxsQbqgXw" target="_blank" class="w-10 h-10 bg-bg border border-border rounded-lg flex items-center justify-center hover:border-accent transition-colors">
+                            <svg width="19" height="19" viewBox="0 0 24 24" fill="#B8B8B8" class="hover:fill-white transition-colors">
+                                <path d="M20.317,4.37C18.878,3.69,17.346,3.21,15.768,2.97c-0.21,0.391-0.466,0.91-0.664,1.306c-1.582-0.237-3.17-0.237-4.736,0c-0.198-0.396-0.455-0.915-0.664-1.306c-1.578,0.24-3.11,0.72-4.549,1.4C2.689,7.844,1.671,11.259,2.037,14.642c2.261,1.68,4.887,2.755,7.647,3.15c0.373-0.512,0.727-1.041,1.06-1.59c-0.915-0.346-1.789-0.807-2.614-1.36c0.226-0.163,0.447-0.333,0.66-0.511c3.682,1.707,7.803,1.707,11.455,0c0.213,0.178,0.434,0.348,0.66,0.511c-0.824,0.553-1.698,1.014-2.614,1.36c0.333,0.549,0.687,1.078,1.06,1.59c2.76-0.395,5.386-1.47,7.647-3.15C23.362,10.58,22.756,7.26,20.317,4.37z M8.31,13.917c-1.183,0-2.153-1.085-2.153-2.419s0.952-2.419,2.153-2.419s2.173,1.085,2.173,2.419S9.493,13.917,8.31,13.917z M15.69,13.917c-1.183,0-2.153-1.085-2.153-2.419s0.952-2.419,2.153-2.419s2.173,1.085,2.173,2.419S16.873,13.917,15.69,13.917z"></path>
+                            </svg>
+                        </a>
+                        <a href="https://www.instagram.com/kdilgames/" target="_blank" class="w-10 h-10 bg-bg border border-border rounded-lg flex items-center justify-center hover:border-accent transition-colors">
+                            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#B8B8B8" stroke-width="2" stroke-linecap="round" class="hover:stroke-white transition-colors">
+                                <rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect>
+                                <path d="M16,11.37A4,4,0,1,1,12.63,8,4,4,0,0,1,16,11.37z"></path>
+                                <line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line>
+                            </svg>
+                        </a>
+                    </div>
+                </div>
+                
+                <div>
+                    <h4 class="font-semibold mb-6">Studio</h4>
+                    <nav class="flex flex-col gap-3 text-secondary">
+                        <a href="index.html#about" class="hover:text-white transition-colors">About Us</a>
+                        <a href="index.html#work" class="hover:text-white transition-colors">Our Philosophy</a>
+                        <a href="index.html#careers" class="hover:text-white transition-colors">Careers</a>
+                    </nav>
+                </div>
+                
+                <div>
+                    <h4 class="font-semibold mb-6">Legal</h4>
+                    <nav class="flex flex-col gap-3 text-secondary">
+                        <a href="privacy-policy.html" class="hover:text-white transition-colors">Privacy Policy</a>
+                        <a href="terms-of-service.html" class="hover:text-white transition-colors">Terms of Service</a>
+                        <a href="refund-policy.html" class="hover:text-white transition-colors">Refund Policy</a>
+                    </nav>
+                </div>
+            </div>
+            
+            <div class="pt-8 border-t border-border flex flex-col md:flex-row justify-between items-center gap-4">
+                <p class="text-secondary text-sm">© 2026 KDILGAMES. All rights reserved.</p>
+                <div class="flex gap-8 text-sm text-secondary">
+                    <a href="privacy-policy.html" class="hover:text-white transition-colors">Privacy</a>
+                    <a href="terms-of-service.html" class="hover:text-white transition-colors">Terms</a>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // Navbar scroll
+        const navbar = document.getElementById('navbar');
+        window.addEventListener('scroll', () => {
+            if (window.scrollY > 50) {
+                navbar.style.backgroundColor = 'rgba(10, 10, 10, 0.9)';
+                navbar.style.borderBottom = '1px solid #232323';
+                navbar.style.backdropFilter = 'blur(16px)';
+            } else {
+                navbar.style.backgroundColor = 'transparent';
+                navbar.style.borderBottom = 'none';
+                navbar.style.backdropFilter = 'none';
+            }
+        });
+        
+        // Mobile menu
+        const hamburger = document.getElementById('hamburger');
+        const mobileMenu = document.getElementById('mobile-menu');
+        hamburger.addEventListener('click', () => {
+            mobileMenu.classList.toggle('hidden');
+        });
+        
+        // Scroll reveal
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) entry.target.classList.add('visible');
+            });
+        }, { threshold: 0.1 });
+        
+        document.querySelectorAll('.fade-up').forEach(el => observer.observe(el));
+        
+        // Category filter
+        const filterBtns = document.querySelectorAll('.category-filter');
+        const productCards = document.querySelectorAll('.product-card');
+        
+        filterBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                filterBtns.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                
+                const filter = btn.dataset.filter;
+                productCards.forEach(card => {
+                    if (filter === 'all' || card.dataset.category === filter) {
+                        card.style.display = 'block';
+                        setTimeout(() => card.style.opacity = '1', 10);
+                    } else {
+                        card.style.opacity = '0';
+                        setTimeout(() => card.style.display = 'none', 300);
+                    }
+                });
+            });
+        });
+    </script>
+</body>
+</html>
