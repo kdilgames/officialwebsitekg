@@ -1,0 +1,325 @@
+@import "tailwindcss";
+
+/* ------------------------------------------------------------------
+   KDILGAMES Marketplace — design tokens
+   Charcoal surfaces, thin borders, restrained blue accent.
+   ---------------------------------------------------------------- */
+@theme {
+  --color-canvas: #0b0b0c;
+  --color-surface: #111214;
+  --color-elevated: #17181b;
+  --color-raised: #1d1e22;
+  --color-line: #2a2b2f;
+  --color-line-strong: #383a3f;
+  --color-ink: #f5f5f5;
+  --color-ink-muted: #9a9ca3;
+  --color-ink-subtle: #6e7076;
+  --color-accent: #3b82f6;
+  --color-accent-hover: #2f6fe0;
+  --color-accent-quiet: #16233c;
+  --color-positive: #34d399;
+  --color-caution: #f0b429;
+  --color-critical: #ef4444;
+
+  --radius-card: 10px;
+  --radius-control: 8px;
+
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system,
+    "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas,
+    "Liberation Mono", monospace;
+}
+
+@layer base {
+  * {
+    border-color: var(--color-line);
+  }
+
+  html {
+    color-scheme: dark;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    background-color: var(--color-canvas);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    font-size: 14px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    letter-spacing: -0.011em;
+    font-weight: 600;
+  }
+
+  ::selection {
+    background: rgba(59, 130, 246, 0.32);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: var(--color-canvas);
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #2f3137;
+    border: 2px solid var(--color-canvas);
+    border-radius: 6px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #3d4046;
+  }
+}
+
+@layer components {
+  .surface {
+    background-color: var(--color-surface);
+    border: 1px solid var(--color-line);
+    border-radius: var(--radius-card);
+  }
+
+  .surface-elevated {
+    background-color: var(--color-elevated);
+    border: 1px solid var(--color-line);
+    border-radius: var(--radius-card);
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    height: 2.25rem;
+    padding-inline: 0.875rem;
+    border-radius: var(--radius-control);
+    border: 1px solid transparent;
+    font-size: 13px;
+    font-weight: 500;
+    white-space: nowrap;
+    transition:
+      background-color 120ms ease,
+      border-color 120ms ease,
+      color 120ms ease,
+      opacity 120ms ease;
+    cursor: pointer;
+  }
+
+  .btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .btn-primary {
+    background-color: var(--color-accent);
+    color: #ffffff;
+  }
+  .btn-primary:hover:not(:disabled) {
+    background-color: var(--color-accent-hover);
+  }
+
+  .btn-secondary {
+    background-color: var(--color-elevated);
+    border-color: var(--color-line);
+    color: var(--color-ink);
+  }
+  .btn-secondary:hover:not(:disabled) {
+    background-color: var(--color-raised);
+    border-color: var(--color-line-strong);
+  }
+
+  .btn-ghost {
+    background-color: transparent;
+    color: var(--color-ink-muted);
+  }
+  .btn-ghost:hover:not(:disabled) {
+    background-color: var(--color-elevated);
+    color: var(--color-ink);
+  }
+
+  .btn-danger {
+    background-color: transparent;
+    border-color: rgba(239, 68, 68, 0.4);
+    color: #f87171;
+  }
+  .btn-danger:hover:not(:disabled) {
+    background-color: rgba(239, 68, 68, 0.12);
+  }
+
+  .btn-sm {
+    height: 1.875rem;
+    padding-inline: 0.6875rem;
+    font-size: 12px;
+  }
+
+  .input,
+  .textarea,
+  .select {
+    width: 100%;
+    background-color: var(--color-elevated);
+    border: 1px solid var(--color-line);
+    border-radius: var(--radius-control);
+    color: var(--color-ink);
+    font-size: 13px;
+    padding: 0.5rem 0.6875rem;
+    transition:
+      border-color 120ms ease,
+      background-color 120ms ease;
+  }
+
+  .input::placeholder,
+  .textarea::placeholder {
+    color: var(--color-ink-subtle);
+  }
+
+  .input:focus,
+  .textarea:focus,
+  .select:focus {
+    outline: none;
+    border-color: var(--color-accent);
+    background-color: var(--color-surface);
+  }
+
+  .input:disabled,
+  .textarea:disabled,
+  .select:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  .label {
+    display: block;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--color-ink-muted);
+    margin-bottom: 0.375rem;
+  }
+
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    border-radius: 999px;
+    border: 1px solid var(--color-line);
+    background-color: var(--color-elevated);
+    color: var(--color-ink-muted);
+    font-size: 11px;
+    font-weight: 500;
+    line-height: 1;
+    padding: 0.25rem 0.5rem;
+    white-space: nowrap;
+  }
+
+  .badge-accent {
+    border-color: rgba(59, 130, 246, 0.35);
+    background-color: var(--color-accent-quiet);
+    color: #93b8f8;
+  }
+  .badge-positive {
+    border-color: rgba(52, 211, 153, 0.3);
+    background-color: rgba(52, 211, 153, 0.1);
+    color: #6ee7b7;
+  }
+  .badge-caution {
+    border-color: rgba(240, 180, 41, 0.3);
+    background-color: rgba(240, 180, 41, 0.1);
+    color: #fbbf24;
+  }
+  .badge-critical {
+    border-color: rgba(239, 68, 68, 0.3);
+    background-color: rgba(239, 68, 68, 0.1);
+    color: #f87171;
+  }
+
+  .table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+
+  .table thead th {
+    text-align: left;
+    font-size: 11px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--color-ink-subtle);
+    padding: 0.5rem 0.75rem;
+    border-bottom: 1px solid var(--color-line);
+    white-space: nowrap;
+  }
+
+  .table tbody td {
+    padding: 0.6875rem 0.75rem;
+    border-bottom: 1px solid var(--color-line);
+    vertical-align: middle;
+  }
+
+  .table tbody tr:last-child td {
+    border-bottom: none;
+  }
+
+  .table tbody tr:hover {
+    background-color: rgba(255, 255, 255, 0.02);
+  }
+
+  .divider {
+    height: 1px;
+    background-color: var(--color-line);
+  }
+
+  .muted {
+    color: var(--color-ink-muted);
+  }
+
+  .subtle {
+    color: var(--color-ink-subtle);
+  }
+
+  .prose-legal h2 {
+    font-size: 15px;
+    margin-top: 1.75rem;
+    margin-bottom: 0.5rem;
+  }
+  .prose-legal p {
+    color: var(--color-ink-muted);
+    margin-bottom: 0.875rem;
+    line-height: 1.7;
+  }
+  .prose-legal ul,
+  .prose-legal ol {
+    color: var(--color-ink-muted);
+    list-style: disc;
+    padding-left: 1.25rem;
+    margin-bottom: 0.875rem;
+    line-height: 1.7;
+  }
+
+  .prose-legal ol {
+    list-style: decimal;
+  }
+
+  .prose-legal li + li {
+    margin-top: 0.375rem;
+  }
+  .prose-legal code {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    background-color: var(--color-elevated);
+    border: 1px solid var(--color-line);
+    border-radius: 4px;
+    padding: 0.0625rem 0.25rem;
+  }
+}
