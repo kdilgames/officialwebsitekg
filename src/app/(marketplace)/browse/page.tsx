@@ -106,7 +106,7 @@ export default async function BrowsePage({
             <Field label="Category" htmlFor="category">
               <Select id="category" name="category" defaultValue={categorySlug ?? ""}>
                 <option value="">All categories</option>
-                {categories.map((category) => (
+                {categories.map((category: any) => (
                   <option key={category.slug} value={category.slug}>
                     {category.name} ({category._count.products})
                   </option>

@@ -127,7 +127,7 @@ export default async function CheckoutSuccessPage({
             }
           />
           <ul className="divide-y divide-line">
-            {order.items.map((item) => (
+            {order.items.map((item: any) => (
               <li key={item.id} className="flex items-center justify-between gap-3 px-4 py-2.5">
                 <Link
                   href={`/product/${item.product.slug}`}

@@ -105,7 +105,7 @@ export default async function OrdersPage() {
         </Alert>
       ) : null}
 
-      {orders.map((order) => {
+      {orders.map((order: any) => {
         const unlocked = order.status === "PAID" || order.status === "PARTIALLY_REFUNDED";
         const latestRefund = order.refunds[0] ?? null;
         const refundInFlight =
@@ -126,7 +126,7 @@ export default async function OrdersPage() {
             />
 
             <ul className="divide-y divide-line">
-              {order.items.map((item) => (
+              {order.items.map((item: any) => (
                 <li key={item.id} className="flex flex-wrap items-center gap-3 px-4 py-3">
                   <div className="min-w-0 flex-1">
                     <Link
@@ -143,7 +143,7 @@ export default async function OrdersPage() {
                   {unlocked ? (
                     item.product.files.length > 0 ? (
                       <div className="flex flex-wrap gap-1.5">
-                        {item.product.files.map((file) => (
+                        {item.product.files.map((file: any) => (
                           <a
                             key={file.id}
                             href={`/api/downloads/${file.id}`}

@@ -15,6 +15,7 @@
     "db:status": "prisma migrate status",
     "db:seed": "prisma db seed",
     "db:studio": "prisma studio",
+    "postinstall": "prisma generate",
     "test": "vitest run",
     "test:watch": "vitest"
   },

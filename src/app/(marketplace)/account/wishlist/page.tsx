@@ -21,7 +21,7 @@ export default async function WishlistPage() {
     select: { id: true, product: { select: { ...PRODUCT_CARD_SELECT, status: true } } },
   });
 
-  const available = items.filter((item) => item.product.status === "PUBLISHED");
+  const available = items.filter((item: any) => item.product.status === "PUBLISHED");
   const unavailable = items.length - available.length;
 
   if (items.length === 0) {
@@ -52,7 +52,7 @@ export default async function WishlistPage() {
       </header>
 
       {available.length > 0 ? (
-        <ProductGrid products={available.map((item) => item.product)} />
+        <ProductGrid products={available.map((item: any) => item.product)} />
       ) : (
         <Card>
           <EmptyState

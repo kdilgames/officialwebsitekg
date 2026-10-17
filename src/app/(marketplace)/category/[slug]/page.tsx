@@ -39,7 +39,7 @@ export default async function CategoryPage({ params, searchParams }: PageProps) 
     listCategories(),
   ]);
 
-  const children = categories.filter((entry) => entry.parentId === category.id);
+  const children = categories.filter((entry: any) => entry.parentId === category.id);
 
   return (
     <div className="mx-auto max-w-[1400px] px-4 py-7">
@@ -54,7 +54,7 @@ export default async function CategoryPage({ params, searchParams }: PageProps) 
 
       {children.length > 0 ? (
         <div className="mb-5 flex flex-wrap gap-1.5">
-          {children.map((child) => (
+          {children.map((child: any) => (
             <Link key={child.slug} href={`/category/${child.slug}`} className="badge hover:text-ink">
               {child.name}
               <span className="subtle tabular-nums">{child._count.products}</span>

@@ -130,12 +130,12 @@ export default async function ProductPage({ params }: PageProps) {
   const price = product.salePriceMinor ?? product.priceMinor;
   const onSale = product.salePriceMinor !== null && product.salePriceMinor < product.priceMinor;
   const rating = product.ratingCount > 0 ? product.ratingSum / product.ratingCount : null;
-  const hasReview = reviews.some((review) => review.user.username === user?.username);
+  const hasReview = reviews.some((review: any) => review.user.username === user?.username);
   const canBuy = product.seller.status === "APPROVED" && product.seller.user.status === "ACTIVE";
 
   const distribution = [5, 4, 3, 2, 1].map((stars) => ({
     stars,
-    count: reviews.filter((review) => review.rating === stars).length,
+    count: reviews.filter((review: any) => review.rating === stars).length,
   }));
   const distributionTotal = reviews.length;
 
@@ -170,7 +170,7 @@ export default async function ProductPage({ params }: PageProps) {
 
               {product.tags.length > 0 ? (
                 <div className="flex flex-wrap gap-1.5">
-                  {product.tags.map((tag) => (
+                  {product.tags.map((tag: string) => (
                     <Link key={tag} href={`/browse?tag=${encodeURIComponent(tag)}`} className="badge">
                       {tag}
                     </Link>
@@ -207,7 +207,7 @@ export default async function ProductPage({ params }: PageProps) {
               </CardBody>
             ) : (
               <ul className="divide-y divide-line">
-                {product.versions.map((version) => (
+                {product.versions.map((version: any) => (
                   <li key={version.version} className="flex gap-3 px-4 py-3">
                     <div className="flex w-24 shrink-0 flex-col gap-1">
                       <span className="text-[12.5px] font-medium tabular-nums">
@@ -297,7 +297,7 @@ export default async function ProductPage({ params }: PageProps) {
                 />
               ) : (
                 <ul className="space-y-3">
-                  {reviews.map((review) => (
+                  {reviews.map((review: any) => (
                     <li key={review.id} className="surface-elevated p-4">
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <div className="flex items-center gap-2">

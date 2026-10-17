@@ -53,7 +53,7 @@ export default async function CheckoutCancelPage({
           />
           <CardBody className="space-y-3">
             <ul className="space-y-1 text-[12.5px] text-ink-muted">
-              {order.items.map((item) => (
+              {order.items.map((item: any) => (
                 <li key={item.id} className="truncate">
                   {item.titleSnapshot}
                 </li>

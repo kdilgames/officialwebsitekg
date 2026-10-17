@@ -38,7 +38,7 @@ async function performScan(fileId: string): Promise<void> {
 
   try {
     // 1. Get a download URL for the file
-    const { url } = await createSignedDownloadUrl(PRODUCT_FILES_BUCKET, file.storagePath, 600);
+    const url = await createSignedDownloadUrl(PRODUCT_FILES_BUCKET, file.storagePath, 600);
 
     // 2. Perform the scan
     const result = await scanWithVirusTotal(url, file.fileName);

@@ -16,7 +16,7 @@ export default async function HomePage() {
     browseProducts({ sort: "best-selling", perPage: 8 }),
   ]);
 
-  const hasSales = bestSelling.items.some((product) => product.salesCount > 0);
+  const hasSales = bestSelling.items.some((product: { salesCount: number }) => product.salesCount > 0);
   const totalPublished = await prisma.product.count({ where: { status: "PUBLISHED" } });
   const isCatalogueEmpty = totalPublished === 0;
 
@@ -53,7 +53,7 @@ export default async function HomePage() {
 
         {categories.length > 0 ? (
           <div className="mt-5 flex flex-wrap gap-1.5">
-            {categories.slice(0, 10).map((category) => (
+            {categories.slice(0, 10).map((category: any) => (
               <Link
                 key={category.slug}
                 href={`/category/${category.slug}`}
@@ -102,26 +102,26 @@ export default async function HomePage() {
 
       {featured.items.length > 0 ? (
         <Section title="Featured" href="/browse">
-          <ProductGrid products={featured.items} />
+          <ProductGrid products={featured.items as any[]} />
         </Section>
       ) : null}
 
       {newest.items.length > 0 ? (
         <Section title="Newest releases" href="/browse?sort=newest">
-          <ProductGrid products={newest.items} />
+          <ProductGrid products={newest.items as any[]} />
         </Section>
       ) : null}
 
       {hasSales ? (
         <Section title="Best selling" href="/browse?sort=best-selling">
-          <ProductGrid products={bestSelling.items} />
+          <ProductGrid products={bestSelling.items as any[]} />
         </Section>
       ) : null}
 
       {categories.length > 0 ? (
         <Section title="Browse by category" href="/browse">
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {categories.map((category) => (
+            {categories.map((category: any) => (
               <Link
                 key={category.slug}
                 href={`/category/${category.slug}`}

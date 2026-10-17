@@ -77,7 +77,7 @@ export default async function CartPage() {
       <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
         <Card>
           <ul className="divide-y divide-line">
-            {items.map((item) => {
+            {items.map((item: any) => {
               const product = item.product;
               const price = chargedPrice.get(product.id) ?? product.salePriceMinor ?? product.priceMinor;
               const original = product.salePriceMinor ?? product.priceMinor;
