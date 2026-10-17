@@ -57,7 +57,7 @@ export async function POST(request: Request) {
       select: { id: true },
     });
     recordId = record.id;
-  } catch (error) {
+  } catch (error: any) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
       return NextResponse.json({ received: true, duplicate: true });
     }

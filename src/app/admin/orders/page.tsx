@@ -107,7 +107,7 @@ export default async function AdminOrdersPage({
                 </tr>
               </thead>
               <tbody>
-                {result.items.map((order) => (
+                {result.items.map((order: any) => (
                   <tr key={order.id}>
                     <td className="max-w-[260px]">
                       <span className="block font-mono text-[12px] font-medium">

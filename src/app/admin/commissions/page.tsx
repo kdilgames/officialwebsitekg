@@ -28,9 +28,9 @@ export default async function AdminCommissionsPage() {
   ]);
 
   const labels = new Map<string, string>([
-    ...categories.map((row) => [row.id, row.name] as const),
-    ...sellers.map((row) => [row.id, row.storeName] as const),
-    ...products.map((row) => [row.id, row.title] as const),
+    ...categories.map((row: any) => [row.id, row.name] as const),
+    ...sellers.map((row: any) => [row.id, row.storeName] as const),
+    ...products.map((row: any) => [row.id, row.title] as const),
   ]);
 
   return (
@@ -59,9 +59,9 @@ export default async function AdminCommissionsPage() {
         <CardBody>
           <CommissionRuleForm
             action={saveCommissionRuleAction}
-            categories={categories.map((row) => ({ id: row.id, name: row.name }))}
-            sellers={sellers.map((row) => ({ id: row.id, storeName: row.storeName }))}
-            products={products.map((row) => ({ id: row.id, title: row.title }))}
+            categories={categories.map((row: any) => ({ id: row.id, name: row.name }))}
+            sellers={sellers.map((row: any) => ({ id: row.id, storeName: row.storeName }))}
+            products={products.map((row: any) => ({ id: row.id, title: row.title }))}
           />
         </CardBody>
       </Card>
@@ -93,7 +93,7 @@ export default async function AdminCommissionsPage() {
                 </tr>
               </thead>
               <tbody>
-                {rules.map((rule) => (
+                {rules.map((rule: any) => (
                   <tr key={rule.id}>
                     <td className="whitespace-nowrap">
                       <Badge tone={rule.scope === "GLOBAL" ? "accent" : "neutral"}>

@@ -66,7 +66,7 @@ export default async function AdminSettingsPage() {
           />
         ) : (
           <ul className="divide-y divide-line">
-            {settings.map((setting) => (
+            {settings.map((setting: any) => (
               <li key={setting.key} className="space-y-3 px-4 py-4">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="min-w-0">

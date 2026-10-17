@@ -106,7 +106,7 @@ export default async function AdminUsersPage({
                 </tr>
               </thead>
               <tbody>
-                {result.items.map((account) => {
+                {result.items.map((account: any) => {
                   const isSelf = account.id === currentUser?.id;
                   return (
                     <tr key={account.id}>

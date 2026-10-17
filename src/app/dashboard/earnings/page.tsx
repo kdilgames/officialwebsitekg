@@ -45,7 +45,7 @@ export default async function DashboardEarningsPage() {
   const paidOutMinor = primary(overview.paidOut, currency);
   const reversedMinor = primary(overview.reversed, currency);
 
-  const openPayout = payouts.find((payout) => payout.status === "PENDING");
+  const openPayout = payouts.find((payout: any) => payout.status === "PENDING");
   const canRequest = availableMinor > 0 && !openPayout && seller.stripePayoutsEnabled;
 
   const disabledReason = !seller.stripePayoutsEnabled
@@ -123,7 +123,7 @@ export default async function DashboardEarningsPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {earnings.map((earning) => (
+                  {earnings.map((earning: any) => (
                     <tr key={earning.id}>
                       <td className="max-w-[200px] truncate">{earning.orderItem.titleSnapshot}</td>
                       <td className="whitespace-nowrap font-mono text-[11.5px] text-ink-muted">
@@ -182,7 +182,7 @@ export default async function DashboardEarningsPage() {
               </CardBody>
             ) : (
               <ul className="divide-y divide-line">
-                {payouts.map((payout) => (
+                {payouts.map((payout: any) => (
                   <li key={payout.id} className="space-y-1 px-4 py-3">
                     <div className="flex items-center justify-between gap-2">
                       <span className="text-[13px] font-medium tabular-nums">

@@ -427,17 +427,17 @@ export async function deleteProductAction(formData: FormData): Promise<void> {
   await prisma.product.delete({ where: { id: product.id } });
 
   const filePaths = product.files
-    .filter((file) => file.storageBucket === PRODUCT_FILES_BUCKET)
-    .map((file) => file.storagePath);
+    .filter((file: any) => file.storageBucket === PRODUCT_FILES_BUCKET)
+    .map((file: any) => file.storagePath);
   await Promise.all(
-    filePaths.map((path) => removeStorageObject(PRODUCT_FILES_BUCKET, path).catch(() => undefined)),
+    filePaths.map((path: any) => removeStorageObject(PRODUCT_FILES_BUCKET, path).catch(() => undefined)),
   );
 
   const imagePaths = product.images
-    .map((image) => image.url.split(`/${PRODUCT_IMAGES_BUCKET}/`)[1])
-    .filter((path): path is string => Boolean(path));
+    .map((image: any) => image.url.split(`/${PRODUCT_IMAGES_BUCKET}/`)[1])
+    .filter((path: any): path is string => Boolean(path));
   await Promise.all(
-    imagePaths.map((path) => removeStorageObject(PRODUCT_IMAGES_BUCKET, decodeURIComponent(path)).catch(() => undefined)),
+    imagePaths.map((path: any) => removeStorageObject(PRODUCT_IMAGES_BUCKET, decodeURIComponent(path)).catch(() => undefined)),
   );
 
   await recordAudit({

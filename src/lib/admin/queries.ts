@@ -132,39 +132,39 @@ export async function getAdminOverview(): Promise<AdminOverview> {
   ]);
 
   const userCount = (status: string) =>
-    userStatus.find((row) => row.status === status)?._count._all ?? 0;
+    userStatus.find((row: any) => row.status === status)?._count._all ?? 0;
   const sellerCount = (status: string) =>
-    sellerStatus.find((row) => row.status === status)?._count._all ?? 0;
+    sellerStatus.find((row: any) => row.status === status)?._count._all ?? 0;
   const productCount = (status: string) =>
-    productStatus.find((row) => row.status === status)?._count._all ?? 0;
+    productStatus.find((row: any) => row.status === status)?._count._all ?? 0;
   const orderCount = (status: string) =>
-    orderStatus.find((row) => row.status === status)?._count._all ?? 0;
+    orderStatus.find((row: any) => row.status === status)?._count._all ?? 0;
 
   const gross: CurrencyTotals = {};
   const platformFees: CurrencyTotals = {};
   const sellerNet: CurrencyTotals = {};
-  for (const row of itemTotals) {
+  for (const row of itemTotals as any[]) {
     add(gross, row.currency, row._sum.priceMinor ?? 0);
     add(platformFees, row.currency, row._sum.platformFeeMinor ?? 0);
     add(sellerNet, row.currency, row._sum.sellerNetMinor ?? 0);
   }
 
   const refunded: CurrencyTotals = {};
-  for (const row of refundTotals) add(refunded, row.currency, row._sum.amountMinor ?? 0);
+  for (const row of refundTotals as any[]) add(refunded, row.currency, row._sum.amountMinor ?? 0);
 
   const pendingPayout: CurrencyTotals = {};
   let pendingCount = 0;
-  for (const row of payoutPending) {
+  for (const row of payoutPending as any[]) {
     add(pendingPayout, row.currency, row._sum.amountMinor ?? 0);
     pendingCount += row._count._all;
   }
 
   const paidPayout: CurrencyTotals = {};
-  for (const row of payoutPaid) add(paidPayout, row.currency, row._sum.amountMinor ?? 0);
+  for (const row of payoutPaid as any[]) add(paidPayout, row.currency, row._sum.amountMinor ?? 0);
 
   return {
     users: {
-      total: userStatus.reduce((total, row) => total + row._count._all, 0),
+      total: userStatus.reduce((total: number, row: any) => total + row._count._all, 0),
       active: userCount("ACTIVE"),
       suspended: userCount("SUSPENDED"),
       admins: adminCount,
@@ -177,7 +177,7 @@ export async function getAdminOverview(): Promise<AdminOverview> {
       payoutsEnabled,
     },
     products: {
-      total: productStatus.reduce((total, row) => total + row._count._all, 0),
+      total: productStatus.reduce((total: number, row: any) => total + row._count._all, 0),
       draft: productCount("DRAFT"),
       inReview: productCount("PENDING_REVIEW"),
       published: productCount("PUBLISHED"),

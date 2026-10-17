@@ -90,7 +90,7 @@ export default async function AdminReportsPage({
           />
         ) : (
           <ul className="divide-y divide-line">
-            {result.items.map((report) => {
+            {result.items.map((report: any) => {
               const target = targets[report.targetId];
               return (
                 <li key={report.id} className="space-y-3 px-4 py-4">

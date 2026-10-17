@@ -52,7 +52,7 @@ export default async function DashboardOverviewPage() {
     listSellerReviews(seller.id, 4),
   ]);
 
-  const peak = Math.max(1, ...overview.trend.map((point) => point.minor));
+  const peak = Math.max(1, ...overview.trend.map((point: any) => point.minor));
   const averageRating =
     overview.rating.count > 0 ? overview.rating.sum / overview.rating.count : null;
 
@@ -159,13 +159,13 @@ export default async function DashboardOverviewPage() {
           }
         />
         <CardBody>
-          {overview.trend.every((point) => point.minor === 0) ? (
+          {overview.trend.every((point: any) => point.minor === 0) ? (
             <p className="muted text-[12.5px]">
               No sales in the last 30 days yet. Figures appear here as soon as an order settles.
             </p>
           ) : (
             <div className="flex h-28 items-end gap-[3px]">
-              {overview.trend.map((point) => (
+              {overview.trend.map((point: any) => (
                 <div
                   key={point.day}
                   className="group relative flex-1 rounded-[3px] bg-accent/70"
@@ -207,7 +207,7 @@ export default async function DashboardOverviewPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {orders.map((item) => (
+                  {orders.map((item: any) => (
                     <tr key={item.id}>
                       <td className="max-w-[220px]">
                         <Link
@@ -258,7 +258,7 @@ export default async function DashboardOverviewPage() {
             />
           ) : (
             <ul className="divide-y divide-line">
-              {reviews.map((review) => (
+              {reviews.map((review: any) => (
                 <li key={review.id} className="space-y-1 px-4 py-3">
                   <div className="flex items-center justify-between gap-2">
                     <Link
@@ -268,7 +268,7 @@ export default async function DashboardOverviewPage() {
                       {review.product.title}
                     </Link>
                     <span className="flex shrink-0 items-center gap-0.5 text-[12px] text-caution">
-                      {Array.from({ length: review.rating }).map((_, index) => (
+                      {Array.from({ length: review.rating }).map((_: any, index: number) => (
                         <Star key={index} className="size-3 fill-current" aria-hidden />
                       ))}
                     </span>

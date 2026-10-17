@@ -62,7 +62,7 @@ export default async function DashboardProductsPage() {
                 </tr>
               </thead>
               <tbody>
-                {products.map((product) => {
+                {products.map((product: any) => {
                   const rating =
                     product.ratingCount > 0 ? product.ratingSum / product.ratingCount : null;
                   return (

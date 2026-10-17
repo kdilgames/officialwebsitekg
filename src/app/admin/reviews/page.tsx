@@ -81,7 +81,7 @@ export default async function AdminReviewsPage({
           />
         ) : (
           <ul className="divide-y divide-line">
-            {result.items.map((review) => (
+            {result.items.map((review: any) => (
               <li key={review.id} className="space-y-3 px-4 py-4">
                 <div className="min-w-0 space-y-1.5">
                   <div className="flex flex-wrap items-center gap-2">

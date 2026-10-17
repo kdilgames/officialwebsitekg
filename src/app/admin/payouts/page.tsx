@@ -93,7 +93,7 @@ export default async function AdminPayoutsPage({
           />
         ) : (
           <ul className="divide-y divide-line">
-            {result.items.map((payout) => (
+            {result.items.map((payout: any) => (
               <li key={payout.id} className="space-y-3 px-4 py-4">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="min-w-0">

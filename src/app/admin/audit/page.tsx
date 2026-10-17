@@ -83,7 +83,7 @@ export default async function AdminAuditPage({
           />
         ) : (
           <ul className="divide-y divide-line">
-            {result.items.map((entry) => (
+            {result.items.map((entry: any) => (
               <li key={entry.id} className="space-y-2 px-4 py-3.5">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="font-mono text-[12px] font-medium">{entry.action}</span>

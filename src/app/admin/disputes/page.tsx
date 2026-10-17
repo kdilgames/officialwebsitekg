@@ -45,7 +45,7 @@ export default async function AdminDisputesPage({
   };
 
   const urgent = result.items.filter(
-    (dispute) =>
+    (dispute: any) =>
       dispute.evidenceDueBy !== null &&
       dispute.status !== "WON" &&
       dispute.status !== "LOST" &&
@@ -83,7 +83,7 @@ export default async function AdminDisputesPage({
       {urgent.length > 0 ? (
         <Alert tone="error" title={`${urgent.length} dispute(s) near the evidence deadline`}>
           {urgent
-            .map((dispute) =>
+            .map((dispute: any) =>
               dispute.evidenceDueBy
                 ? `${dispute.order.orderNumber} in ${daysUntil(dispute.evidenceDueBy)} day(s)`
                 : dispute.order.orderNumber,
@@ -119,7 +119,7 @@ export default async function AdminDisputesPage({
                 </tr>
               </thead>
               <tbody>
-                {result.items.map((dispute) => {
+                {result.items.map((dispute: any) => {
                   const due = dispute.evidenceDueBy;
                   const remaining = due ? daysUntil(due) : null;
                   return (

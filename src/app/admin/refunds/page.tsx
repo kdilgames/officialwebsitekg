@@ -98,7 +98,7 @@ export default async function AdminRefundsPage({
           />
         ) : (
           <ul className="divide-y divide-line">
-            {result.items.map((refund) => (
+            {result.items.map((refund: any) => (
               <li key={refund.id} className="space-y-3 px-4 py-4">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="min-w-0">

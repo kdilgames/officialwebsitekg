@@ -54,7 +54,7 @@ export default async function DashboardOrdersPage() {
                 </tr>
               </thead>
               <tbody>
-                {items.map((item) => (
+                {items.map((item: any) => (
                   <tr key={item.id}>
                     <td className="max-w-[240px]">
                       <Link

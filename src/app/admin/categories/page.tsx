@@ -18,8 +18,8 @@ export const metadata = { title: "Categories · Admin" };
 
 export default async function AdminCategoriesPage() {
   const categories = await listAllCategories();
-  const names = new Map(categories.map((category) => [category.id, category.name]));
-  const options = categories.map((category) => ({ id: category.id, name: category.name }));
+  const names = new Map<string, string>(categories.map((category: any) => [category.id, category.name]));
+  const options = categories.map((category: any) => ({ id: category.id, name: category.name }));
 
   return (
     <div className="space-y-4">
@@ -55,7 +55,7 @@ export default async function AdminCategoriesPage() {
           />
         ) : (
           <ul className="divide-y divide-line">
-            {categories.map((category) => (
+            {categories.map((category: any) => (
               <li key={category.id} className="space-y-3 px-4 py-4">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="min-w-0">
@@ -116,7 +116,7 @@ export default async function AdminCategoriesPage() {
                   <div className="surface-elevated mt-2 p-3">
                     <CategoryForm
                       action={updateCategoryAction}
-                      categories={options.filter((option) => option.id !== category.id)}
+                      categories={options.filter((option: any) => option.id !== category.id)}
                       categoryId={category.id}
                       idPrefix={`cat-${category.id}-`}
                       submitLabel="Save category"

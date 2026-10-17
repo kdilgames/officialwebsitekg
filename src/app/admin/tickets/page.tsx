@@ -82,7 +82,7 @@ export default async function AdminTicketsPage({
           />
         ) : (
           <ul className="divide-y divide-line">
-            {result.items.map((ticket) => (
+            {result.items.map((ticket: any) => (
               <li key={ticket.id} className="space-y-3 px-4 py-4">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="min-w-0">
@@ -140,7 +140,7 @@ export default async function AdminTicketsPage({
 
                 {ticket.messages.length > 0 ? (
                   <ul className="space-y-1.5">
-                    {ticket.messages.map((message) => (
+                    {ticket.messages.map((message: any) => (
                       <li
                         key={message.id}
                         className={

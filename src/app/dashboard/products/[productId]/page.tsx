@@ -69,11 +69,11 @@ export default async function ManageProductPage({
   const unitPriceMinor = product.salePriceMinor ?? product.priceMinor;
   const netPerSale = Math.round((unitPriceMinor * (10_000 - rate.rateBps)) / 10_000);
 
-  const activeFiles = product.files.filter((file) => file.isActive);
+  const activeFiles = product.files.filter((file: any) => file.isActive);
   const canSubmit = ["DRAFT", "REJECTED", "ARCHIVED"].includes(product.status) && activeFiles.length > 0;
   const canDelete = product.salesCount === 0 && ["DRAFT", "REJECTED", "ARCHIVED"].includes(product.status);
 
-  const files: AssetFile[] = product.files.map((file) => ({
+  const files: AssetFile[] = product.files.map((file: any) => ({
     id: file.id,
     fileName: file.fileName,
     sizeBytes: file.sizeBytes,
@@ -86,7 +86,7 @@ export default async function ManageProductPage({
     versionId: file.versionId,
   }));
 
-  const images: AssetImage[] = product.images.map((image) => ({
+  const images: AssetImage[] = product.images.map((image: any) => ({
     id: image.id,
     url: image.url,
     alt: image.alt,
@@ -101,7 +101,7 @@ export default async function ManageProductPage({
             <StatusBadge status={product.status} />
           </div>
           <p className="muted mt-1 text-[12.5px]">
-            {product.categoryId ? categories.find((entry) => entry.id === product.categoryId)?.name : ""}{" "}
+            {product.categoryId ? categories.find((entry: any) => entry.id === product.categoryId)?.name : ""}{" "}
             · version {product.version} · updated {product.updatedAt.toISOString().slice(0, 10)}
           </p>
         </div>
@@ -201,7 +201,7 @@ export default async function ManageProductPage({
             productId={product.id}
             productName={product.title}
             files={files}
-            versions={product.versions.map((version) => ({
+            versions={product.versions.map((version: any) => ({
               id: version.id,
               version: version.version,
               isLatest: version.isLatest,
@@ -232,7 +232,7 @@ export default async function ManageProductPage({
             <p className="muted text-[12.5px]">No versions recorded yet.</p>
           ) : (
             <ul className="space-y-2">
-              {product.versions.map((version) => (
+              {product.versions.map((version: any) => (
                 <li
                   key={version.id}
                   className="surface-elevated flex flex-wrap items-start justify-between gap-2 p-3"

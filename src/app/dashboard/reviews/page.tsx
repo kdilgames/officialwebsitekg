@@ -17,12 +17,12 @@ export default async function DashboardReviewsPage() {
   const seller = user.sellerProfile;
   const reviews = await listSellerReviews(seller.id);
 
-  const published = reviews.filter((review) => review.status === "PUBLISHED");
+  const published = reviews.filter((review: any) => review.status === "PUBLISHED");
   const average =
     published.length > 0
-      ? published.reduce((total, review) => total + review.rating, 0) / published.length
+      ? published.reduce((total: number, review: any) => total + review.rating, 0) / published.length
       : null;
-  const unanswered = published.filter((review) => !review.sellerReply).length;
+  const unanswered = published.filter((review: any) => !review.sellerReply).length;
 
   return (
     <div className="space-y-5">
@@ -49,7 +49,7 @@ export default async function DashboardReviewsPage() {
         />
         <StatCard
           label="Verified purchases"
-          value={published.filter((review) => review.isVerifiedPurchase).length.toLocaleString("en-GB")}
+          value={published.filter((review: any) => review.isVerifiedPurchase).length.toLocaleString("en-GB")}
           hint="Reviews linked to a paid order line"
           icon={<BadgeCheck className="size-4" aria-hidden />}
         />
@@ -65,14 +65,14 @@ export default async function DashboardReviewsPage() {
         </Card>
       ) : (
         <ul className="space-y-3">
-          {reviews.map((review) => (
+          {reviews.map((review: any) => (
             <li key={review.id}>
               <Card>
                 <CardHeader
                   title={
                     <span className="flex flex-wrap items-center gap-2">
                       <span className="flex items-center gap-0.5 text-caution">
-                        {Array.from({ length: review.rating }).map((_, index) => (
+                        {Array.from({ length: review.rating }).map((_: any, index: number) => (
                           <Star key={index} className="size-3.5 fill-current" aria-hidden />
                         ))}
                       </span>
