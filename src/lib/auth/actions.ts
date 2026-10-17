@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
+import { headers } from "next/headers";
 
 import { createSupabaseServerClient } from "@/lib/auth/server";
 import { prisma } from "@/lib/db";
@@ -29,6 +30,19 @@ function notConfigured(): ActionState {
   return errorState(
     "Accounts are unavailable: Supabase Auth is not configured for this deployment yet.",
   );
+}
+
+async function authRedirectBaseUrl(): Promise<string> {
+  const headerList = await headers();
+  const proto =
+    headerList.get("x-forwarded-proto")?.split(",")[0]?.trim() ||
+    (env.siteUrl.startsWith("https://") ? "https" : "http");
+  const host =
+    headerList.get("x-forwarded-host")?.split(",")[0]?.trim() ||
+    headerList.get("host")?.trim();
+
+  if (!host) return env.siteUrl;
+  return `${proto}://${host}`;
 }
 
 export async function signUpAction(
@@ -68,11 +82,12 @@ export async function signUpAction(
   }
 
   const supabase = await createSupabaseServerClient();
+  const baseUrl = await authRedirectBaseUrl();
   const { data: created, error } = await supabase.auth.signUp({
     email: data.email,
     password: data.password,
     options: {
-      emailRedirectTo: `${env.siteUrl}/auth/callback?next=/account`,
+      emailRedirectTo: `${baseUrl}/auth/callback?next=/account`,
       data: {
         username: data.username.toLowerCase(),
         display_name: data.displayName,
@@ -187,8 +202,9 @@ export async function requestPasswordResetAction(
   }
 
   const supabase = await createSupabaseServerClient();
+  const baseUrl = await authRedirectBaseUrl();
   await supabase.auth.resetPasswordForEmail(parsed.data.email, {
-    redirectTo: `${env.siteUrl}/auth/callback?next=/account/password`,
+    redirectTo: `${baseUrl}/auth/callback?next=/account/password`,
   });
 
   // Always the same response so the form cannot be used to enumerate accounts.

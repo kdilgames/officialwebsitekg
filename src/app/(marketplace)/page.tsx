@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { ArrowRight, BadgeCheck, Download, Lock, Search, ShieldCheck } from "lucide-react";
 
 import { ProductGrid } from "@/components/marketplace/product-card";
@@ -8,7 +9,25 @@ import { prisma } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
-export default async function HomePage() {
+export default async function HomePage({
+  searchParams,
+}: {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const params = (await searchParams) ?? {};
+  const hasAuthCallbackParams =
+    typeof params.code === "string" ||
+    typeof params.token_hash === "string" ||
+    typeof params.error_code === "string";
+
+  if (hasAuthCallbackParams) {
+    const forwarded = new URLSearchParams();
+    for (const [key, value] of Object.entries(params)) {
+      if (typeof value === "string" && value.length > 0) forwarded.set(key, value);
+    }
+    redirect(`/auth/callback?${forwarded.toString()}`);
+  }
+
   const [featured, newest, categories, bestSelling] = await Promise.all([
     browseProducts({ featuredOnly: true, sort: "newest", perPage: 8 }),
     browseProducts({ sort: "newest", perPage: 8 }),
