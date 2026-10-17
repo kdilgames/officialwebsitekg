@@ -25,7 +25,7 @@ export function ProductCard({ product }: { product: ProductCardData }) {
   return (
     <Link
       href={`/product/${product.slug}`}
-      className="surface group flex flex-col overflow-hidden transition-colors hover:border-line-strong"
+      className="surface premium-card group flex flex-col overflow-hidden"
     >
       <div className="relative aspect-[2/1] overflow-hidden border-b border-line bg-elevated">
         {product.thumbnailUrl ? (
@@ -34,7 +34,7 @@ export function ProductCard({ product }: { product: ProductCardData }) {
             src={product.thumbnailUrl}
             alt={product.title}
             loading="lazy"
-            className="size-full object-cover transition-transform duration-200 group-hover:scale-[1.02]"
+            className="size-full object-cover transition-transform duration-300 group-hover:scale-[1.035]"
           />
         ) : (
           <div className="flex size-full items-center justify-center text-ink-subtle">
