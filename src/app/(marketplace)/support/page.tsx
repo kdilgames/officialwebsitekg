@@ -9,6 +9,7 @@ import {
   Percent,
   Receipt,
   ShieldAlert,
+  ShieldCheck,
   Store,
 } from "lucide-react";
 
@@ -123,6 +124,38 @@ export default async function SupportPage() {
           </Link>
         ))}
       </section>
+
+      <Card id="verification">
+        <CardHeader
+          title="File safety & store verification"
+          description="How deliverables and creator accounts are checked before download access is granted."
+        />
+        <CardBody className="grid gap-4 text-[13px] leading-relaxed text-ink-muted sm:grid-cols-2">
+          <div className="surface-elevated p-4">
+            <p className="flex items-center gap-2 font-semibold text-ink">
+              <ShieldCheck className="size-4 text-positive" aria-hidden />
+              Creator vetting & manual review
+            </p>
+            <p className="mt-1.5">
+              Only stores manually reviewed and approved by KDILGAMES staff can publish products.
+              Submissions are inspected against asset provenance and compatibility guidelines before
+              appearing on the storefront.
+            </p>
+          </div>
+          <div className="surface-elevated p-4">
+            <p className="flex items-center gap-2 font-semibold text-ink">
+              <ShieldAlert className="size-4 text-accent" aria-hidden />
+              Extension blocking & scan telemetry
+            </p>
+            <p className="mt-1.5">
+              Raw executable binaries and high-risk script installers are rejected by our upload
+              extension policy. When an automated VirusTotal scanner is configured on the deployment,
+              clean verdicts appear directly on the product page; otherwise listings display manual
+              review status honestly without fabricated scan claims.
+            </p>
+          </div>
+        </CardBody>
+      </Card>
 
       <Card>
         <CardHeader

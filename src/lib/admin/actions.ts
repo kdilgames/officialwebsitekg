@@ -14,10 +14,11 @@ import { notify, recordAudit, recordModeration } from "@/lib/audit";
 import { getSessionUser, type SessionUser } from "@/lib/auth/session";
 import { clampBps, percentToBps } from "@/lib/commission";
 import { prisma } from "@/lib/db";
+import { minorUnitFactor } from "@/lib/money";
 import { ConnectError } from "@/lib/payments/connect";
 import { cancelPayout, executePayout } from "@/lib/payments/payouts";
 import { decideRefundRequest, executeRefund, failRefund, RefundError } from "@/lib/payments/refunds";
-import { categorySchema, commissionRuleSchema } from "@/lib/validation";
+import { categorySchema, commissionRuleSchema, couponSchema } from "@/lib/validation";
 
 /**
  * Administrative actions.
@@ -1327,6 +1328,8 @@ export async function saveSiteSettingAction(
   });
 
   revalidateAdmin("/admin/settings");
+  revalidatePath("/", "layout");
+  revalidatePath("/account/seller");
   return successState(`Setting “${key}” saved.`);
 }
 
@@ -1354,4 +1357,120 @@ export async function deleteSiteSettingAction(formData: FormData): Promise<void>
   });
 
   revalidateAdmin("/admin/settings");
+  revalidatePath("/", "layout");
+  revalidatePath("/account/seller");
+}
+
+// ---------------------------------------------------------------- coupons
+
+export async function createAdminCouponAction(
+  _previous: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const access = await gate();
+  if (!access.ok) return access.error;
+  const { user } = access;
+
+  const parsed = couponSchema.safeParse(formToObject(formData));
+  if (!parsed.success) {
+    return errorState("Please correct the highlighted fields.", toFieldErrors(parsed.error.issues));
+  }
+  const data = parsed.data;
+
+  const existing = await prisma.coupon.findUnique({
+    where: { code: data.code },
+    select: { id: true },
+  });
+  if (existing) {
+    return errorState("That promo code is already in use.", { code: "Already exists." });
+  }
+
+  const factor = minorUnitFactor(data.currency);
+  const created = await prisma.coupon.create({
+    data: {
+      code: data.code,
+      sellerId: null,
+      discountType: data.discountType,
+      percentOff: data.discountType === "PERCENT" ? Math.round(data.discountValue) : null,
+      amountOffMinor:
+        data.discountType === "FIXED" ? Math.round(data.discountValue * factor) : null,
+      currency: data.currency,
+      minSubtotalMinor:
+        data.minSubtotal !== undefined ? Math.round(data.minSubtotal * factor) : null,
+      maxRedemptions: data.maxRedemptions ?? null,
+      expiresAt: data.expiresAt ? new Date(data.expiresAt) : null,
+      isActive: true,
+    },
+    select: { id: true },
+  });
+
+  await recordAudit({
+    actorId: user.id,
+    actorRole: user.role,
+    action: "coupon.created",
+    entityType: "Coupon",
+    entityId: created.id,
+    after: { code: data.code, discountType: data.discountType, scope: "PLATFORM" },
+  });
+
+  revalidateAdmin("/admin/coupons");
+  revalidatePath("/cart");
+  return successState(`Platform promo code ${data.code} created.`);
+}
+
+export async function toggleAdminCouponAction(formData: FormData): Promise<void> {
+  const access = await gate();
+  if (!access.ok) return;
+  const { user } = access;
+
+  const couponId = text(formData, "couponId");
+  const coupon = await prisma.coupon.findUnique({
+    where: { id: couponId },
+    select: { id: true, code: true, isActive: true },
+  });
+  if (!coupon) return;
+
+  await prisma.coupon.update({
+    where: { id: coupon.id },
+    data: { isActive: !coupon.isActive },
+  });
+
+  await recordAudit({
+    actorId: user.id,
+    actorRole: user.role,
+    action: coupon.isActive ? "coupon.paused" : "coupon.activated",
+    entityType: "Coupon",
+    entityId: coupon.id,
+    after: { code: coupon.code, isActive: !coupon.isActive },
+  });
+
+  revalidateAdmin("/admin/coupons");
+  revalidatePath("/cart");
+}
+
+export async function deleteAdminCouponAction(formData: FormData): Promise<void> {
+  const access = await gate();
+  if (!access.ok) return;
+  const { user } = access;
+
+  const couponId = text(formData, "couponId");
+  const coupon = await prisma.coupon.findUnique({
+    where: { id: couponId },
+    select: { id: true, code: true },
+  });
+  if (!coupon) return;
+
+  await prisma.coupon.delete({ where: { id: coupon.id } });
+
+  await recordAudit({
+    actorId: user.id,
+    actorRole: user.role,
+    action: "coupon.deleted",
+    entityType: "Coupon",
+    entityId: coupon.id,
+    before: { code: coupon.code },
+  });
+
+  revalidateAdmin("/admin/coupons");
+  revalidatePath("/cart");
 }

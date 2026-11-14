@@ -965,3 +965,27 @@ export async function listAuditLogs(params: { action?: string; page?: number }) 
 }
 
 export type AuditLogRow = Awaited<ReturnType<typeof listAuditLogs>>["items"][number];
+
+// ---------------------------------------------------------------- coupons
+
+export async function listAdminCoupons() {
+  return prisma.coupon.findMany({
+    orderBy: [{ sellerId: "asc" }, { createdAt: "desc" }],
+    select: {
+      id: true,
+      code: true,
+      sellerId: true,
+      discountType: true,
+      percentOff: true,
+      amountOffMinor: true,
+      currency: true,
+      minSubtotalMinor: true,
+      maxRedemptions: true,
+      redemptionCount: true,
+      isActive: true,
+      expiresAt: true,
+      createdAt: true,
+      seller: { select: { storeName: true, slug: true } },
+    },
+  });
+}

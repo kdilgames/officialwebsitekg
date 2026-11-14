@@ -38,12 +38,31 @@ export default async function AdminSettingsPage() {
         </p>
       </header>
 
-      <Alert tone="info" title="What is not configurable here">
-        The marketplace commission default is currently{" "}
-        {(env.marketplace.defaultCommissionBps / 100).toFixed(2)}% and the earnings hold is{" "}
-        {env.marketplace.earningsHoldDays} day(s). Both come from environment variables, so a change
-        needs a deployment — this prevents a setting from silently altering money already in flight.
+      <Alert tone="info" title="Environment-controlled settings">
+        The marketplace commission default is{" "}
+        {(env.marketplace.defaultCommissionBps / 100).toFixed(2)}%, earnings hold is{" "}
+        {env.marketplace.earningsHoldDays} day(s), and Stripe automatic tax (EU VAT) is currently{" "}
+        <strong>{env.stripe.automaticTax ? "enabled" : "disabled"}</strong> (controlled via{" "}
+        <code>STRIPE_AUTOMATIC_TAX=true</code> on deployment).
       </Alert>
+
+      <Card>
+        <CardHeader
+          title="Built-in optional SiteSetting keys"
+          description="Optional runtime keys recognized across the storefront layout."
+        />
+        <CardBody className="space-y-2 text-[12.5px] text-ink-muted">
+          <div className="surface-elevated p-3">
+            <p className="font-mono text-[12px] font-semibold text-ink">community_discord_url</p>
+            <p className="mt-1">
+              Set to a valid Discord invite URL (e.g.{" "}
+              <code>https://discord.gg/your-invite</code>) to surface Community Discord links in
+              the site footer and seller onboarding page. Delete or leave unset to hide Discord
+              links everywhere.
+            </p>
+          </div>
+        </CardBody>
+      </Card>
 
       <Card>
         <CardHeader title="New setting" description="Stored as JSON when the value parses as JSON." />

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ChevronRight, PackageOpen } from "lucide-react";
 
+import { getCompatibilityTagsForCategory } from "@/components/marketplace/category-filters";
 import { getCategoryVisual } from "@/components/marketplace/category-visuals";
 import { ProductGrid } from "@/components/marketplace/product-card";
 import { EmptyState } from "@/components/ui/alert";
@@ -12,7 +13,9 @@ import {
   browseProducts,
   categoryWithDescendants,
   listCategories,
+  PRICE_TIERS,
   SORT_OPTIONS,
+  type PriceTier,
   type ProductSort,
 } from "@/lib/queries/products";
 
@@ -20,7 +23,14 @@ export const dynamic = "force-dynamic";
 
 type PageProps = {
   params: Promise<{ slug: string }>;
-  searchParams: Promise<{ sort?: string; page?: string; min?: string; max?: string }>;
+  searchParams: Promise<{
+    sort?: string;
+    page?: string;
+    min?: string;
+    max?: string;
+    price?: string;
+    tag?: string;
+  }>;
 };
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
@@ -36,12 +46,17 @@ export default async function CategoryPage({ params, searchParams }: PageProps) 
 
   const sort = (SORT_OPTIONS.find((option) => option.value === query.sort)?.value ??
     "relevance") as ProductSort;
+  const priceTier = PRICE_TIERS.find(
+    (option) => option.value !== "" && option.value === query.price,
+  )?.value as PriceTier | undefined;
   const page = Number.parseInt(query.page ?? "1", 10) || 1;
 
   const [result, categories] = await Promise.all([
     browseProducts({
       categoryIds: ids,
       sort,
+      priceTier,
+      tag: query.tag,
       page,
       minPrice: query.min ? Number.parseFloat(query.min) : undefined,
       maxPrice: query.max ? Number.parseFloat(query.max) : undefined,
@@ -53,12 +68,24 @@ export default async function CategoryPage({ params, searchParams }: PageProps) 
   const fullCategory = categories.find((entry) => entry.slug === category.slug);
   const visual = getCategoryVisual(category.slug, fullCategory?.icon);
   const CategoryIcon = visual.icon;
+  const compatibilityTags = getCompatibilityTagsForCategory(category.slug);
 
-  const buildSortHref = (nextSort: ProductSort) => {
+  const buildFilterHref = (overrides: {
+    sort?: string;
+    price?: string;
+    tag?: string;
+    page?: number;
+  }) => {
     const search = new URLSearchParams();
-    if (nextSort !== "relevance") search.set("sort", nextSort);
+    const nextSort = overrides.sort !== undefined ? overrides.sort : query.sort;
+    const nextPrice = overrides.price !== undefined ? overrides.price : query.price;
+    const nextTag = overrides.tag !== undefined ? overrides.tag : query.tag;
+    if (nextSort && nextSort !== "relevance") search.set("sort", nextSort);
+    if (nextPrice) search.set("price", nextPrice);
+    if (nextTag) search.set("tag", nextTag);
     if (query.min) search.set("min", query.min);
     if (query.max) search.set("max", query.max);
+    if (overrides.page && overrides.page > 1) search.set("page", String(overrides.page));
     const suffix = search.toString();
     return suffix ? `/category/${slug}?${suffix}` : `/category/${slug}`;
   };
@@ -112,7 +139,7 @@ export default async function CategoryPage({ params, searchParams }: PageProps) 
       </header>
 
       {children.length > 0 ? (
-        <div className="mb-5 flex flex-wrap gap-2">
+        <div className="mb-4 flex flex-wrap gap-2">
           {children.map((child) => (
             <Link
               key={child.slug}
@@ -128,34 +155,76 @@ export default async function CategoryPage({ params, searchParams }: PageProps) 
         </div>
       ) : null}
 
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap items-center gap-1.5">
-          <span className="subtle mr-1 text-[12.5px]">Sort:</span>
-          {SORT_OPTIONS.map((option) => (
-            <Link
-              key={option.value}
-              href={buildSortHref(option.value)}
-              className={`badge transition-colors ${
-                sort === option.value
-                  ? "badge-accent"
-                  : "hover:border-line-strong hover:bg-surface hover:text-ink"
-              }`}
-            >
-              {option.label}
-            </Link>
-          ))}
+      <div className="mb-4 space-y-2.5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="subtle mr-1 text-[12.5px]">Sort:</span>
+            {SORT_OPTIONS.map((option) => (
+              <Link
+                key={option.value}
+                href={buildFilterHref({ sort: option.value, page: 1 })}
+                className={`badge transition-colors ${
+                  sort === option.value
+                    ? "badge-accent"
+                    : "hover:border-line-strong hover:bg-surface hover:text-ink"
+                }`}
+              >
+                {option.label}
+              </Link>
+            ))}
+          </div>
+
+          <div className="flex flex-wrap items-center gap-1.5">
+            {PRICE_TIERS.map((tier) => (
+              <Link
+                key={tier.value || "all"}
+                href={buildFilterHref({ price: tier.value, page: 1 })}
+                className={`badge transition-colors ${
+                  (priceTier ?? "") === tier.value
+                    ? tier.value === "free"
+                      ? "badge-positive"
+                      : "badge-accent"
+                    : "hover:border-line-strong hover:bg-surface hover:text-ink"
+                }`}
+              >
+                {tier.label}
+              </Link>
+            ))}
+          </div>
         </div>
+
+        {compatibilityTags.length > 0 ? (
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="subtle mr-1 text-[12.5px]">Compatibility:</span>
+            {compatibilityTags.map((tag) => {
+              const selected = query.tag?.toLowerCase() === tag;
+              return (
+                <Link
+                  key={tag}
+                  href={buildFilterHref({ tag: selected ? "" : tag, page: 1 })}
+                  className={`badge transition-colors ${
+                    selected
+                      ? "badge-accent"
+                      : "hover:border-line-strong hover:bg-surface hover:text-ink"
+                  }`}
+                >
+                  {tag}
+                </Link>
+              );
+            })}
+          </div>
+        ) : null}
       </div>
 
       {result.items.length === 0 ? (
         <div className="surface">
           <EmptyState
             icon={<PackageOpen className="size-5" aria-hidden />}
-            title="No listings in this category yet"
-            description="Approved creator products in this category will appear here as soon as they are published."
+            title="No listings match this view"
+            description="Approved creator products in this category will appear here once published."
             action={
-              <Link href="/browse" className="btn btn-secondary btn-sm">
-                Browse all categories
+              <Link href={query.tag || query.price ? `/category/${slug}` : "/browse"} className="btn btn-secondary btn-sm">
+                {query.tag || query.price ? "Reset category filters" : "Browse all categories"}
               </Link>
             }
           />
@@ -166,15 +235,7 @@ export default async function CategoryPage({ params, searchParams }: PageProps) 
           <Pagination
             page={result.page}
             totalPages={result.totalPages}
-            buildHref={(next) => {
-              const search = new URLSearchParams();
-              if (query.sort) search.set("sort", query.sort);
-              if (query.min) search.set("min", query.min);
-              if (query.max) search.set("max", query.max);
-              if (next > 1) search.set("page", String(next));
-              const suffix = search.toString();
-              return suffix ? `/category/${slug}?${suffix}` : `/category/${slug}`;
-            }}
+            buildHref={(next) => buildFilterHref({ page: next })}
             className="mt-6"
           />
         </>

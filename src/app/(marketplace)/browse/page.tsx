@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { SearchX, X } from "lucide-react";
 
+import { getCompatibilityTagsForCategory } from "@/components/marketplace/category-filters";
 import { ProductGrid } from "@/components/marketplace/product-card";
 import { EmptyState } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -11,7 +12,9 @@ import {
   browseProducts,
   categoryWithDescendants,
   listCategories,
+  PRICE_TIERS,
   SORT_OPTIONS,
+  type PriceTier,
   type ProductSort,
 } from "@/lib/queries/products";
 
@@ -25,6 +28,7 @@ type SearchParams = {
   seller?: string;
   tag?: string;
   license?: string;
+  price?: string;
   min?: string;
   max?: string;
   sort?: string;
@@ -57,6 +61,9 @@ export default async function BrowsePage({
 
   const sort = (SORT_OPTIONS.find((option) => option.value === params.sort)?.value ??
     "relevance") as ProductSort;
+  const priceTier = PRICE_TIERS.find(
+    (option) => option.value !== "" && option.value === params.price,
+  )?.value as PriceTier | undefined;
 
   const [result, categories] = await Promise.all([
     browseProducts({
@@ -65,6 +72,7 @@ export default async function BrowsePage({
       seller: params.seller,
       tag: params.tag,
       license: params.license,
+      priceTier,
       minPrice: toNumber(params.min),
       maxPrice: toNumber(params.max),
       sort,
@@ -98,12 +106,14 @@ export default async function BrowsePage({
 
   const activeCategory = resolved?.category;
   const topCategories = categories.filter((category) => !category.parentId);
+  const compatibilityTags = getCompatibilityTagsForCategory(activeCategory?.slug ?? categorySlug);
   const hasFilters = Boolean(
     params.q ||
       categorySlug ||
       params.seller ||
       params.tag ||
       params.license ||
+      priceTier ||
       params.min ||
       params.max,
   );
@@ -122,7 +132,7 @@ export default async function BrowsePage({
         {topCategories.length > 0 ? (
           <div className="mt-4 flex flex-wrap gap-2">
             <Link
-              href={buildHref({ category: undefined, page: undefined })}
+              href={buildHref({ category: undefined, tag: undefined, page: undefined })}
               className={`badge transition-colors ${
                 !categorySlug
                   ? "badge-accent"
@@ -149,6 +159,47 @@ export default async function BrowsePage({
             ))}
           </div>
         ) : null}
+
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <span className="subtle text-[12px]">Price:</span>
+          {PRICE_TIERS.map((tier) => (
+            <Link
+              key={tier.value || "all"}
+              href={buildHref({ price: tier.value || undefined, page: undefined })}
+              className={`badge transition-colors ${
+                (priceTier ?? "") === tier.value
+                  ? tier.value === "free"
+                    ? "badge-positive"
+                    : "badge-accent"
+                  : "hover:border-line-strong hover:bg-surface hover:text-ink"
+              }`}
+            >
+              {tier.label}
+            </Link>
+          ))}
+        </div>
+
+        {compatibilityTags.length > 0 ? (
+          <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
+            <span className="subtle text-[12px]">Compatibility:</span>
+            {compatibilityTags.map((tag) => {
+              const selected = params.tag?.toLowerCase() === tag;
+              return (
+                <Link
+                  key={tag}
+                  href={buildHref({ tag: selected ? undefined : tag, page: undefined })}
+                  className={`badge transition-colors ${
+                    selected
+                      ? "badge-accent"
+                      : "hover:border-line-strong hover:bg-surface hover:text-ink"
+                  }`}
+                >
+                  {tag}
+                </Link>
+              );
+            })}
+          </div>
+        ) : null}
       </header>
 
       <div className="grid gap-6 lg:grid-cols-[268px_minmax(0,1fr)]">
@@ -169,6 +220,16 @@ export default async function BrowsePage({
               </Select>
             </Field>
 
+            <Field label="Price tier" htmlFor="price">
+              <Select id="price" name="price" defaultValue={priceTier ?? ""}>
+                {PRICE_TIERS.map((tier) => (
+                  <option key={tier.value || "all"} value={tier.value}>
+                    {tier.label}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+
             <Field label="License" htmlFor="license">
               <Select id="license" name="license" defaultValue={params.license ?? ""}>
                 {LICENSES.map((option) => (
@@ -177,6 +238,10 @@ export default async function BrowsePage({
                   </option>
                 ))}
               </Select>
+            </Field>
+
+            <Field label="Tag" htmlFor="tag">
+              <Input id="tag" name="tag" defaultValue={params.tag ?? ""} placeholder="e.g. luau, paper" />
             </Field>
 
             <div className="grid grid-cols-2 gap-2.5">
@@ -225,6 +290,15 @@ export default async function BrowsePage({
                   className="badge hover:border-line-strong hover:text-ink"
                 >
                   Search: {params.q}
+                  <X className="size-3" aria-hidden />
+                </Link>
+              ) : null}
+              {priceTier ? (
+                <Link
+                  href={buildHref({ price: undefined, page: undefined })}
+                  className="badge hover:border-line-strong hover:text-ink"
+                >
+                  Price: {priceTier}
                   <X className="size-3" aria-hidden />
                 </Link>
               ) : null}

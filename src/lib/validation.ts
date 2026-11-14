@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { parseVideoEmbedUrl } from "@/lib/utils/media";
+
 export const TERMS_VERSION = "2026-10-17";
 
 const username = z
@@ -136,44 +138,119 @@ export const sellerProfileSchema = sellerApplicationSchema.pick({
   supportEmail: true,
 });
 
-export const productSchema = z.object({
-  title: z.string().trim().min(4, "Title is too short.").max(120),
-  slug: z
+const optionalNumber = z.preprocess(
+  (value) => (value === "" || value === null || value === undefined ? undefined : value),
+  z.coerce.number().finite().optional(),
+);
+
+const optionalPositiveInt = z.preprocess(
+  (value) => (value === "" || value === null || value === undefined ? undefined : value),
+  z.coerce.number().int().positive("Enter a whole number of at least 1.").optional(),
+);
+
+const optionalNonNegativeNumber = z.preprocess(
+  (value) => (value === "" || value === null || value === undefined ? undefined : value),
+  z.coerce.number().finite().min(0, "Cannot be negative.").optional(),
+);
+
+const optionalHttpUrl = (message: string) =>
+  z
     .string()
     .trim()
-    .toLowerCase()
-    .min(4)
-    .max(120)
-    .regex(/^[a-z0-9-]+$/, "Use lowercase letters, numbers and hyphens."),
-  categoryId: z.string().uuid("Choose a category."),
-  shortDescription: z.string().trim().min(20, "Add a short summary (20+ characters).").max(240),
-  description: z.string().trim().min(60, "Describe the product in at least 60 characters.").max(20000),
-  price: z.coerce.number().min(0.5, "Minimum price is 0.50.").max(100000),
-  salePrice: z.coerce.number().min(0.5).max(100000).optional().nullable(),
-  currency: z.string().trim().toUpperCase().length(3).default("EUR"),
-  licenseType: z.enum(["PERSONAL", "STANDARD", "EXTENDED", "CUSTOM"]).default("STANDARD"),
-  licenseText: z.string().trim().max(8000).optional().or(z.literal("").transform(() => undefined)),
-  version: z
-    .string()
-    .trim()
-    .min(1)
-    .max(32)
-    .regex(/^[0-9A-Za-z.\-+]+$/, "Use a version like 1.0.0."),
-  tags: z
-    .string()
-    .trim()
-    .max(300)
+    .max(500)
     .optional()
-    .transform((value) =>
-      (value ?? "")
-        .split(",")
-        .map((tag) => tag.trim().toLowerCase())
-        .filter((tag) => tag.length > 0)
-        .slice(0, 12),
-    ),
-  compatibility: z.string().trim().max(2000).optional().or(z.literal("").transform(() => undefined)),
-  requirements: z.string().trim().max(2000).optional().or(z.literal("").transform(() => undefined)),
-});
+    .refine(
+      (value) => {
+        if (!value) return true;
+        try {
+          const parsed = new URL(value);
+          return parsed.protocol === "http:" || parsed.protocol === "https:";
+        } catch {
+          return false;
+        }
+      },
+      { message },
+    )
+    .transform((value) => (value && value.length > 0 ? value : undefined));
+
+export const productSchema = z
+  .object({
+    title: z.string().trim().min(4, "Title is too short.").max(120),
+    slug: z
+      .string()
+      .trim()
+      .toLowerCase()
+      .min(4)
+      .max(120)
+      .regex(/^[a-z0-9-]+$/, "Use lowercase letters, numbers and hyphens."),
+    categoryId: z.string().uuid("Choose a category."),
+    shortDescription: z.string().trim().min(20, "Add a short summary (20+ characters).").max(240),
+    description: z.string().trim().min(60, "Describe the product in at least 60 characters.").max(20000),
+    price: z.coerce.number().finite().min(0, "Price cannot be negative.").max(100000),
+    salePrice: optionalNumber,
+    currency: z.string().trim().toUpperCase().length(3).default("EUR"),
+    licenseType: z.enum(["PERSONAL", "STANDARD", "EXTENDED", "CUSTOM"]).default("STANDARD"),
+    licenseText: z.string().trim().max(8000).optional().or(z.literal("").transform(() => undefined)),
+    version: z
+      .string()
+      .trim()
+      .min(1)
+      .max(32)
+      .regex(/^[0-9A-Za-z.\-+]+$/, "Use a version like 1.0.0."),
+    demoUrl: optionalHttpUrl("Enter a valid demo URL starting with http:// or https://."),
+    videoUrl: optionalHttpUrl("Enter a valid YouTube or Vimeo URL."),
+    tags: z
+      .string()
+      .trim()
+      .max(300)
+      .optional()
+      .transform((value) =>
+        (value ?? "")
+          .split(",")
+          .map((tag) => tag.trim().toLowerCase())
+          .filter((tag) => tag.length > 0)
+          .slice(0, 12),
+      ),
+    compatibility: z.string().trim().max(2000).optional().or(z.literal("").transform(() => undefined)),
+    requirements: z.string().trim().max(2000).optional().or(z.literal("").transform(() => undefined)),
+  })
+  .superRefine((data, ctx) => {
+    if (data.price > 0 && data.price < 0.5) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["price"],
+        message: "Use 0 for a free resource, or at least 0.50 for paid items.",
+      });
+    }
+    if (data.salePrice !== undefined) {
+      if (data.price === 0) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["salePrice"],
+          message: "Free items cannot have a separate sale price.",
+        });
+      } else if (data.salePrice < 0 || (data.salePrice > 0 && data.salePrice < 0.5)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["salePrice"],
+          message: "Sale price must be 0 or at least 0.50.",
+        });
+      } else if (data.salePrice >= data.price) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["salePrice"],
+          message: "The sale price must be lower than the regular price.",
+        });
+      }
+    }
+    if (data.videoUrl && !parseVideoEmbedUrl(data.videoUrl)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["videoUrl"],
+        message: "Use a standard YouTube or Vimeo link.",
+      });
+    }
+  });
 
 export const reviewSchema = z.object({
   productId: z.string().uuid(),
@@ -264,6 +341,110 @@ export const legalPageSchema = z.object({
   body: z.string().trim().min(20).max(200000),
   version: z.string().trim().max(20).default("1.0"),
   isPublished: z.coerce.boolean().default(true),
+});
+
+export const questionSchema = z.object({
+  productId: z.string().uuid(),
+  question: z
+    .string()
+    .trim()
+    .min(8, "Ask a clear question (8+ characters).")
+    .max(1000, "Keep questions under 1000 characters."),
+});
+
+export const answerQuestionSchema = z.object({
+  questionId: z.string().uuid(),
+  answer: z
+    .string()
+    .trim()
+    .min(3, "Write an answer (3+ characters).")
+    .max(2000, "Keep answers under 2000 characters."),
+});
+
+export const applyCouponSchema = z.object({
+  code: z
+    .string()
+    .trim()
+    .toUpperCase()
+    .min(2, "Enter a promo code.")
+    .max(32, "Code is too long.")
+    .regex(/^[A-Z0-9_-]+$/, "Use letters, numbers, dashes or underscores."),
+});
+
+export const couponSchema = z
+  .object({
+    code: z
+      .string()
+      .trim()
+      .toUpperCase()
+      .min(3, "Code must be at least 3 characters.")
+      .max(32, "Code must be at most 32 characters.")
+      .regex(/^[A-Z0-9_-]+$/, "Use letters, numbers, dashes or underscores."),
+    discountType: z.enum(["PERCENT", "FIXED"]).default("PERCENT"),
+    discountValue: z.coerce.number().finite().positive("Enter a positive discount value."),
+    currency: z.string().trim().toUpperCase().length(3).default("EUR"),
+    minSubtotal: optionalNonNegativeNumber,
+    maxRedemptions: optionalPositiveInt,
+    expiresAt: z
+      .string()
+      .trim()
+      .optional()
+      .or(z.literal("").transform(() => undefined)),
+  })
+  .superRefine((data, ctx) => {
+    if (data.discountType === "PERCENT") {
+      if (!Number.isInteger(data.discountValue) || data.discountValue < 1 || data.discountValue > 100) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["discountValue"],
+          message: "Percentage discount must be a whole number from 1 to 100.",
+        });
+      }
+    } else if (data.discountValue < 0.5 || data.discountValue > 10000) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["discountValue"],
+        message: "Fixed discount must be between 0.50 and 10,000.",
+      });
+    }
+
+    if (data.expiresAt) {
+      const ts = Date.parse(data.expiresAt);
+      if (Number.isNaN(ts)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["expiresAt"],
+          message: "Enter a valid expiration date.",
+        });
+      }
+    }
+  });
+
+export const bundleSchema = z.object({
+  title: z.string().trim().min(4, "Bundle title is too short.").max(100),
+  slug: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .min(4, "Slug is too short.")
+    .max(100)
+    .regex(/^[a-z0-9-]+$/, "Use lowercase letters, numbers and hyphens."),
+  description: z.string().trim().max(2000).optional().or(z.literal("").transform(() => undefined)),
+  price: z.coerce.number().finite().min(0.5, "Minimum bundle price is 0.50.").max(100000),
+  currency: z.string().trim().toUpperCase().length(3).default("EUR"),
+  productIds: z.preprocess(
+    (value) => {
+      if (Array.isArray(value)) {
+        return value.filter((item): item is string => typeof item === "string" && item.length > 0);
+      }
+      if (typeof value === "string" && value.length > 0) return [value];
+      return [];
+    },
+    z
+      .array(z.string().uuid())
+      .min(2, "Pick at least 2 published products.")
+      .max(6, "A bundle can include up to 6 products."),
+  ),
 });
 
 export type RegisterInput = z.infer<typeof registerSchema>;

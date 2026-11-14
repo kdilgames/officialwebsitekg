@@ -22,6 +22,7 @@ const SECTIONS: Array<{ title: string; items: NavItem[] }> = [
       { href: "/admin/products", label: "Products", count: "productReviews" },
       { href: "/admin/categories", label: "Categories" },
       { href: "/admin/commissions", label: "Commissions" },
+      { href: "/admin/coupons", label: "Coupons" },
       { href: "/admin/reviews", label: "Reviews" },
     ],
   },

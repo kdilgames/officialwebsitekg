@@ -9,6 +9,8 @@ import { getSessionUser } from "@/lib/auth/session";
 import { env } from "@/lib/env";
 import {
   CheckoutError,
+  claimFreeOrderFromCart,
+  claimFreeSingleProduct,
   createCheckoutSession,
   createPendingOrder,
   previewCart,
@@ -16,14 +18,15 @@ import {
 import { RefundError, submitRefundRequest } from "@/lib/payments/refunds";
 import { rateLimit } from "@/lib/rate-limit";
 import { getStripe } from "@/lib/stripe";
+import { safeNext } from "@/lib/utils/next";
 import { refundRequestSchema } from "@/lib/validation";
 
 /**
- * Starts a Stripe Checkout Session for the current cart.
+ * Starts a checkout flow for the current cart.
  *
- * The order is only created once Stripe is known to be configured, so a missing
- * key results in an explicit error rather than a "successful" purchase. Amounts,
- * sellers and commissions all come from the database, never from the request.
+ * When the cart totals €0 (free resources and/or a 100% promo code), Stripe is
+ * bypassed cleanly and the order is fulfilled immediately. Otherwise, Stripe
+ * Checkout handles payment before unlocking files.
  */
 export async function startCheckoutAction(
   _previous: ActionState,
@@ -31,13 +34,6 @@ export async function startCheckoutAction(
 ): Promise<ActionState> {
   const user = await getSessionUser();
   if (!user) redirect("/login?next=%2Fcart");
-
-  const stripe = getStripe();
-  if (!stripe) {
-    return errorState(
-      "Payments are not configured on this deployment yet, so nothing has been charged and no order was created. An administrator must provide Stripe Connect credentials.",
-    );
-  }
 
   const limit = await rateLimit(`checkout:${user.id}`, 10, 60 * 10);
   if (!limit.ok) {
@@ -50,6 +46,42 @@ export async function startCheckoutAction(
   }
 
   const context = await getRequestContext();
+
+  if (preview.totalMinor === 0) {
+    let claimed: { orderId: string; couponCode: string | null };
+    try {
+      claimed = await claimFreeOrderFromCart({
+        userId: user.id,
+        ipAddress: context.ipAddress,
+        userAgent: context.userAgent,
+      });
+    } catch (error) {
+      if (error instanceof CheckoutError) return errorState(error.message);
+      throw error;
+    }
+
+    await recordAudit({
+      actorId: user.id,
+      actorRole: user.role,
+      action: "order.free_claimed",
+      entityType: "Order",
+      entityId: claimed.orderId,
+      after: { amountMinor: 0, currency: preview.currency, couponCode: claimed.couponCode },
+    });
+
+    revalidatePath("/cart");
+    revalidatePath("/account/orders");
+    revalidatePath("/");
+    revalidatePath("/", "layout");
+    redirect("/account/orders?claimed=1");
+  }
+
+  const stripe = getStripe();
+  if (!stripe) {
+    return errorState(
+      "Payments are not configured on this deployment yet, so nothing has been charged and no order was created. An administrator must provide Stripe Connect credentials.",
+    );
+  }
 
   let order: { orderId: string; totalMinor: number; currency: string };
   try {
@@ -103,6 +135,57 @@ export async function startCheckoutAction(
   revalidatePath("/", "layout");
   // Outside the try block: redirect() signals by throwing, which must not be caught.
   redirect(checkoutUrl);
+}
+
+/**
+ * Unlocks a €0 product directly without creating a Stripe session.
+ */
+export async function claimFreeProductAction(
+  _previous: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const user = await getSessionUser();
+  const productId = String(formData.get("productId") ?? "");
+  const next = safeNext(String(formData.get("next") ?? "/account/orders"), "/account/orders");
+  if (!user) {
+    redirect(`/login?next=${encodeURIComponent(next)}`);
+  }
+  if (!productId) return errorState("Missing product.");
+
+  const limit = await rateLimit(`claim:${user.id}`, 20, 60 * 10);
+  if (!limit.ok) {
+    return errorState("Too many download claims recently. Please wait a moment and try again.");
+  }
+
+  const context = await getRequestContext();
+  let claimed: { orderId: string; productSlug: string; productTitle: string };
+  try {
+    claimed = await claimFreeSingleProduct({
+      userId: user.id,
+      productId,
+      ipAddress: context.ipAddress,
+      userAgent: context.userAgent,
+    });
+  } catch (error) {
+    if (error instanceof CheckoutError) return errorState(error.message);
+    throw error;
+  }
+
+  await recordAudit({
+    actorId: user.id,
+    actorRole: user.role,
+    action: "order.free_claimed",
+    entityType: "Order",
+    entityId: claimed.orderId,
+    after: { productId, amountMinor: 0 },
+  });
+
+  revalidatePath(`/product/${claimed.productSlug}`);
+  revalidatePath("/cart");
+  revalidatePath("/account/orders");
+  revalidatePath("/");
+  revalidatePath("/", "layout");
+  redirect("/account/orders?claimed=1");
 }
 
 /**

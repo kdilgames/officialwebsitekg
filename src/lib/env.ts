@@ -73,12 +73,14 @@ export const env = {
     secretKey: optional(process.env.STRIPE_SECRET_KEY),
     publishableKey: optional(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY),
     webhookSecret: optional(process.env.STRIPE_WEBHOOK_SECRET),
+    automaticTax: optional(process.env.STRIPE_AUTOMATIC_TAX) === "true",
   },
 
   marketplace: {
     defaultCommissionBps: positiveInt(process.env.PLATFORM_COMMISSION_BPS, 1500),
     earningsHoldDays: positiveInt(process.env.EARNINGS_HOLD_DAYS, 7),
     platformName: "KDILGAMES",
+    discordUrl: optional(process.env.NEXT_PUBLIC_DISCORD_URL),
   },
 
   cronSecret: optional(process.env.CRON_SECRET),

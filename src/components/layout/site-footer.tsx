@@ -1,14 +1,16 @@
 import Link from "next/link";
+import { ExternalLink } from "lucide-react";
 
 import { BrandMark } from "@/components/layout/brand-mark";
 import { env } from "@/lib/env";
+import { getCommunityDiscordUrl } from "@/lib/queries/products";
 
 const COLUMNS = [
   {
     title: "Marketplace",
     links: [
       { href: "/browse", label: "All products" },
-      { href: "/browse?sort=newest", label: "Newest releases" },
+      { href: "/browse?price=free", label: "Free resources" },
       { href: "/browse?sort=best-selling", label: "Best selling" },
       { href: "/sellers", label: "Verified sellers" },
     ],
@@ -26,9 +28,9 @@ const COLUMNS = [
     title: "Support",
     links: [
       { href: "/support", label: "Help centre" },
+      { href: "/support#verification", label: "File safety & review" },
       { href: "/support/new", label: "Contact support" },
       { href: "/report", label: "Report a listing" },
-      { href: "/legal/copyright", label: "Copyright notices" },
     ],
   },
   {
@@ -42,7 +44,9 @@ const COLUMNS = [
   },
 ];
 
-export function SiteFooter() {
+export async function SiteFooter() {
+  const discordUrl = await getCommunityDiscordUrl();
+
   return (
     <footer className="border-t border-line bg-surface">
       <div className="mx-auto max-w-[1400px] px-4 py-12 sm:px-6">
@@ -56,6 +60,17 @@ export function SiteFooter() {
               Minecraft plugins, Discord bots, web templates and developer tools.
             </p>
             <p className="subtle mt-3 text-[12px]">Operated in Croatia (EU) · Secure payments via Stripe</p>
+            {discordUrl ? (
+              <a
+                href={discordUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-3 inline-flex items-center gap-1.5 text-[12.5px] font-medium text-accent hover:underline"
+              >
+                Join Discord community
+                <ExternalLink className="size-3.5" aria-hidden />
+              </a>
+            ) : null}
           </div>
 
           {COLUMNS.map((column) => (

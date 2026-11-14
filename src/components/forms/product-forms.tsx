@@ -1,11 +1,13 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 
+import { getCompatibilityTagsForCategory } from "@/components/marketplace/category-filters";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Field, Input, Select, Textarea } from "@/components/ui/form";
 import { idleState, type ActionState } from "@/lib/action-state";
+import { cn } from "@/lib/utils/cn";
 
 type FormAction = (state: ActionState, formData: FormData) => Promise<ActionState>;
 
@@ -34,6 +36,8 @@ export type ProductFormDefaults = {
   currency: string;
   licenseType: string;
   licenseText: string;
+  demoUrl: string;
+  videoUrl: string;
   version: string;
   tags: string;
   compatibility: string;
@@ -48,12 +52,36 @@ export function ProductForm({
   productId,
 }: {
   action: FormAction;
-  categories: Array<{ id: string; name: string }>;
+  categories: Array<{ id: string; name: string; slug: string }>;
   defaults: ProductFormDefaults;
   submitLabel?: string;
   productId?: string;
 }) {
   const [state, formAction, pending] = useActionState(action, idleState);
+  const [selectedCategoryId, setSelectedCategoryId] = useState(defaults.categoryId);
+  const [tagsValue, setTagsValue] = useState(defaults.tags);
+
+  const selectedCategory = categories.find((entry) => entry.id === selectedCategoryId);
+  const suggestedTags = getCompatibilityTagsForCategory(selectedCategory?.slug);
+  const activeTagSet = new Set(
+    tagsValue
+      .split(",")
+      .map((item) => item.trim().toLowerCase())
+      .filter(Boolean),
+  );
+
+  function toggleSuggestedTag(tag: string) {
+    const normalized = tag.trim().toLowerCase();
+    const list = tagsValue
+      .split(",")
+      .map((item) => item.trim().toLowerCase())
+      .filter(Boolean);
+    if (list.includes(normalized)) {
+      setTagsValue(list.filter((item) => item !== normalized).join(", "));
+    } else if (list.length < 12) {
+      setTagsValue([...list, normalized].join(", "));
+    }
+  }
 
   return (
     <form action={formAction} className="space-y-4">
@@ -76,7 +104,13 @@ export function ProductForm({
 
       <div className="grid gap-3.5 sm:grid-cols-3">
         <Field label="Category" htmlFor="categoryId" error={state.fieldErrors?.categoryId}>
-          <Select id="categoryId" name="categoryId" defaultValue={defaults.categoryId} required>
+          <Select
+            id="categoryId"
+            name="categoryId"
+            value={selectedCategoryId}
+            onChange={(event) => setSelectedCategoryId(event.target.value)}
+            required
+          >
             <option value="">Choose a category…</option>
             {categories.map((category) => (
               <option key={category.id} value={category.id}>
@@ -131,13 +165,18 @@ export function ProductForm({
       </Field>
 
       <div className="grid gap-3.5 sm:grid-cols-3">
-        <Field label="Price" htmlFor="price" error={state.fieldErrors?.price}>
+        <Field
+          label="Price"
+          htmlFor="price"
+          error={state.fieldErrors?.price}
+          hint="Enter 0 for a free listing, or 0.50+ for paid."
+        >
           <Input
             id="price"
             name="price"
             inputMode="decimal"
             defaultValue={defaults.price}
-            placeholder="19.99"
+            placeholder="0 or 19.99"
             required
           />
         </Field>
@@ -166,14 +205,77 @@ export function ProductForm({
         </Field>
       </div>
 
-      <Field
-        label="Tags"
-        htmlFor="tags"
-        error={state.fieldErrors?.tags}
-        hint="Comma separated, up to 12. Used by search."
-      >
-        <Input id="tags" name="tags" defaultValue={defaults.tags} maxLength={300} />
-      </Field>
+      <div className="space-y-2">
+        <Field
+          label="Tags"
+          htmlFor="tags"
+          error={state.fieldErrors?.tags}
+          hint="Comma separated, up to 12. Click suggestions below to add."
+        >
+          <Input
+            id="tags"
+            name="tags"
+            value={tagsValue}
+            onChange={(event) => setTagsValue(event.target.value)}
+            maxLength={300}
+          />
+        </Field>
+
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="subtle text-[11.5px]">
+            Suggested{selectedCategory ? ` for ${selectedCategory.name}` : ""}:
+          </span>
+          {suggestedTags.map((tag) => {
+            const active = activeTagSet.has(tag);
+            return (
+              <button
+                key={tag}
+                type="button"
+                onClick={() => toggleSuggestedTag(tag)}
+                className={cn(
+                  "rounded-full border px-2.5 py-0.5 text-[11.5px] transition-colors",
+                  active
+                    ? "border-accent bg-accent-quiet font-medium text-accent"
+                    : "border-line bg-elevated text-ink-muted hover:border-line-strong hover:text-ink",
+                )}
+              >
+                {active ? `✓ ${tag}` : `+ ${tag}`}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="grid gap-3.5 sm:grid-cols-2">
+        <Field
+          label="Live demo URL"
+          htmlFor="demoUrl"
+          error={state.fieldErrors?.demoUrl}
+          hint="Optional interactive sandbox, test site, or preview showcase."
+        >
+          <Input
+            id="demoUrl"
+            name="demoUrl"
+            type="url"
+            defaultValue={defaults.demoUrl}
+            placeholder="https://demo.example.com"
+          />
+        </Field>
+        <Field
+          label="Video preview URL"
+          htmlFor="videoUrl"
+          error={state.fieldErrors?.videoUrl}
+          hint="Optional YouTube or Vimeo link shown in the listing gallery."
+        >
+          <Input
+            id="videoUrl"
+            name="videoUrl"
+            type="url"
+            defaultValue={defaults.videoUrl}
+            placeholder="https://youtube.com/watch?v=..."
+          />
+        </Field>
+      </div>
 
       <div className="grid gap-3.5 sm:grid-cols-2">
         <Field

@@ -1,6 +1,8 @@
 import Link from "next/link";
 
 import {
+  Bell,
+  Heart,
   LayoutDashboard,
   LogIn,
   Search,
@@ -8,9 +10,11 @@ import {
   ShoppingCart,
   Store,
   UserRound,
+  Users,
 } from "lucide-react";
 
 import { BrandMark } from "@/components/layout/brand-mark";
+import { NotificationsBell } from "@/components/layout/notifications-bell";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
 import { getSessionUser, isAdmin, isSeller } from "@/lib/auth/session";
 import { signOutAction } from "@/lib/auth/actions";
@@ -27,9 +31,20 @@ const NAV_LINKS = [
 export async function SiteHeader() {
   const user = await getSessionUser();
 
-  const cartCount = user
-    ? await prisma.cartItem.count({ where: { cart: { userId: user.id } } })
-    : 0;
+  const [itemCount, bundleCount, recentNotifications, unreadNotifications] = user
+    ? await Promise.all([
+        prisma.cartItem.count({ where: { cart: { userId: user.id } } }),
+        prisma.cartBundle.count({ where: { cart: { userId: user.id } } }),
+        prisma.notification.findMany({
+          where: { userId: user.id },
+          orderBy: { createdAt: "desc" },
+          take: 8,
+          select: { id: true, title: true, body: true, href: true, readAt: true, createdAt: true },
+        }),
+        prisma.notification.count({ where: { userId: user.id, readAt: null } }),
+      ])
+    : [0, 0, [], 0];
+  const cartCount = itemCount + bundleCount;
 
   return (
     <header className="sticky top-0 z-40 border-b border-line bg-surface/95 backdrop-blur-md">
@@ -68,8 +83,25 @@ export async function SiteHeader() {
           />
         </form>
 
-        <div className="ml-auto flex items-center gap-1.5 sm:ml-0 sm:gap-2">
+        <div className="ml-auto flex items-center gap-1 sm:ml-0 sm:gap-1.5">
           <ThemeToggle />
+
+          {user ? (
+            <>
+              <Link
+                href="/account/wishlist"
+                className="btn btn-ghost btn-sm px-2"
+                aria-label="Wishlist"
+                title="Wishlist"
+              >
+                <Heart className="size-4" aria-hidden />
+              </Link>
+              <NotificationsBell
+                notifications={recentNotifications}
+                unreadCount={unreadNotifications}
+              />
+            </>
+          ) : null}
 
           <Link
             href="/cart"
@@ -119,8 +151,19 @@ export async function SiteHeader() {
                 <MenuLink href="/account/orders" icon={<ShoppingCart className="size-3.5" />}>
                   Orders &amp; downloads
                 </MenuLink>
-                <MenuLink href="/account/wishlist" icon={<Store className="size-3.5" />}>
+                <MenuLink href="/account/wishlist" icon={<Heart className="size-3.5" />}>
                   Wishlist
+                </MenuLink>
+                <MenuLink href="/account/following" icon={<Users className="size-3.5" />}>
+                  Following stores
+                </MenuLink>
+                <MenuLink href="/account/notifications" icon={<Bell className="size-3.5" />}>
+                  Notifications
+                  {unreadNotifications > 0 ? (
+                    <span className="ml-auto rounded-full bg-accent-soft px-1.5 py-0.5 text-[10px] font-semibold text-accent">
+                      {unreadNotifications}
+                    </span>
+                  ) : null}
                 </MenuLink>
                 {isSeller(user) ? (
                   <MenuLink href="/dashboard" icon={<LayoutDashboard className="size-3.5" />}>

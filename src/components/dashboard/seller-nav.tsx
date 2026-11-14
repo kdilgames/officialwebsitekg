@@ -8,6 +8,8 @@ import { cn } from "@/lib/utils/cn";
 const LINKS = [
   { href: "/dashboard", label: "Overview", exact: true },
   { href: "/dashboard/products", label: "Products" },
+  { href: "/dashboard/bundles", label: "Bundles" },
+  { href: "/dashboard/coupons", label: "Coupons" },
   { href: "/dashboard/orders", label: "Orders" },
   { href: "/dashboard/earnings", label: "Earnings" },
   { href: "/dashboard/reviews", label: "Reviews" },

@@ -74,6 +74,8 @@ export default async function NewProductPage() {
                   currency: "EUR",
                   licenseType: "STANDARD",
                   licenseText: "",
+                  demoUrl: "",
+                  videoUrl: "",
                   version: "1.0.0",
                   tags: "",
                   compatibility: "",

@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { BadgeCheck, CalendarDays, Globe, Mail } from "lucide-react";
 
+import { BundleCard } from "@/components/marketplace/bundle-card";
 import { ProductGrid } from "@/components/marketplace/product-card";
 import { FollowButton } from "@/components/marketplace/product-actions";
 import { Alert, EmptyState } from "@/components/ui/alert";
@@ -12,7 +13,7 @@ import { Pagination } from "@/components/ui/table";
 import { toggleFollowAction } from "@/lib/marketplace/actions";
 import { getSessionUser } from "@/lib/auth/session";
 import { prisma } from "@/lib/db";
-import { browseProducts } from "@/lib/queries/products";
+import { browseProducts, listPublishedBundles } from "@/lib/queries/products";
 import { formatMoney } from "@/lib/money";
 
 export const dynamic = "force-dynamic";
@@ -59,8 +60,9 @@ export default async function SellerPage({ params, searchParams }: PageProps) {
 
   const page = Number.parseInt(query.page ?? "1", 10) || 1;
 
-  const [products, user, ratingAggregate, salesAggregate] = await Promise.all([
+  const [products, bundles, user, ratingAggregate, salesAggregate] = await Promise.all([
     browseProducts({ seller: slug, page, sort: "newest" }),
+    listPublishedBundles(6, seller.id),
     getSessionUser(),
     prisma.review.aggregate({
       where: { status: "PUBLISHED", product: { sellerId: seller.id } },
@@ -177,6 +179,17 @@ export default async function SellerPage({ params, searchParams }: PageProps) {
             <p className="muted whitespace-pre-wrap text-[13.5px] leading-relaxed">{seller.about}</p>
           </CardBody>
         </Card>
+      ) : null}
+
+      {bundles.length > 0 ? (
+        <section className="mt-8">
+          <h2 className="mb-4 text-[18px] font-semibold tracking-tight">Creator bundles</h2>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {bundles.map((bundle) => (
+              <BundleCard key={bundle.id} bundle={bundle} />
+            ))}
+          </div>
+        </section>
       ) : null}
 
       <section className="mt-8">

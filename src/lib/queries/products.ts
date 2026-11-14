@@ -1,6 +1,8 @@
 import { Prisma, type LicenseType } from "@prisma/client";
 
 import { prisma } from "@/lib/db";
+import { env } from "@/lib/env";
+import { safeHttpUrl } from "@/lib/utils/media";
 
 export const PAGE_SIZE = 24;
 
@@ -26,6 +28,8 @@ export type ProductSort =
   | "price-desc"
   | "rating";
 
+export type PriceTier = "free" | "paid" | "on-sale";
+
 export const SORT_OPTIONS: Array<{ value: ProductSort; label: string }> = [
   { value: "relevance", label: "Relevance" },
   { value: "newest", label: "Newest" },
@@ -35,6 +39,13 @@ export const SORT_OPTIONS: Array<{ value: ProductSort; label: string }> = [
   { value: "price-desc", label: "Price: high to low" },
 ];
 
+export const PRICE_TIERS: Array<{ value: "" | PriceTier; label: string }> = [
+  { value: "", label: "All prices" },
+  { value: "free", label: "Free" },
+  { value: "paid", label: "Paid" },
+  { value: "on-sale", label: "On sale" },
+];
+
 export type BrowseParams = {
   q?: string;
   category?: string;
@@ -42,6 +53,7 @@ export type BrowseParams = {
   seller?: string;
   tag?: string;
   license?: string;
+  priceTier?: PriceTier;
   minPrice?: number;
   maxPrice?: number;
   sort?: ProductSort;
@@ -51,39 +63,51 @@ export type BrowseParams = {
 };
 
 function buildWhere(params: BrowseParams): Prisma.ProductWhereInput {
-  const where: Prisma.ProductWhereInput = { status: "PUBLISHED" };
+  const clauses: Prisma.ProductWhereInput[] = [{ status: "PUBLISHED" }];
 
   if (params.categoryIds && params.categoryIds.length > 0) {
-    where.categoryId = { in: params.categoryIds };
+    clauses.push({ categoryId: { in: params.categoryIds } });
   }
   if (params.seller) {
-    where.seller = { slug: params.seller };
+    clauses.push({ seller: { slug: params.seller } });
   }
   if (params.tag) {
-    where.tags = { has: params.tag.toLowerCase() };
+    clauses.push({ tags: { has: params.tag.toLowerCase() } });
   }
   if (params.license && LICENSE_TYPES.includes(params.license)) {
-    where.licenseType = params.license as LicenseType;
+    clauses.push({ licenseType: params.license as LicenseType });
   }
   if (params.featuredOnly) {
-    where.isFeatured = true;
+    clauses.push({ isFeatured: true });
+  }
+
+  if (params.priceTier === "free") {
+    clauses.push({
+      OR: [{ salePriceMinor: 0 }, { salePriceMinor: null, priceMinor: 0 }],
+    });
+  } else if (params.priceTier === "paid") {
+    clauses.push({
+      OR: [{ salePriceMinor: { gt: 0 } }, { salePriceMinor: null, priceMinor: { gt: 0 } }],
+    });
+  } else if (params.priceTier === "on-sale") {
+    clauses.push({ salePriceMinor: { not: null } });
   }
 
   if (params.minPrice !== undefined || params.maxPrice !== undefined) {
     const priceFilter: Prisma.IntFilter = {};
     if (params.minPrice !== undefined) priceFilter.gte = Math.round(params.minPrice * 100);
     if (params.maxPrice !== undefined) priceFilter.lte = Math.round(params.maxPrice * 100);
-    // Sale prices must also be considered, so match either column.
-    where.OR = [
-      ...(where.OR ?? []),
-      { priceMinor: priceFilter },
-      { salePriceMinor: priceFilter },
-    ];
+    clauses.push({
+      OR: [
+        { salePriceMinor: priceFilter },
+        { salePriceMinor: null, priceMinor: priceFilter },
+      ],
+    });
   }
 
   const term = params.q?.trim();
   if (term) {
-    const search: Prisma.ProductWhereInput = {
+    clauses.push({
       OR: [
         { title: { contains: term, mode: "insensitive" } },
         { shortDescription: { contains: term, mode: "insensitive" } },
@@ -91,12 +115,10 @@ function buildWhere(params: BrowseParams): Prisma.ProductWhereInput {
         { tags: { has: term.toLowerCase() } },
         { seller: { storeName: { contains: term, mode: "insensitive" } } },
       ],
-    };
-    // Combine the search with any existing filters without dropping them.
-    return { AND: [where, search] };
+    });
   }
 
-  return where;
+  return clauses.length === 1 ? (clauses[0] as Prisma.ProductWhereInput) : { AND: clauses };
 }
 
 function buildOrderBy(sort: ProductSort | undefined): Prisma.ProductOrderByWithRelationInput[] {
@@ -200,4 +222,118 @@ export async function topSellers(limit = 8) {
       _count: { select: { products: { where: { status: "PUBLISHED" } }, followers: true } },
     },
   });
+}
+
+export async function listPublishedBundles(limit = 6, sellerId?: string) {
+  return prisma.productBundle.findMany({
+    where: {
+      isActive: true,
+      ...(sellerId ? { sellerId } : {}),
+      seller: { status: "APPROVED", user: { status: "ACTIVE" } },
+      items: {
+        some: {},
+        every: { product: { status: "PUBLISHED" } },
+      },
+    },
+    orderBy: { createdAt: "desc" },
+    take: limit,
+    select: {
+      id: true,
+      title: true,
+      slug: true,
+      description: true,
+      bundlePriceMinor: true,
+      currency: true,
+      seller: { select: { slug: true, storeName: true } },
+      items: {
+        orderBy: { sortOrder: "asc" },
+        select: {
+          product: {
+            select: {
+              id: true,
+              title: true,
+              slug: true,
+              thumbnailUrl: true,
+              priceMinor: true,
+              salePriceMinor: true,
+              currency: true,
+              category: { select: { name: true, slug: true } },
+            },
+          },
+        },
+      },
+    },
+  });
+}
+
+export async function getPublishedBundleBySlug(slug: string) {
+  return prisma.productBundle.findFirst({
+    where: {
+      slug,
+      isActive: true,
+      seller: { status: "APPROVED", user: { status: "ACTIVE" } },
+      items: {
+        some: {},
+        every: { product: { status: "PUBLISHED" } },
+      },
+    },
+    select: {
+      id: true,
+      title: true,
+      slug: true,
+      description: true,
+      bundlePriceMinor: true,
+      currency: true,
+      sellerId: true,
+      seller: {
+        select: {
+          id: true,
+          slug: true,
+          storeName: true,
+          tagline: true,
+          logoUrl: true,
+          userId: true,
+        },
+      },
+      items: {
+        orderBy: { sortOrder: "asc" },
+        select: {
+          product: {
+            select: {
+              id: true,
+              title: true,
+              slug: true,
+              shortDescription: true,
+              thumbnailUrl: true,
+              priceMinor: true,
+              salePriceMinor: true,
+              currency: true,
+              version: true,
+              category: { select: { name: true, slug: true } },
+            },
+          },
+        },
+      },
+    },
+  });
+}
+
+/**
+ * Resolves the optional community Discord invite URL configured by staff in
+ * SiteSetting (`community_discord_url`) or via NEXT_PUBLIC_DISCORD_URL.
+ */
+export async function getCommunityDiscordUrl(): Promise<string | null> {
+  try {
+    const setting = await prisma.siteSetting.findUnique({
+      where: { key: "community_discord_url" },
+      select: { value: true },
+    });
+    if (typeof setting?.value === "string") {
+      const url = safeHttpUrl(setting.value);
+      if (url) return url;
+    }
+  } catch {
+    // When DATABASE_URL isn't set during static analysis, fall through to env.
+  }
+  return safeHttpUrl(env.marketplace.discordUrl);
 }

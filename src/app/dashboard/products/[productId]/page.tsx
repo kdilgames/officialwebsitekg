@@ -8,15 +8,20 @@ import {
   type AssetFile,
   type AssetImage,
 } from "@/components/dashboard/asset-manager";
+import { AnswerQuestionForm } from "@/components/marketplace/product-actions";
 import { ProductForm, VersionForm } from "@/components/forms/product-forms";
 import { Alert } from "@/components/ui/alert";
-import { StatusBadge } from "@/components/ui/badge";
+import { Badge, StatusBadge } from "@/components/ui/badge";
 import { Button, buttonClass } from "@/components/ui/button";
 import { Card, CardBody, CardHeader, StatCard } from "@/components/ui/card";
 import { requireSeller } from "@/lib/auth/session";
 import { bpsToPercent, formatBps, resolveCommissionRate } from "@/lib/commission";
 import { prisma } from "@/lib/db";
 import { env } from "@/lib/env";
+import {
+  answerProductQuestionAction,
+  hideProductQuestionAction,
+} from "@/lib/marketplace/actions";
 import { formatMoney, minorToDecimalString } from "@/lib/money";
 import {
   archiveProductAction,
@@ -151,7 +156,7 @@ export default async function ManageProductPage({
         />
         <StatCard
           label="You earn"
-          value={formatMoney(netPerSale, product.currency)}
+          value={unitPriceMinor === 0 ? "Free" : formatMoney(netPerSale, product.currency)}
           tone="positive"
           hint={`Per sale · commission ${formatBps(rate.rateBps)} (${keepPercent}% to you)`}
         />
@@ -182,6 +187,8 @@ export default async function ManageProductPage({
               currency: product.currency,
               licenseType: product.licenseType,
               licenseText: product.licenseText ?? "",
+              demoUrl: product.demoUrl ?? "",
+              videoUrl: product.videoUrl ?? "",
               version: product.version,
               tags: product.tags.join(", "),
               compatibility: jsonToText(product.compatibility),
@@ -258,6 +265,67 @@ export default async function ManageProductPage({
 
           <div className="divider" />
           <VersionForm action={createVersionAction} productId={product.id} />
+        </CardBody>
+      </Card>
+
+      <Card>
+        <CardHeader
+          title={`Questions & answers${product.questions.length > 0 ? ` (${product.questions.length})` : ""}`}
+          description="Prospective buyers ask pre-sale questions here. Official replies notify the asker and appear publicly."
+        />
+        <CardBody>
+          {product.questions.length === 0 ? (
+            <p className="muted text-[12.5px]">No buyer questions on this listing yet.</p>
+          ) : (
+            <ul className="space-y-3">
+              {product.questions.map((item) => (
+                <li key={item.id} className="surface-elevated space-y-2 p-3.5">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-[12.5px] font-semibold text-ink">
+                        {item.user.displayName}
+                      </span>
+                      <span className="subtle text-[11.5px]">@{item.user.username}</span>
+                      <span className="subtle text-[11.5px]">
+                        {item.createdAt.toISOString().slice(0, 10)}
+                      </span>
+                      {item.isHidden ? (
+                        <Badge tone="caution">Hidden</Badge>
+                      ) : item.answer ? (
+                        <Badge tone="positive">Answered</Badge>
+                      ) : (
+                        <Badge tone="caution">Unanswered</Badge>
+                      )}
+                    </div>
+
+                    <form action={hideProductQuestionAction}>
+                      <input type="hidden" name="questionId" value={item.id} />
+                      <Button type="submit" variant="ghost" size="sm">
+                        {item.isHidden ? "Unhide" : "Hide"}
+                      </Button>
+                    </form>
+                  </div>
+
+                  <p className="text-[13px] leading-relaxed text-ink">{item.question}</p>
+
+                  {item.answer ? (
+                    <div className="rounded-[8px] border border-line bg-surface p-3 text-[12.5px]">
+                      <p className="subtle text-[11px] font-semibold uppercase tracking-[0.04em]">
+                        Your reply
+                      </p>
+                      <p className="muted mt-1 whitespace-pre-wrap">{item.answer}</p>
+                    </div>
+                  ) : null}
+
+                  <AnswerQuestionForm
+                    action={answerProductQuestionAction}
+                    questionId={item.id}
+                    defaultAnswer={item.answer}
+                  />
+                </li>
+              ))}
+            </ul>
+          )}
         </CardBody>
       </Card>
 

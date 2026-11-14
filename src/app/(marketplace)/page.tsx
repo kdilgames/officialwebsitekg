@@ -12,10 +12,16 @@ import {
   Store,
 } from "lucide-react";
 
+import { BundleCard } from "@/components/marketplace/bundle-card";
 import { getCategoryVisual } from "@/components/marketplace/category-visuals";
 import { ProductGrid, type ProductCardData } from "@/components/marketplace/product-card";
 import { formatMoney } from "@/lib/money";
-import { browseProducts, listCategories, topSellers } from "@/lib/queries/products";
+import {
+  browseProducts,
+  listCategories,
+  listPublishedBundles,
+  topSellers,
+} from "@/lib/queries/products";
 import { prisma } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
@@ -43,14 +49,16 @@ export default async function HomePage({
     redirect(`/auth/callback?${forwarded.toString()}`);
   }
 
-  const [featured, newest, categories, bestSelling, sellers, totalPublished] = await Promise.all([
-    browseProducts({ featuredOnly: true, sort: "newest", perPage: 8 }),
-    browseProducts({ sort: "newest", perPage: 8 }),
-    listCategories(),
-    browseProducts({ sort: "best-selling", perPage: 8 }),
-    topSellers(4),
-    prisma.product.count({ where: { status: "PUBLISHED" } }),
-  ]);
+  const [featured, newest, categories, bestSelling, sellers, bundles, totalPublished] =
+    await Promise.all([
+      browseProducts({ featuredOnly: true, sort: "newest", perPage: 8 }),
+      browseProducts({ sort: "newest", perPage: 8 }),
+      listCategories(),
+      browseProducts({ sort: "best-selling", perPage: 8 }),
+      topSellers(4),
+      listPublishedBundles(4),
+      prisma.product.count({ where: { status: "PUBLISHED" } }),
+    ]);
 
   const hasSales = bestSelling.items.some((product: BrowseProduct) => product.salesCount > 0);
   const isCatalogueEmpty = totalPublished === 0;
@@ -127,6 +135,12 @@ export default async function HomePage({
                   </Link>
                 );
               })}
+              <Link
+                href="/browse?price=free"
+                className="badge badge-positive transition-colors hover:opacity-90"
+              >
+                Free resources
+              </Link>
             </div>
           ) : null}
 
@@ -187,6 +201,20 @@ export default async function HomePage({
           href="/browse?sort=best-selling"
         >
           <ProductGrid products={bestSelling.items as ProductCardData[]} />
+        </Section>
+      ) : null}
+
+      {bundles.length > 0 ? (
+        <Section
+          title="Creator bundles"
+          subtitle="Multi-item packs curated by creators at a lower combined price"
+          href="/browse"
+        >
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {bundles.map((bundle) => (
+              <BundleCard key={bundle.id} bundle={bundle} />
+            ))}
+          </div>
         </Section>
       ) : null}
 
@@ -511,9 +539,13 @@ function SpotlightProductCard({
             <BadgeCheck className="size-3.5 text-accent" aria-hidden />
           </p>
           <div className="flex items-baseline gap-1.5">
-            <span className="text-[16px] font-semibold tabular-nums text-ink">
-              {formatMoney(price, product.currency)}
-            </span>
+            {price === 0 ? (
+              <span className="text-[16px] font-semibold text-positive">Free</span>
+            ) : (
+              <span className="text-[16px] font-semibold tabular-nums text-ink">
+                {formatMoney(price, product.currency)}
+              </span>
+            )}
             {onSale ? (
               <span className="subtle text-[12px] line-through tabular-nums">
                 {formatMoney(product.priceMinor, product.currency)}
@@ -551,8 +583,8 @@ function CompactProductCard({ product }: { product: BrowseProduct }) {
           {product.title}
         </p>
         <p className="subtle mt-0.5 truncate text-[12px]">{product.seller.storeName}</p>
-        <p className="mt-1 text-[13px] font-semibold tabular-nums text-ink">
-          {formatMoney(price, product.currency)}
+        <p className={`mt-1 text-[13px] font-semibold ${price === 0 ? "text-positive" : "tabular-nums text-ink"}`}>
+          {price === 0 ? "Free" : formatMoney(price, product.currency)}
         </p>
       </div>
     </Link>

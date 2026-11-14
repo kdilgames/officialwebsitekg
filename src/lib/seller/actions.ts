@@ -45,7 +45,7 @@ import {
   type StorageBucket,
   type UploadTicket,
 } from "@/lib/storage";
-import { productSchema } from "@/lib/validation";
+import { bundleSchema, couponSchema, productSchema } from "@/lib/validation";
 import { bpsToPercent, formatBps, resolveCommissionRate } from "@/lib/commission";
 
 type SellerGate =
@@ -211,6 +211,8 @@ export async function createProductAction(
       version: data.version,
       licenseType: data.licenseType,
       licenseText: emptyToNull(data.licenseText),
+      demoUrl: emptyToNull(data.demoUrl),
+      videoUrl: emptyToNull(data.videoUrl),
       compatibility: data.compatibility ? data.compatibility : Prisma.DbNull,
       requirements: data.requirements ? data.requirements : Prisma.DbNull,
     },
@@ -292,6 +294,8 @@ export async function updateProductAction(
       tags: data.tags,
       licenseType: data.licenseType,
       licenseText: emptyToNull(data.licenseText),
+      demoUrl: emptyToNull(data.demoUrl),
+      videoUrl: emptyToNull(data.videoUrl),
       compatibility: data.compatibility ? data.compatibility : Prisma.DbNull,
       requirements: data.requirements ? data.requirements : Prisma.DbNull,
       status,
@@ -478,7 +482,7 @@ export async function createVersionAction(
 
   const product = await prisma.product.findFirst({
     where: { id: productId, sellerId: seller.id },
-    select: { id: true, slug: true, status: true },
+    select: { id: true, slug: true, title: true, status: true },
   });
   if (!product) return errorState("Product not found in your store.");
 
@@ -510,6 +514,29 @@ export async function createVersionAction(
     entityId: product.id,
     after: { version },
   });
+
+  const buyers = await prisma.orderItem.findMany({
+    where: {
+      productId: product.id,
+      status: "PAID",
+      order: { status: { in: ["PAID", "PARTIALLY_REFUNDED"] } },
+    },
+    select: { order: { select: { buyerId: true } } },
+  });
+  const buyerIds = [...new Set(buyers.map((row) => row.order.buyerId))].filter(
+    (id) => id !== user.id,
+  );
+  if (buyerIds.length > 0) {
+    await prisma.notification.createMany({
+      data: buyerIds.map((buyerId) => ({
+        userId: buyerId,
+        type: "ORDER",
+        title: `Update: ${product.title} v${version}`,
+        body: changelog.slice(0, 140),
+        href: "/account/orders",
+      })),
+    });
+  }
 
   revalidateProduct(product.id, product.slug);
   return successState(`Version ${version} published. Existing buyers can download it.`);
@@ -1134,4 +1161,276 @@ export async function previewCommissionAction(input: {
     bps: rate.rateBps,
     label: `Platform commission ${formatBps(rate.rateBps)} — you keep ${keep}% of each sale.`,
   };
+}
+
+// ---------------------------------------------------------------- coupons
+
+export async function createSellerCouponAction(
+  _previous: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const access = await gate();
+  if (!access.ok) return access.error;
+  const { user, seller } = access;
+
+  const parsed = couponSchema.safeParse(formToObject(formData));
+  if (!parsed.success) {
+    return errorState("Please correct the highlighted fields.", toFieldErrors(parsed.error.issues));
+  }
+  const data = parsed.data;
+
+  const existing = await prisma.coupon.findUnique({
+    where: { code: data.code },
+    select: { id: true },
+  });
+  if (existing) {
+    return errorState("That promo code is already in use.", { code: "Already exists." });
+  }
+
+  const factor = minorUnitFactor(data.currency);
+  const created = await prisma.coupon.create({
+    data: {
+      code: data.code,
+      sellerId: seller.id,
+      discountType: data.discountType,
+      percentOff: data.discountType === "PERCENT" ? Math.round(data.discountValue) : null,
+      amountOffMinor:
+        data.discountType === "FIXED" ? Math.round(data.discountValue * factor) : null,
+      currency: data.currency,
+      minSubtotalMinor:
+        data.minSubtotal !== undefined ? Math.round(data.minSubtotal * factor) : null,
+      maxRedemptions: data.maxRedemptions ?? null,
+      expiresAt: data.expiresAt ? new Date(data.expiresAt) : null,
+      isActive: true,
+    },
+    select: { id: true },
+  });
+
+  await recordAudit({
+    actorId: user.id,
+    actorRole: user.role,
+    action: "seller.coupon.created",
+    entityType: "Coupon",
+    entityId: created.id,
+    after: { code: data.code, discountType: data.discountType, sellerId: seller.id },
+  });
+
+  revalidatePath("/dashboard/coupons");
+  revalidatePath("/cart");
+  return successState(`Promo code ${data.code} created for your store.`);
+}
+
+export async function toggleSellerCouponAction(formData: FormData): Promise<void> {
+  const access = await gate();
+  if (!access.ok) return;
+  const { user, seller } = access;
+
+  const couponId = String(formData.get("couponId") ?? "");
+  const coupon = await prisma.coupon.findFirst({
+    where: { id: couponId, sellerId: seller.id },
+    select: { id: true, code: true, isActive: true },
+  });
+  if (!coupon) return;
+
+  await prisma.coupon.update({
+    where: { id: coupon.id },
+    data: { isActive: !coupon.isActive },
+  });
+
+  await recordAudit({
+    actorId: user.id,
+    actorRole: user.role,
+    action: coupon.isActive ? "seller.coupon.paused" : "seller.coupon.activated",
+    entityType: "Coupon",
+    entityId: coupon.id,
+    after: { code: coupon.code, isActive: !coupon.isActive },
+  });
+
+  revalidatePath("/dashboard/coupons");
+  revalidatePath("/cart");
+}
+
+export async function deleteSellerCouponAction(formData: FormData): Promise<void> {
+  const access = await gate();
+  if (!access.ok) return;
+  const { user, seller } = access;
+
+  const couponId = String(formData.get("couponId") ?? "");
+  const coupon = await prisma.coupon.findFirst({
+    where: { id: couponId, sellerId: seller.id },
+    select: { id: true, code: true },
+  });
+  if (!coupon) return;
+
+  await prisma.coupon.delete({ where: { id: coupon.id } });
+
+  await recordAudit({
+    actorId: user.id,
+    actorRole: user.role,
+    action: "seller.coupon.deleted",
+    entityType: "Coupon",
+    entityId: coupon.id,
+    before: { code: coupon.code },
+  });
+
+  revalidatePath("/dashboard/coupons");
+  revalidatePath("/cart");
+}
+
+// ---------------------------------------------------------------- bundles
+
+export async function createSellerBundleAction(
+  _previous: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const access = await gate();
+  if (!access.ok) return access.error;
+  const { user, seller } = access;
+
+  const parsed = bundleSchema.safeParse(formToObject(formData));
+  if (!parsed.success) {
+    return errorState("Please correct the highlighted fields.", toFieldErrors(parsed.error.issues));
+  }
+  const data = parsed.data;
+  const uniqueProductIds = [...new Set(data.productIds)];
+  if (uniqueProductIds.length < 2) {
+    return errorState("Select at least 2 distinct published products.", {
+      productIds: "Pick at least 2 distinct products.",
+    });
+  }
+
+  const slugClash = await prisma.productBundle.findUnique({
+    where: { slug: data.slug },
+    select: { id: true },
+  });
+  if (slugClash) {
+    return errorState("That bundle URL is already taken.", { slug: "Already in use." });
+  }
+
+  const products = await prisma.product.findMany({
+    where: { id: { in: uniqueProductIds }, sellerId: seller.id, status: "PUBLISHED" },
+    select: { id: true, priceMinor: true, salePriceMinor: true, currency: true },
+  });
+  if (products.length !== uniqueProductIds.length) {
+    return errorState("Every bundled item must be a published product in your store.", {
+      productIds: "Only published products from your store can be bundled.",
+    });
+  }
+
+  const mismatchedCurrency = products.find((p) => p.currency !== data.currency);
+  if (mismatchedCurrency) {
+    return errorState(`All bundled products must use ${data.currency}.`, {
+      currency: `Included items use ${mismatchedCurrency.currency}.`,
+    });
+  }
+
+  const factor = minorUnitFactor(data.currency);
+  const bundlePriceMinor = Math.round(data.price * factor);
+  const combinedMinor = products.reduce(
+    (sum, p) => sum + (p.salePriceMinor ?? p.priceMinor),
+    0,
+  );
+  if (bundlePriceMinor >= combinedMinor) {
+    return errorState(
+      `Bundle price must be lower than the combined individual value (${formatMoney(combinedMinor, data.currency)}).`,
+      { price: "Must discount the combined items." },
+    );
+  }
+
+  const created = await prisma.productBundle.create({
+    data: {
+      sellerId: seller.id,
+      title: data.title,
+      slug: data.slug,
+      description: emptyToNull(data.description),
+      bundlePriceMinor,
+      currency: data.currency,
+      isActive: true,
+      items: {
+        create: uniqueProductIds.map((productId, index) => ({
+          productId,
+          sortOrder: index,
+        })),
+      },
+    },
+    select: { id: true, slug: true },
+  });
+
+  await recordAudit({
+    actorId: user.id,
+    actorRole: user.role,
+    action: "seller.bundle.created",
+    entityType: "ProductBundle",
+    entityId: created.id,
+    after: { slug: data.slug, bundlePriceMinor, productCount: uniqueProductIds.length },
+  });
+
+  revalidatePath("/dashboard/bundles");
+  revalidatePath(`/seller/${seller.slug}`);
+  revalidatePath("/");
+  revalidatePath("/browse");
+  return successState(`Bundle “${data.title}” published.`);
+}
+
+export async function toggleSellerBundleAction(formData: FormData): Promise<void> {
+  const access = await gate();
+  if (!access.ok) return;
+  const { user, seller } = access;
+
+  const bundleId = String(formData.get("bundleId") ?? "");
+  const bundle = await prisma.productBundle.findFirst({
+    where: { id: bundleId, sellerId: seller.id },
+    select: { id: true, slug: true, isActive: true },
+  });
+  if (!bundle) return;
+
+  await prisma.productBundle.update({
+    where: { id: bundle.id },
+    data: { isActive: !bundle.isActive },
+  });
+
+  await recordAudit({
+    actorId: user.id,
+    actorRole: user.role,
+    action: bundle.isActive ? "seller.bundle.paused" : "seller.bundle.activated",
+    entityType: "ProductBundle",
+    entityId: bundle.id,
+    after: { isActive: !bundle.isActive },
+  });
+
+  revalidatePath("/dashboard/bundles");
+  revalidatePath(`/bundle/${bundle.slug}`);
+  revalidatePath(`/seller/${seller.slug}`);
+  revalidatePath("/");
+  revalidatePath("/cart");
+}
+
+export async function deleteSellerBundleAction(formData: FormData): Promise<void> {
+  const access = await gate();
+  if (!access.ok) return;
+  const { user, seller } = access;
+
+  const bundleId = String(formData.get("bundleId") ?? "");
+  const bundle = await prisma.productBundle.findFirst({
+    where: { id: bundleId, sellerId: seller.id },
+    select: { id: true, slug: true, title: true },
+  });
+  if (!bundle) return;
+
+  await prisma.productBundle.delete({ where: { id: bundle.id } });
+
+  await recordAudit({
+    actorId: user.id,
+    actorRole: user.role,
+    action: "seller.bundle.deleted",
+    entityType: "ProductBundle",
+    entityId: bundle.id,
+    before: { title: bundle.title, slug: bundle.slug },
+  });
+
+  revalidatePath("/dashboard/bundles");
+  revalidatePath(`/bundle/${bundle.slug}`);
+  revalidatePath(`/seller/${seller.slug}`);
+  revalidatePath("/");
+  revalidatePath("/cart");
 }

@@ -21,6 +21,7 @@ export type ProductCardData = {
 
 export function ProductCard({ product }: { product: ProductCardData }) {
   const price = product.salePriceMinor ?? product.priceMinor;
+  const isFree = price === 0;
   const onSale = product.salePriceMinor !== null && product.salePriceMinor < product.priceMinor;
   const discountPercent =
     onSale && product.priceMinor > 0
@@ -54,7 +55,9 @@ export function ProductCard({ product }: { product: ProductCardData }) {
             <span className="subtle text-[11px] font-medium">{product.category.name}</span>
           </div>
         )}
-        {onSale ? (
+        {isFree ? (
+          <span className="badge badge-positive absolute left-2.5 top-2.5 shadow-xs">Free</span>
+        ) : onSale ? (
           <span className="badge badge-accent absolute left-2.5 top-2.5 shadow-xs">
             {discountPercent > 0 ? `-${discountPercent}%` : "Sale"}
           </span>
@@ -76,9 +79,13 @@ export function ProductCard({ product }: { product: ProductCardData }) {
 
         <div className="mt-auto flex items-center justify-between gap-2 border-t border-line/70 pt-3">
           <div className="flex items-baseline gap-1.5">
-            <span className="text-[15px] font-semibold tabular-nums text-ink">
-              {formatMoney(price, product.currency)}
-            </span>
+            {isFree ? (
+              <span className="text-[15px] font-semibold text-positive">Free</span>
+            ) : (
+              <span className="text-[15px] font-semibold tabular-nums text-ink">
+                {formatMoney(price, product.currency)}
+              </span>
+            )}
             {onSale ? (
               <span className="subtle text-[12px] line-through tabular-nums">
                 {formatMoney(product.priceMinor, product.currency)}

@@ -166,10 +166,16 @@ enum TicketPriority {
 enum NotificationType {
   ORDER
   REVIEW
+  QUESTION
   PAYOUT
   MODERATION
   TICKET
   SYSTEM
+}
+
+enum CouponDiscountType {
+  PERCENT
+  FIXED
 }
 
 // ---------------------------------------------------------------- identity
@@ -216,6 +222,7 @@ model User {
   payoutsInitiated  Payout[]         @relation("PayoutInitiator")
   settingsUpdated   SiteSetting[]
   legalPagesUpdated LegalPage[]
+  productQuestions  ProductQuestion[]
 
   @@index([role, status])
   @@index([createdAt])
@@ -257,6 +264,8 @@ model SellerProfile {
   earnings      SellerEarning[]
   payouts       Payout[]
   followers     Follow[]
+  coupons       Coupon[]
+  bundles       ProductBundle[]
 
   @@index([status, createdAt])
 }
@@ -310,6 +319,8 @@ model Product {
   status           ProductStatus @default(DRAFT)
   rejectionReason  String?
   thumbnailUrl     String?
+  demoUrl          String?
+  videoUrl         String?
   tags             String[]      @default([])
   version          String        @default("1.0.0")
   compatibility    Json?
@@ -328,17 +339,19 @@ model Product {
   createdAt        DateTime      @default(now())
   updatedAt        DateTime      @updatedAt
 
-  seller     SellerProfile    @relation(fields: [sellerId], references: [id], onDelete: Cascade)
-  category   Category         @relation(fields: [categoryId], references: [id], onDelete: Restrict)
-  reviewedBy User?            @relation("ProductReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
-  images     ProductImage[]
-  files      ProductFile[]
-  versions   ProductVersion[]
-  reviews    Review[]
-  orderItems OrderItem[]
-  wishlisted WishlistItem[]
-  cartItems  CartItem[]
-  downloads  DownloadRecord[]
+  seller      SellerProfile       @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+  category    Category            @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  reviewedBy  User?               @relation("ProductReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+  images      ProductImage[]
+  files       ProductFile[]
+  versions    ProductVersion[]
+  reviews     Review[]
+  questions   ProductQuestion[]
+  bundleItems ProductBundleItem[]
+  orderItems  OrderItem[]
+  wishlisted  WishlistItem[]
+  cartItems   CartItem[]
+  downloads   DownloadRecord[]
 
   @@index([status, publishedAt])
   @@index([categoryId, status])
@@ -426,13 +439,15 @@ model Review {
 // ---------------------------------------------------------------- cart & orders
 
 model Cart {
-  id        String   @id @default(uuid()) @db.Uuid
-  userId    String   @unique @db.Uuid
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id         String   @id @default(uuid()) @db.Uuid
+  userId     String   @unique @db.Uuid
+  couponCode String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
-  user  User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  items CartItem[]
+  user    User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items   CartItem[]
+  bundles CartBundle[]
 }
 
 model CartItem {
@@ -472,6 +487,8 @@ model Order {
   totalMinor              Int
   platformFeeMinor        Int         @default(0)
   sellerNetMinor          Int         @default(0)
+  couponId                String?     @db.Uuid
+  couponCodeSnapshot      String?
   stripeCheckoutSessionId String?     @unique
   stripePaymentIntentId   String?     @unique
   receiptUrl              String?
@@ -485,6 +502,7 @@ model Order {
   updatedAt               DateTime    @updatedAt
 
   buyer     User           @relation(fields: [buyerId], references: [id], onDelete: Restrict)
+  coupon    Coupon?        @relation(fields: [couponId], references: [id], onDelete: SetNull)
   items     OrderItem[]
   payment   Payment?
   refunds   Refund[]
@@ -829,6 +847,94 @@ model Notification {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, readAt, createdAt])
+}
+
+model ProductQuestion {
+  id         String    @id @default(uuid()) @db.Uuid
+  productId  String    @db.Uuid
+  userId     String    @db.Uuid
+  question   String
+  answer     String?
+  answeredAt DateTime?
+  isHidden   Boolean   @default(false)
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([productId, isHidden, createdAt])
+  @@index([userId])
+}
+
+model Coupon {
+  id               String             @id @default(uuid()) @db.Uuid
+  code             String             @unique
+  sellerId         String?            @db.Uuid
+  discountType     CouponDiscountType @default(PERCENT)
+  percentOff       Int?
+  amountOffMinor   Int?
+  currency         String             @default("EUR") @db.Char(3)
+  minSubtotalMinor Int?
+  maxRedemptions   Int?
+  redemptionCount  Int                @default(0)
+  isActive         Boolean            @default(true)
+  expiresAt        DateTime?
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+
+  seller SellerProfile? @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+  orders Order[]
+
+  @@index([code, isActive])
+  @@index([sellerId, isActive])
+}
+
+model ProductBundle {
+  id               String   @id @default(uuid()) @db.Uuid
+  sellerId         String   @db.Uuid
+  title            String
+  slug             String   @unique
+  description      String?
+  bundlePriceMinor Int
+  currency         String   @default("EUR") @db.Char(3)
+  isActive         Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  seller    SellerProfile       @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+  items     ProductBundleItem[]
+  cartItems CartBundle[]
+
+  @@index([sellerId, isActive])
+  @@index([isActive, createdAt])
+}
+
+model ProductBundleItem {
+  id        String   @id @default(uuid()) @db.Uuid
+  bundleId  String   @db.Uuid
+  productId String   @db.Uuid
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+
+  bundle  ProductBundle @relation(fields: [bundleId], references: [id], onDelete: Cascade)
+  product Product       @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([bundleId, productId])
+  @@index([productId])
+}
+
+model CartBundle {
+  id        String   @id @default(uuid()) @db.Uuid
+  cartId    String   @db.Uuid
+  bundleId  String   @db.Uuid
+  createdAt DateTime @default(now())
+
+  cart   Cart          @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  bundle ProductBundle @relation(fields: [bundleId], references: [id], onDelete: Cascade)
+
+  @@unique([cartId, bundleId])
+  @@index([bundleId])
 }
 
 /// Fixed-window rate limiting backed by Postgres so no extra infrastructure is required.

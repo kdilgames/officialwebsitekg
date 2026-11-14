@@ -5,13 +5,19 @@ import {
   BadgeCheck,
   ChevronRight,
   Download,
+  ExternalLink,
   Layers,
+  MessageSquare,
+  Package,
   ShieldCheck,
   Star,
 } from "lucide-react";
 
 import {
   AddToCartButton,
+  AnswerQuestionForm,
+  AskQuestionForm,
+  FreeClaimButton,
   ReportForm,
   ReviewForm,
   WishlistButton,
@@ -20,12 +26,23 @@ import { ProductGallery } from "@/components/marketplace/product-gallery";
 import { ProductCard } from "@/components/marketplace/product-card";
 import { Alert, EmptyState } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
+import { buttonClass } from "@/components/ui/button";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
-import { addToCartAction, reportContentAction, submitReviewAction, toggleWishlistAction } from "@/lib/marketplace/actions";
+import {
+  addToCartAction,
+  answerProductQuestionAction,
+  askProductQuestionAction,
+  hideProductQuestionAction,
+  reportContentAction,
+  submitReviewAction,
+  toggleWishlistAction,
+} from "@/lib/marketplace/actions";
+import { claimFreeProductAction } from "@/lib/payments/actions";
 import { getSessionUser } from "@/lib/auth/session";
 import { prisma } from "@/lib/db";
 import { formatMoney } from "@/lib/money";
 import { PRODUCT_CARD_SELECT } from "@/lib/queries/products";
+import { safeHttpUrl } from "@/lib/utils/media";
 
 export const dynamic = "force-dynamic";
 
@@ -50,6 +67,7 @@ async function loadProduct(slug: string) {
         },
       },
       images: { orderBy: { sortOrder: "asc" }, select: { url: true, alt: true } },
+      files: { where: { isActive: true }, select: { id: true, scanStatus: true } },
       versions: { orderBy: { releasedAt: "desc" }, select: { version: true, changelog: true, releasedAt: true, isLatest: true } },
       _count: { select: { files: { where: { isActive: true } }, reviews: { where: { status: "PUBLISHED" } } } },
     },
@@ -86,7 +104,7 @@ export default async function ProductPage({ params }: PageProps) {
 
   const user = await getSessionUser();
 
-  const [ownedItem, wishlisted, reviews, related] = await Promise.all([
+  const [ownedItem, wishlisted, reviews, questions, bundlesContaining, related] = await Promise.all([
     user
       ? prisma.orderItem.findFirst({
           where: {
@@ -118,6 +136,43 @@ export default async function ProductPage({ params }: PageProps) {
         user: { select: { username: true, displayName: true, avatarUrl: true } },
       },
     }),
+    prisma.productQuestion.findMany({
+      where: { productId: product.id, isHidden: false },
+      orderBy: { createdAt: "desc" },
+      take: 30,
+      select: {
+        id: true,
+        question: true,
+        answer: true,
+        answeredAt: true,
+        createdAt: true,
+        user: { select: { username: true, displayName: true, avatarUrl: true } },
+      },
+    }),
+    prisma.productBundle.findMany({
+      where: {
+        isActive: true,
+        seller: { status: "APPROVED", user: { status: "ACTIVE" } },
+        items: {
+          some: { productId: product.id },
+          every: { product: { status: "PUBLISHED" } },
+        },
+      },
+      orderBy: { createdAt: "desc" },
+      take: 3,
+      select: {
+        id: true,
+        title: true,
+        slug: true,
+        bundlePriceMinor: true,
+        currency: true,
+        items: {
+          select: {
+            product: { select: { priceMinor: true, salePriceMinor: true } },
+          },
+        },
+      },
+    }),
     prisma.product.findMany({
       where: { status: "PUBLISHED", categoryId: product.categoryId, id: { not: product.id } },
       select: PRODUCT_CARD_SELECT,
@@ -127,7 +182,9 @@ export default async function ProductPage({ params }: PageProps) {
   ]);
 
   const isOwnProduct = user?.sellerProfile?.id === product.sellerId;
+  const canManageQuestions = isOwnProduct || user?.role === "ADMIN";
   const price = product.salePriceMinor ?? product.priceMinor;
+  const isFree = price === 0;
   const onSale = product.salePriceMinor !== null && product.salePriceMinor < product.priceMinor;
   const discountPercent =
     onSale && product.priceMinor > 0
@@ -136,6 +193,8 @@ export default async function ProductPage({ params }: PageProps) {
   const rating = product.ratingCount > 0 ? product.ratingSum / product.ratingCount : null;
   const hasReview = reviews.some((review) => review.user.username === user?.username);
   const canBuy = product.seller.status === "APPROVED" && product.seller.user.status === "ACTIVE";
+  const safeDemoUrl = safeHttpUrl(product.demoUrl);
+  const hasCleanScan = product.files.some((file) => file.scanStatus === "CLEAN");
 
   const distribution = [5, 4, 3, 2, 1].map((stars) => ({
     stars,
@@ -160,7 +219,11 @@ export default async function ProductPage({ params }: PageProps) {
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_380px]">
         <div className="space-y-6">
           <Card className="overflow-hidden">
-            <ProductGallery images={product.images} title={product.title} />
+            <ProductGallery
+              images={product.images}
+              title={product.title}
+              videoUrl={product.videoUrl}
+            />
           </Card>
 
           <Card>
@@ -384,6 +447,111 @@ export default async function ProductPage({ params }: PageProps) {
             </CardBody>
           </Card>
 
+          <Card id="qa">
+            <CardHeader
+              title={`Questions & answers${questions.length > 0 ? ` (${questions.length})` : ""}`}
+              description="Ask the creator about dependencies, compatibility, or included files before buying."
+            />
+            <CardBody className="space-y-5 p-5 sm:p-6">
+              {user && !isOwnProduct ? (
+                <div className="surface-elevated p-4">
+                  <AskQuestionForm action={askProductQuestionAction} productId={product.id} />
+                </div>
+              ) : !user ? (
+                <div className="surface-elevated flex flex-wrap items-center justify-between gap-3 p-4">
+                  <p className="muted text-[13px]">
+                    Have a question before buying? Sign in to ask the creator directly.
+                  </p>
+                  <Link
+                    href={`/login?next=${encodeURIComponent(`/product/${product.slug}#qa`)}`}
+                    className={buttonClass("secondary", "sm")}
+                  >
+                    Sign in to ask
+                  </Link>
+                </div>
+              ) : null}
+
+              {questions.length === 0 ? (
+                <EmptyState
+                  icon={<MessageSquare className="size-5" aria-hidden />}
+                  title="No questions yet"
+                  description="Pre-sale questions from buyers and official answers from the creator appear here."
+                />
+              ) : (
+                <ul className="space-y-3">
+                  {questions.map((item) => (
+                    <li key={item.id} className="surface-elevated p-4">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          {item.user.avatarUrl ? (
+                            // eslint-disable-next-line @next/next/no-img-element -- remote host configured in next.config.ts
+                            <img
+                              src={item.user.avatarUrl}
+                              alt=""
+                              loading="lazy"
+                              className="size-6 shrink-0 rounded-full border border-line object-cover"
+                            />
+                          ) : (
+                            <span className="flex size-6 shrink-0 items-center justify-center rounded-full border border-line bg-surface text-[10.5px] font-semibold text-ink-muted">
+                              {item.user.displayName.slice(0, 1).toUpperCase()}
+                            </span>
+                          )}
+                          <span className="text-[12.5px] font-semibold text-ink">
+                            {item.user.displayName}
+                          </span>
+                          <span className="subtle text-[11.5px]">
+                            {item.createdAt.toISOString().slice(0, 10)}
+                          </span>
+                        </div>
+                        {canManageQuestions ? (
+                          <form action={hideProductQuestionAction}>
+                            <input type="hidden" name="questionId" value={item.id} />
+                            <button
+                              type="submit"
+                              className="subtle text-[11.5px] hover:text-critical"
+                            >
+                              Hide
+                            </button>
+                          </form>
+                        ) : null}
+                      </div>
+
+                      <p className="mt-2 whitespace-pre-wrap text-[13.5px] leading-relaxed text-ink">
+                        {item.question}
+                      </p>
+
+                      {item.answer ? (
+                        <div className="mt-3 rounded-[8px] border border-line bg-surface p-3.5">
+                          <div className="flex items-center gap-2">
+                            <Badge tone="positive">Creator answer</Badge>
+                            {item.answeredAt ? (
+                              <span className="subtle text-[11px]">
+                                {item.answeredAt.toISOString().slice(0, 10)}
+                              </span>
+                            ) : null}
+                          </div>
+                          <p className="muted mt-1.5 whitespace-pre-wrap text-[13px] leading-relaxed">
+                            {item.answer}
+                          </p>
+                        </div>
+                      ) : (
+                        <p className="subtle mt-2 text-[12px]">Awaiting creator reply.</p>
+                      )}
+
+                      {canManageQuestions ? (
+                        <AnswerQuestionForm
+                          action={answerProductQuestionAction}
+                          questionId={item.id}
+                          defaultAnswer={item.answer}
+                        />
+                      ) : null}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </CardBody>
+          </Card>
+
           {related.length > 0 ? (
             <section className="pt-2">
               <h2 className="mb-3 text-[18px] font-semibold tracking-tight">
@@ -435,10 +603,14 @@ export default async function ProductPage({ params }: PageProps) {
               </div>
 
               <div className="flex flex-wrap items-baseline gap-2.5 border-y border-line py-3.5">
-                <span className="text-[28px] font-bold tracking-tight tabular-nums text-ink">
-                  {formatMoney(price, product.currency)}
-                </span>
-                {onSale ? (
+                {isFree ? (
+                  <span className="text-[28px] font-bold tracking-tight text-positive">Free</span>
+                ) : (
+                  <span className="text-[28px] font-bold tracking-tight tabular-nums text-ink">
+                    {formatMoney(price, product.currency)}
+                  </span>
+                )}
+                {onSale && !isFree ? (
                   <>
                     <span className="subtle text-[14px] line-through tabular-nums">
                       {formatMoney(product.priceMinor, product.currency)}
@@ -474,12 +646,21 @@ export default async function ProductPage({ params }: PageProps) {
                 </Link>
               ) : (
                 <div className="space-y-2.5 pt-1">
-                  <AddToCartButton
-                    action={addToCartAction}
-                    productId={product.id}
-                    next="/cart"
-                    disabled={!canBuy}
-                  />
+                  {isFree ? (
+                    <FreeClaimButton
+                      action={claimFreeProductAction}
+                      productId={product.id}
+                      next="/account/orders"
+                      disabled={!canBuy}
+                    />
+                  ) : (
+                    <AddToCartButton
+                      action={addToCartAction}
+                      productId={product.id}
+                      next="/cart"
+                      disabled={!canBuy}
+                    />
+                  )}
                   <WishlistButton
                     action={toggleWishlistAction}
                     productId={product.id}
@@ -487,8 +668,61 @@ export default async function ProductPage({ params }: PageProps) {
                   />
                 </div>
               )}
+
+              {safeDemoUrl ? (
+                <a
+                  href={safeDemoUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="btn btn-secondary w-full"
+                >
+                  <ExternalLink className="size-4" aria-hidden />
+                  Live demo
+                </a>
+              ) : null}
             </CardBody>
           </Card>
+
+          {bundlesContaining.length > 0 ? (
+            <Card>
+              <CardHeader title="Included in creator bundle" />
+              <CardBody className="space-y-2.5 p-4">
+                {bundlesContaining.map((bundle) => {
+                  const regularSum = bundle.items.reduce(
+                    (sum, item) => sum + (item.product.salePriceMinor ?? item.product.priceMinor),
+                    0,
+                  );
+                  return (
+                    <Link
+                      key={bundle.id}
+                      href={`/bundle/${bundle.slug}`}
+                      className="surface-elevated block p-3 transition-colors hover:border-line-strong"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <span className="flex items-center gap-1.5 text-[13px] font-semibold text-ink">
+                          <Package className="size-3.5 shrink-0 text-accent" aria-hidden />
+                          <span className="line-clamp-1">{bundle.title}</span>
+                        </span>
+                        <span className="shrink-0 text-[13px] font-semibold tabular-nums text-ink">
+                          {bundle.bundlePriceMinor === 0
+                            ? "Free"
+                            : formatMoney(bundle.bundlePriceMinor, bundle.currency)}
+                        </span>
+                      </div>
+                      <p className="subtle mt-1 flex items-center justify-between text-[11.5px]">
+                        <span>{bundle.items.length} products included</span>
+                        {regularSum > bundle.bundlePriceMinor ? (
+                          <span className="line-through tabular-nums">
+                            {formatMoney(regularSum, bundle.currency)}
+                          </span>
+                        ) : null}
+                      </p>
+                    </Link>
+                  );
+                })}
+              </CardBody>
+            </Card>
+          ) : null}
 
           <Card>
             <CardHeader title="Creator" />
@@ -521,13 +755,21 @@ export default async function ProductPage({ params }: PageProps) {
                   <ShieldCheck className="size-4 shrink-0 text-positive" aria-hidden />
                   Store reviewed by KDILGAMES staff
                 </li>
+                <li className="flex items-start gap-2.5 text-[12.5px] text-ink-muted">
+                  <ShieldCheck className="mt-0.5 size-4 shrink-0 text-positive" aria-hidden />
+                  <Link href="/support#verification" className="hover:text-ink hover:underline">
+                    {hasCleanScan
+                      ? "Scanned via automated malware check"
+                      : "Executables blocked by extension policy · Manually reviewed"}
+                  </Link>
+                </li>
                 <li className="flex items-center gap-2.5 text-[12.5px] text-ink-muted">
                   <Layers className="size-4 shrink-0 text-accent" aria-hidden />
                   Future updates included for buyers
                 </li>
                 <li className="flex items-center gap-2.5 text-[12.5px] text-ink-muted">
                   <Download className="size-4 shrink-0 text-accent" aria-hidden />
-                  Instant private download after checkout
+                  Instant private download after {isFree ? "claiming" : "checkout"}
                 </li>
               </ul>
 
