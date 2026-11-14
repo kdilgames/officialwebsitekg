@@ -13,6 +13,7 @@ import { buttonClass } from "@/components/ui/button";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { requireUser } from "@/lib/auth/session";
 import { prisma } from "@/lib/db";
+import { withSchemaFallback } from "@/lib/db-compat";
 import { env, isStripeConfigured } from "@/lib/env";
 import {
   applyCouponAction,
@@ -32,39 +33,43 @@ export default async function CartPage() {
   const user = await requireUser("/cart");
 
   const [bundleEntries, items] = await Promise.all([
-    prisma.cartBundle.findMany({
-      where: { cart: { userId: user.id } },
-      orderBy: { createdAt: "asc" },
-      select: {
-        id: true,
-        bundle: {
+    withSchemaFallback(
+      () =>
+        prisma.cartBundle.findMany({
+          where: { cart: { userId: user.id } },
+          orderBy: { createdAt: "asc" },
           select: {
             id: true,
-            title: true,
-            slug: true,
-            bundlePriceMinor: true,
-            currency: true,
-            isActive: true,
-            seller: { select: { slug: true, storeName: true } },
-            items: {
-              orderBy: { sortOrder: "asc" },
+            bundle: {
               select: {
-                product: {
+                id: true,
+                title: true,
+                slug: true,
+                bundlePriceMinor: true,
+                currency: true,
+                isActive: true,
+                seller: { select: { slug: true, storeName: true } },
+                items: {
+                  orderBy: { sortOrder: "asc" },
                   select: {
-                    id: true,
-                    title: true,
-                    slug: true,
-                    priceMinor: true,
-                    salePriceMinor: true,
-                    status: true,
+                    product: {
+                      select: {
+                        id: true,
+                        title: true,
+                        slug: true,
+                        priceMinor: true,
+                        salePriceMinor: true,
+                        status: true,
+                      },
+                    },
                   },
                 },
               },
             },
           },
-        },
-      },
-    }),
+        }),
+      [],
+    ),
     prisma.cartItem.findMany({
       where: { cart: { userId: user.id } },
       orderBy: { createdAt: "asc" },

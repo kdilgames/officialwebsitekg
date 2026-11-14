@@ -19,6 +19,7 @@ import { ThemeToggle } from "@/components/layout/theme-toggle";
 import { getSessionUser, isAdmin, isSeller } from "@/lib/auth/session";
 import { signOutAction } from "@/lib/auth/actions";
 import { prisma } from "@/lib/db";
+import { withSchemaFallback } from "@/lib/db-compat";
 
 const NAV_LINKS = [
   { href: "/browse", label: "Browse" },
@@ -34,7 +35,7 @@ export async function SiteHeader() {
   const [itemCount, bundleCount, recentNotifications, unreadNotifications] = user
     ? await Promise.all([
         prisma.cartItem.count({ where: { cart: { userId: user.id } } }),
-        prisma.cartBundle.count({ where: { cart: { userId: user.id } } }),
+        withSchemaFallback(() => prisma.cartBundle.count({ where: { cart: { userId: user.id } } }), 0),
         prisma.notification.findMany({
           where: { userId: user.id },
           orderBy: { createdAt: "desc" },

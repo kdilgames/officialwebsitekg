@@ -40,6 +40,7 @@ import {
 import { claimFreeProductAction } from "@/lib/payments/actions";
 import { getSessionUser } from "@/lib/auth/session";
 import { prisma } from "@/lib/db";
+import { withSchemaFallback } from "@/lib/db-compat";
 import { formatMoney } from "@/lib/money";
 import { PRODUCT_CARD_SELECT } from "@/lib/queries/products";
 import { safeHttpUrl } from "@/lib/utils/media";
@@ -48,30 +49,79 @@ export const dynamic = "force-dynamic";
 
 type PageProps = { params: Promise<{ slug: string }> };
 
-async function loadProduct(slug: string) {
-  return prisma.product.findFirst({
-    where: { slug, status: "PUBLISHED" },
-    include: {
-      category: { select: { name: true, slug: true } },
-      seller: {
-        select: {
-          id: true,
-          slug: true,
-          storeName: true,
-          tagline: true,
-          logoUrl: true,
-          status: true,
-          stripeChargesEnabled: true,
-          user: { select: { createdAt: true, status: true } },
-          _count: { select: { products: { where: { status: "PUBLISHED" } }, followers: true } },
-        },
-      },
-      images: { orderBy: { sortOrder: "asc" }, select: { url: true, alt: true } },
-      files: { where: { isActive: true }, select: { id: true, scanStatus: true } },
-      versions: { orderBy: { releasedAt: "desc" }, select: { version: true, changelog: true, releasedAt: true, isLatest: true } },
-      _count: { select: { files: { where: { isActive: true } }, reviews: { where: { status: "PUBLISHED" } } } },
+const PRODUCT_SHARED_RELATIONS = {
+  category: { select: { name: true, slug: true } },
+  seller: {
+    select: {
+      id: true,
+      slug: true,
+      storeName: true,
+      tagline: true,
+      logoUrl: true,
+      status: true,
+      stripeChargesEnabled: true,
+      user: { select: { createdAt: true, status: true } },
+      _count: { select: { products: { where: { status: "PUBLISHED" as const } }, followers: true } },
     },
-  });
+  },
+  images: { orderBy: { sortOrder: "asc" as const }, select: { url: true, alt: true } },
+  files: { where: { isActive: true }, select: { id: true, scanStatus: true } },
+  versions: {
+    orderBy: { releasedAt: "desc" as const },
+    select: { version: true, changelog: true, releasedAt: true, isLatest: true },
+  },
+  _count: {
+    select: {
+      files: { where: { isActive: true } },
+      reviews: { where: { status: "PUBLISHED" as const } },
+    },
+  },
+};
+
+const PRODUCT_BASE_SELECT = {
+  id: true,
+  sellerId: true,
+  categoryId: true,
+  title: true,
+  slug: true,
+  shortDescription: true,
+  description: true,
+  priceMinor: true,
+  salePriceMinor: true,
+  currency: true,
+  licenseType: true,
+  licenseText: true,
+  thumbnailUrl: true,
+  tags: true,
+  version: true,
+  compatibility: true,
+  requirements: true,
+  viewCount: true,
+  salesCount: true,
+  ratingSum: true,
+  ratingCount: true,
+  ...PRODUCT_SHARED_RELATIONS,
+};
+
+async function loadProduct(slug: string) {
+  return withSchemaFallback(
+    () =>
+      prisma.product.findFirst({
+        where: { slug, status: "PUBLISHED" },
+        select: {
+          ...PRODUCT_BASE_SELECT,
+          demoUrl: true,
+          videoUrl: true,
+        },
+      }),
+    async () => {
+      const legacy = await prisma.product.findFirst({
+        where: { slug, status: "PUBLISHED" },
+        select: PRODUCT_BASE_SELECT,
+      });
+      return legacy ? { ...legacy, demoUrl: null, videoUrl: null } : null;
+    },
+  );
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
@@ -136,43 +186,51 @@ export default async function ProductPage({ params }: PageProps) {
         user: { select: { username: true, displayName: true, avatarUrl: true } },
       },
     }),
-    prisma.productQuestion.findMany({
-      where: { productId: product.id, isHidden: false },
-      orderBy: { createdAt: "desc" },
-      take: 30,
-      select: {
-        id: true,
-        question: true,
-        answer: true,
-        answeredAt: true,
-        createdAt: true,
-        user: { select: { username: true, displayName: true, avatarUrl: true } },
-      },
-    }),
-    prisma.productBundle.findMany({
-      where: {
-        isActive: true,
-        seller: { status: "APPROVED", user: { status: "ACTIVE" } },
-        items: {
-          some: { productId: product.id },
-          every: { product: { status: "PUBLISHED" } },
-        },
-      },
-      orderBy: { createdAt: "desc" },
-      take: 3,
-      select: {
-        id: true,
-        title: true,
-        slug: true,
-        bundlePriceMinor: true,
-        currency: true,
-        items: {
+    withSchemaFallback(
+      () =>
+        prisma.productQuestion.findMany({
+          where: { productId: product.id, isHidden: false },
+          orderBy: { createdAt: "desc" },
+          take: 30,
           select: {
-            product: { select: { priceMinor: true, salePriceMinor: true } },
+            id: true,
+            question: true,
+            answer: true,
+            answeredAt: true,
+            createdAt: true,
+            user: { select: { username: true, displayName: true, avatarUrl: true } },
           },
-        },
-      },
-    }),
+        }),
+      [],
+    ),
+    withSchemaFallback(
+      () =>
+        prisma.productBundle.findMany({
+          where: {
+            isActive: true,
+            seller: { status: "APPROVED", user: { status: "ACTIVE" } },
+            items: {
+              some: { productId: product.id },
+              every: { product: { status: "PUBLISHED" } },
+            },
+          },
+          orderBy: { createdAt: "desc" },
+          take: 3,
+          select: {
+            id: true,
+            title: true,
+            slug: true,
+            bundlePriceMinor: true,
+            currency: true,
+            items: {
+              select: {
+                product: { select: { priceMinor: true, salePriceMinor: true } },
+              },
+            },
+          },
+        }),
+      [],
+    ),
     prisma.product.findMany({
       where: { status: "PUBLISHED", categoryId: product.categoryId, id: { not: product.id } },
       select: PRODUCT_CARD_SELECT,

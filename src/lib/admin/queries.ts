@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { withSchemaFallback } from "@/lib/db-compat";
 import { sweepMaturedEarnings } from "@/lib/payments/payouts";
 
 /**
@@ -969,23 +970,27 @@ export type AuditLogRow = Awaited<ReturnType<typeof listAuditLogs>>["items"][num
 // ---------------------------------------------------------------- coupons
 
 export async function listAdminCoupons() {
-  return prisma.coupon.findMany({
-    orderBy: [{ sellerId: "asc" }, { createdAt: "desc" }],
-    select: {
-      id: true,
-      code: true,
-      sellerId: true,
-      discountType: true,
-      percentOff: true,
-      amountOffMinor: true,
-      currency: true,
-      minSubtotalMinor: true,
-      maxRedemptions: true,
-      redemptionCount: true,
-      isActive: true,
-      expiresAt: true,
-      createdAt: true,
-      seller: { select: { storeName: true, slug: true } },
-    },
-  });
+  return withSchemaFallback(
+    () =>
+      prisma.coupon.findMany({
+        orderBy: [{ sellerId: "asc" }, { createdAt: "desc" }],
+        select: {
+          id: true,
+          code: true,
+          sellerId: true,
+          discountType: true,
+          percentOff: true,
+          amountOffMinor: true,
+          currency: true,
+          minSubtotalMinor: true,
+          maxRedemptions: true,
+          redemptionCount: true,
+          isActive: true,
+          expiresAt: true,
+          createdAt: true,
+          seller: { select: { storeName: true, slug: true } },
+        },
+      }),
+    [],
+  );
 }

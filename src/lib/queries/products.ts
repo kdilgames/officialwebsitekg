@@ -1,6 +1,7 @@
 import { Prisma, type LicenseType } from "@prisma/client";
 
 import { prisma } from "@/lib/db";
+import { withSchemaFallback } from "@/lib/db-compat";
 import { env } from "@/lib/env";
 import { safeHttpUrl } from "@/lib/utils/media";
 
@@ -225,97 +226,105 @@ export async function topSellers(limit = 8) {
 }
 
 export async function listPublishedBundles(limit = 6, sellerId?: string) {
-  return prisma.productBundle.findMany({
-    where: {
-      isActive: true,
-      ...(sellerId ? { sellerId } : {}),
-      seller: { status: "APPROVED", user: { status: "ACTIVE" } },
-      items: {
-        some: {},
-        every: { product: { status: "PUBLISHED" } },
-      },
-    },
-    orderBy: { createdAt: "desc" },
-    take: limit,
-    select: {
-      id: true,
-      title: true,
-      slug: true,
-      description: true,
-      bundlePriceMinor: true,
-      currency: true,
-      seller: { select: { slug: true, storeName: true } },
-      items: {
-        orderBy: { sortOrder: "asc" },
+  return withSchemaFallback(
+    () =>
+      prisma.productBundle.findMany({
+        where: {
+          isActive: true,
+          ...(sellerId ? { sellerId } : {}),
+          seller: { status: "APPROVED", user: { status: "ACTIVE" } },
+          items: {
+            some: {},
+            every: { product: { status: "PUBLISHED" } },
+          },
+        },
+        orderBy: { createdAt: "desc" },
+        take: limit,
         select: {
-          product: {
+          id: true,
+          title: true,
+          slug: true,
+          description: true,
+          bundlePriceMinor: true,
+          currency: true,
+          seller: { select: { slug: true, storeName: true } },
+          items: {
+            orderBy: { sortOrder: "asc" },
             select: {
-              id: true,
-              title: true,
-              slug: true,
-              thumbnailUrl: true,
-              priceMinor: true,
-              salePriceMinor: true,
-              currency: true,
-              category: { select: { name: true, slug: true } },
+              product: {
+                select: {
+                  id: true,
+                  title: true,
+                  slug: true,
+                  thumbnailUrl: true,
+                  priceMinor: true,
+                  salePriceMinor: true,
+                  currency: true,
+                  category: { select: { name: true, slug: true } },
+                },
+              },
             },
           },
         },
-      },
-    },
-  });
+      }),
+    [],
+  );
 }
 
 export async function getPublishedBundleBySlug(slug: string) {
-  return prisma.productBundle.findFirst({
-    where: {
-      slug,
-      isActive: true,
-      seller: { status: "APPROVED", user: { status: "ACTIVE" } },
-      items: {
-        some: {},
-        every: { product: { status: "PUBLISHED" } },
-      },
-    },
-    select: {
-      id: true,
-      title: true,
-      slug: true,
-      description: true,
-      bundlePriceMinor: true,
-      currency: true,
-      sellerId: true,
-      seller: {
+  return withSchemaFallback(
+    () =>
+      prisma.productBundle.findFirst({
+        where: {
+          slug,
+          isActive: true,
+          seller: { status: "APPROVED", user: { status: "ACTIVE" } },
+          items: {
+            some: {},
+            every: { product: { status: "PUBLISHED" } },
+          },
+        },
         select: {
           id: true,
+          title: true,
           slug: true,
-          storeName: true,
-          tagline: true,
-          logoUrl: true,
-          userId: true,
-        },
-      },
-      items: {
-        orderBy: { sortOrder: "asc" },
-        select: {
-          product: {
+          description: true,
+          bundlePriceMinor: true,
+          currency: true,
+          sellerId: true,
+          seller: {
             select: {
               id: true,
-              title: true,
               slug: true,
-              shortDescription: true,
-              thumbnailUrl: true,
-              priceMinor: true,
-              salePriceMinor: true,
-              currency: true,
-              version: true,
-              category: { select: { name: true, slug: true } },
+              storeName: true,
+              tagline: true,
+              logoUrl: true,
+              userId: true,
+            },
+          },
+          items: {
+            orderBy: { sortOrder: "asc" },
+            select: {
+              product: {
+                select: {
+                  id: true,
+                  title: true,
+                  slug: true,
+                  shortDescription: true,
+                  thumbnailUrl: true,
+                  priceMinor: true,
+                  salePriceMinor: true,
+                  currency: true,
+                  version: true,
+                  category: { select: { name: true, slug: true } },
+                },
+              },
             },
           },
         },
-      },
-    },
-  });
+      }),
+    null,
+  );
 }
 
 /**

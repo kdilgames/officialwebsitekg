@@ -8,6 +8,7 @@ import { buttonClass } from "@/components/ui/button";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { requireUser } from "@/lib/auth/session";
 import { prisma } from "@/lib/db";
+import { withSchemaFallback } from "@/lib/db-compat";
 import { formatMoney } from "@/lib/money";
 import { requestRefundAction } from "@/lib/payments/actions";
 
@@ -36,49 +37,65 @@ export default async function OrdersPage({
   const [user, params] = await Promise.all([requireUser("/account/orders"), searchParams]);
   const showClaimedBanner = params.claimed === "1";
 
-  const orders = await prisma.order.findMany({
-    where: { buyerId: user.id },
-    orderBy: { createdAt: "desc" },
-    take: ORDERS_SHOWN,
-    select: {
-      id: true,
-      orderNumber: true,
-      status: true,
-      currency: true,
-      subtotalMinor: true,
-      discountMinor: true,
-      couponCodeSnapshot: true,
-      totalMinor: true,
-      createdAt: true,
-      paidAt: true,
-      isTestMode: true,
-      receiptUrl: true,
-      refunds: {
-        orderBy: { createdAt: "desc" },
-        select: { id: true, amountMinor: true, status: true, adminNote: true, createdAt: true },
-      },
-      items: {
-        select: {
-          id: true,
-          titleSnapshot: true,
-          priceMinor: true,
-          status: true,
-          product: {
-            select: {
-              slug: true,
-              version: true,
-              // Only files that are active and cleared for delivery are offered.
-              files: {
-                where: { isActive: true, scanStatus: { in: ["CLEAN", "SKIPPED"] } },
-                orderBy: { createdAt: "desc" },
-                select: { id: true, fileName: true, sizeBytes: true },
-              },
+  const sharedOrderSelect = {
+    id: true,
+    orderNumber: true,
+    status: true,
+    currency: true,
+    subtotalMinor: true,
+    discountMinor: true,
+    totalMinor: true,
+    createdAt: true,
+    paidAt: true,
+    isTestMode: true,
+    receiptUrl: true,
+    refunds: {
+      orderBy: { createdAt: "desc" as const },
+      select: { id: true, amountMinor: true, status: true, adminNote: true, createdAt: true },
+    },
+    items: {
+      select: {
+        id: true,
+        titleSnapshot: true,
+        priceMinor: true,
+        status: true,
+        product: {
+          select: {
+            slug: true,
+            version: true,
+            // Only files that are active and cleared for delivery are offered.
+            files: {
+              where: { isActive: true, scanStatus: { in: ["CLEAN" as const, "SKIPPED" as const] } },
+              orderBy: { createdAt: "desc" as const },
+              select: { id: true, fileName: true, sizeBytes: true },
             },
           },
         },
       },
     },
-  });
+  };
+
+  const orders = await withSchemaFallback(
+    () =>
+      prisma.order.findMany({
+        where: { buyerId: user.id },
+        orderBy: { createdAt: "desc" },
+        take: ORDERS_SHOWN,
+        select: {
+          ...sharedOrderSelect,
+          couponCodeSnapshot: true,
+        },
+      }),
+    async () => {
+      const legacy = await prisma.order.findMany({
+        where: { buyerId: user.id },
+        orderBy: { createdAt: "desc" },
+        take: ORDERS_SHOWN,
+        select: sharedOrderSelect,
+      });
+      return legacy.map((row) => ({ ...row, couponCodeSnapshot: null as string | null }));
+    },
+  );
 
   if (orders.length === 0) {
     return (

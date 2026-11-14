@@ -7,6 +7,7 @@ import { buttonClass } from "@/components/ui/button";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { requireUser } from "@/lib/auth/session";
 import { prisma } from "@/lib/db";
+import { withSchemaFallback } from "@/lib/db-compat";
 import { formatMoney } from "@/lib/money";
 import { reconcileCheckoutSession } from "@/lib/payments/stripe-events";
 import { getStripe } from "@/lib/stripe";
@@ -204,29 +205,43 @@ export default async function CheckoutSuccessPage({
 }
 
 async function loadOrder(sessionId: string, buyerId: string) {
-  return prisma.order.findFirst({
-    where: { stripeCheckoutSessionId: sessionId, buyerId },
-    select: {
-      id: true,
-      orderNumber: true,
-      status: true,
-      subtotalMinor: true,
-      discountMinor: true,
-      couponCodeSnapshot: true,
-      totalMinor: true,
-      currency: true,
-      paidAt: true,
-      isTestMode: true,
-      items: {
-        select: {
-          id: true,
-          titleSnapshot: true,
-          priceMinor: true,
-          product: { select: { slug: true } },
-        },
+  const baseSelect = {
+    id: true,
+    orderNumber: true,
+    status: true,
+    subtotalMinor: true,
+    discountMinor: true,
+    totalMinor: true,
+    currency: true,
+    paidAt: true,
+    isTestMode: true,
+    items: {
+      select: {
+        id: true,
+        titleSnapshot: true,
+        priceMinor: true,
+        product: { select: { slug: true } },
       },
     },
-  });
+  };
+
+  return withSchemaFallback(
+    () =>
+      prisma.order.findFirst({
+        where: { stripeCheckoutSessionId: sessionId, buyerId },
+        select: {
+          ...baseSelect,
+          couponCodeSnapshot: true,
+        },
+      }),
+    async () => {
+      const legacy = await prisma.order.findFirst({
+        where: { stripeCheckoutSessionId: sessionId, buyerId },
+        select: baseSelect,
+      });
+      return legacy ? { ...legacy, couponCodeSnapshot: null as string | null } : null;
+    },
+  );
 }
 
 function Shell({ children }: { children: React.ReactNode }) {

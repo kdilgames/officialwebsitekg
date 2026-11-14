@@ -3,6 +3,7 @@ import type { Prisma } from "@prisma/client";
 import { notify } from "@/lib/audit";
 import { resolveCommissionRate, splitRevenue, type CommissionRuleLike } from "@/lib/commission";
 import { prisma } from "@/lib/db";
+import { withSchemaFallback } from "@/lib/db-compat";
 import { env } from "@/lib/env";
 import {
   allocateMinorProportionally,
@@ -69,72 +70,78 @@ type RawCartLine = {
  * fee in integer minor units from stored commission rules.
  */
 export async function previewCart(userId: string): Promise<OrderPreview> {
-  const [cart, ownedRows, rules] = await Promise.all([
-    prisma.cart.findUnique({
-      where: { userId },
-      select: {
-        couponCode: true,
-        items: {
-          orderBy: { createdAt: "asc" },
-          select: {
-            product: {
-              select: {
-                id: true,
-                title: true,
-                slug: true,
-                priceMinor: true,
-                salePriceMinor: true,
-                currency: true,
-                status: true,
-                sellerId: true,
-                categoryId: true,
-                seller: {
-                  select: {
-                    id: true,
-                    userId: true,
-                    commissionBps: true,
-                    status: true,
-                    user: { select: { status: true } },
-                  },
-                },
-              },
+  const cartItemsSelect = {
+    orderBy: { createdAt: "asc" as const },
+    select: {
+      product: {
+        select: {
+          id: true,
+          title: true,
+          slug: true,
+          priceMinor: true,
+          salePriceMinor: true,
+          currency: true,
+          status: true,
+          sellerId: true,
+          categoryId: true,
+          seller: {
+            select: {
+              id: true,
+              userId: true,
+              commissionBps: true,
+              status: true,
+              user: { select: { status: true } },
             },
           },
         },
-        bundles: {
-          orderBy: { createdAt: "asc" },
+      },
+    },
+  };
+
+  const [cart, ownedRows, rules] = await Promise.all([
+    withSchemaFallback(
+      () =>
+        prisma.cart.findUnique({
+          where: { userId },
           select: {
-            bundle: {
+            couponCode: true,
+            items: cartItemsSelect,
+            bundles: {
+              orderBy: { createdAt: "asc" },
               select: {
-                id: true,
-                title: true,
-                bundlePriceMinor: true,
-                currency: true,
-                isActive: true,
-                sellerId: true,
-                seller: {
+                bundle: {
                   select: {
                     id: true,
-                    userId: true,
-                    commissionBps: true,
-                    status: true,
-                    user: { select: { status: true } },
-                  },
-                },
-                items: {
-                  orderBy: { sortOrder: "asc" },
-                  select: {
-                    product: {
+                    title: true,
+                    bundlePriceMinor: true,
+                    currency: true,
+                    isActive: true,
+                    sellerId: true,
+                    seller: {
                       select: {
                         id: true,
-                        title: true,
-                        slug: true,
-                        priceMinor: true,
-                        salePriceMinor: true,
-                        currency: true,
+                        userId: true,
+                        commissionBps: true,
                         status: true,
-                        sellerId: true,
-                        categoryId: true,
+                        user: { select: { status: true } },
+                      },
+                    },
+                    items: {
+                      orderBy: { sortOrder: "asc" },
+                      select: {
+                        product: {
+                          select: {
+                            id: true,
+                            title: true,
+                            slug: true,
+                            priceMinor: true,
+                            salePriceMinor: true,
+                            currency: true,
+                            status: true,
+                            sellerId: true,
+                            categoryId: true,
+                          },
+                        },
                       },
                     },
                   },
@@ -142,9 +149,15 @@ export async function previewCart(userId: string): Promise<OrderPreview> {
               },
             },
           },
-        },
+        }),
+      async () => {
+        const legacy = await prisma.cart.findUnique({
+          where: { userId },
+          select: { items: cartItemsSelect },
+        });
+        return legacy ? { couponCode: null as string | null, items: legacy.items, bundles: [] } : null;
       },
-    }),
+    ),
     prisma.orderItem.findMany({
       where: {
         order: { buyerId: userId, status: { in: ["PAID", "PARTIALLY_REFUNDED"] } },
@@ -445,8 +458,9 @@ export async function createPendingOrder(params: {
       totalMinor: preview.totalMinor,
       platformFeeMinor: preview.platformFeeMinor,
       sellerNetMinor: preview.sellerNetMinor,
-      couponId: preview.coupon?.id ?? null,
-      couponCodeSnapshot: preview.coupon?.code ?? null,
+      ...(preview.coupon
+        ? { couponId: preview.coupon.id, couponCodeSnapshot: preview.coupon.code }
+        : {}),
       isTestMode: true,
       ipAddress: params.ipAddress,
       userAgent: params.userAgent,
@@ -541,8 +555,9 @@ export async function claimFreeOrderFromCart(params: {
         totalMinor: 0,
         platformFeeMinor: 0,
         sellerNetMinor: 0,
-        couponId: preview.coupon?.id ?? null,
-        couponCodeSnapshot: preview.coupon?.code ?? null,
+        ...(preview.coupon
+          ? { couponId: preview.coupon.id, couponCodeSnapshot: preview.coupon.code }
+          : {}),
         isTestMode: false,
         ipAddress: params.ipAddress,
         userAgent: params.userAgent,
@@ -572,11 +587,17 @@ export async function claimFreeOrderFromCart(params: {
     }
 
     await tx.cartItem.deleteMany({ where: { cart: { userId: params.userId } } });
-    await tx.cartBundle.deleteMany({ where: { cart: { userId: params.userId } } });
-    await tx.cart.updateMany({ where: { userId: params.userId }, data: { couponCode: null } });
 
     return created.id;
   });
+
+  await Promise.all([
+    withSchemaFallback(() => prisma.cartBundle.deleteMany({ where: { cart: { userId: params.userId } } }), { count: 0 }),
+    withSchemaFallback(
+      () => prisma.cart.updateMany({ where: { userId: params.userId }, data: { couponCode: null } }),
+      { count: 0 },
+    ),
+  ]);
 
   const sellerIds = [...new Set(preview.lines.map((line) => line.sellerId))];
   const sellers = await prisma.sellerProfile.findMany({
@@ -739,23 +760,37 @@ export async function createCheckoutSession(params: {
   successUrl: string;
   cancelUrl: string;
 }) {
-  const order = await prisma.order.findUnique({
-    where: { id: params.orderId },
-    select: {
-      id: true,
-      orderNumber: true,
-      currency: true,
-      totalMinor: true,
-      couponCodeSnapshot: true,
-      buyer: { select: { email: true } },
-      items: {
-        select: {
-          titleSnapshot: true,
-          priceMinor: true,
-        },
+  const baseCheckoutSelect = {
+    id: true,
+    orderNumber: true,
+    currency: true,
+    totalMinor: true,
+    buyer: { select: { email: true } },
+    items: {
+      select: {
+        titleSnapshot: true,
+        priceMinor: true,
       },
     },
-  });
+  };
+
+  const order = await withSchemaFallback(
+    () =>
+      prisma.order.findUnique({
+        where: { id: params.orderId },
+        select: {
+          ...baseCheckoutSelect,
+          couponCodeSnapshot: true,
+        },
+      }),
+    async () => {
+      const legacy = await prisma.order.findUnique({
+        where: { id: params.orderId },
+        select: baseCheckoutSelect,
+      });
+      return legacy ? { ...legacy, couponCodeSnapshot: null as string | null } : null;
+    },
+  );
 
   if (!order) throw new CheckoutError("Order not found.");
   if (order.totalMinor < STRIPE_MIN_CHARGE_MINOR) {
@@ -818,28 +853,42 @@ export async function markOrderPaid(params: {
   receiptUrl: string | null;
   isTestMode: boolean;
 }): Promise<{ alreadyPaid: boolean }> {
-  const order = await prisma.order.findUnique({
-    where: { id: params.orderId },
-    select: {
-      id: true,
-      status: true,
-      currency: true,
-      buyerId: true,
-      couponId: true,
-      sellerNetMinor: true,
-      items: {
-        select: {
-          id: true,
-          productId: true,
-          sellerId: true,
-          priceMinor: true,
-          platformFeeMinor: true,
-          sellerNetMinor: true,
-          status: true,
-        },
+  const baseOrderSelect = {
+    id: true,
+    status: true,
+    currency: true,
+    buyerId: true,
+    sellerNetMinor: true,
+    items: {
+      select: {
+        id: true,
+        productId: true,
+        sellerId: true,
+        priceMinor: true,
+        platformFeeMinor: true,
+        sellerNetMinor: true,
+        status: true,
       },
     },
-  });
+  };
+
+  const order = await withSchemaFallback(
+    () =>
+      prisma.order.findUnique({
+        where: { id: params.orderId },
+        select: {
+          ...baseOrderSelect,
+          couponId: true,
+        },
+      }),
+    async () => {
+      const legacy = await prisma.order.findUnique({
+        where: { id: params.orderId },
+        select: baseOrderSelect,
+      });
+      return legacy ? { ...legacy, couponId: null as string | null } : null;
+    },
+  );
 
   if (!order) throw new CheckoutError("Order not found.");
   if (order.status === "PAID" || order.status === "PARTIALLY_REFUNDED") {
@@ -913,14 +962,22 @@ export async function markOrderPaid(params: {
     }
 
     await tx.cartItem.deleteMany({ where: { cart: { userId: order.buyerId } } });
-    await tx.cartBundle.deleteMany({ where: { cart: { userId: order.buyerId } } });
-    await tx.cart.updateMany({ where: { userId: order.buyerId }, data: { couponCode: null } });
     return true;
   });
 
   if (!transitioned) {
     return { alreadyPaid: true };
   }
+
+  await Promise.all([
+    withSchemaFallback(() => prisma.cartBundle.deleteMany({ where: { cart: { userId: order.buyerId } } }), {
+      count: 0,
+    }),
+    withSchemaFallback(
+      () => prisma.cart.updateMany({ where: { userId: order.buyerId }, data: { couponCode: null } }),
+      { count: 0 },
+    ),
+  ]);
 
   const sellerIds = [...new Set(order.items.map((item) => item.sellerId))];
   const sellers = await prisma.sellerProfile.findMany({

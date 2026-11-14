@@ -43,13 +43,25 @@ function resolveDatabaseUrl(): string | undefined {
   return url.toString();
 }
 
+function resolveSiteUrl(): string {
+  const explicit =
+    optional(process.env.SITE_URL) ??
+    optional(process.env.NEXT_PUBLIC_SITE_URL) ??
+    (optional(process.env.VERCEL_URL) ? `https://${optional(process.env.VERCEL_URL)}` : undefined);
+
+  if (!explicit) return "http://localhost:3000";
+  const normalized = /^https?:\/\//i.test(explicit) ? explicit : `https://${explicit}`;
+  try {
+    return new URL(normalized).origin;
+  } catch {
+    return "http://localhost:3000";
+  }
+}
+
 export const env = {
   nodeEnv: process.env.NODE_ENV ?? "development",
 
-  siteUrl:
-    optional(process.env.SITE_URL) ??
-    optional(process.env.NEXT_PUBLIC_SITE_URL) ??
-    "http://localhost:3000",
+  siteUrl: resolveSiteUrl(),
 
   database: {
     // Derived from the pooler URL plus SUPABASE_DB_PASS; see resolveDatabaseUrl.
