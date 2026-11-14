@@ -21,8 +21,8 @@ export default async function LoginPage({
 
   return (
     <div>
-      <h1 className="text-[18px] font-semibold tracking-tight">Sign in</h1>
-      <p className="muted mt-1 text-[12.5px]">
+      <h1 className="text-[20px] font-bold tracking-tight">Sign in</h1>
+      <p className="muted mt-1.5 text-[13px]">
         Access your purchases, downloads and seller dashboard.
       </p>
 

@@ -97,16 +97,16 @@ export default async function SupportPage() {
     : [];
 
   return (
-    <div className="mx-auto max-w-[1100px] space-y-5 px-4 py-6">
+    <div className="mx-auto max-w-[1140px] space-y-6 px-4 py-8 sm:px-6">
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="flex items-center gap-2 text-[18px] font-semibold tracking-tight">
-            <LifeBuoy className="size-4 text-accent" aria-hidden />
+          <h1 className="flex items-center gap-2 text-[24px] font-bold tracking-tight">
+            <LifeBuoy className="size-5 text-accent" aria-hidden />
             Help centre
           </h1>
-          <p className="muted mt-1 max-w-2xl text-[12.5px] leading-relaxed">
-            Policies, refund requests and reporting. Support tickets are answered by platform staff
-            — sellers cannot see the tickets you file about them.
+          <p className="muted mt-1.5 max-w-2xl text-[13.5px] leading-relaxed">
+            Policies, refund requests and reporting. Support tickets are handled confidentially by
+            platform staff.
           </p>
         </div>
         <Link href="/support/new" className={buttonClass("primary", "sm")}>
@@ -114,12 +114,12 @@ export default async function SupportPage() {
         </Link>
       </header>
 
-      <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <section className="grid gap-3.5 sm:grid-cols-2 lg:grid-cols-4">
         {TOPICS.map((topic) => (
-          <Link key={topic.href} href={topic.href} className="surface p-3.5 transition-colors hover:border-line-strong">
+          <Link key={topic.href} href={topic.href} className="surface card-interactive p-4">
             <topic.icon className="size-4 text-accent" aria-hidden />
-            <p className="mt-2 text-[13px] font-medium">{topic.title}</p>
-            <p className="muted mt-1 text-[11.5px] leading-relaxed">{topic.description}</p>
+            <p className="mt-2.5 text-[14px] font-semibold text-ink">{topic.title}</p>
+            <p className="muted mt-1 text-[12.5px] leading-relaxed">{topic.description}</p>
           </Link>
         ))}
       </section>

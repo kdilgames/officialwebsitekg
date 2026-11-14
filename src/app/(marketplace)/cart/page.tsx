@@ -47,8 +47,8 @@ export default async function CartPage() {
 
   if (items.length === 0) {
     return (
-      <div className="mx-auto max-w-[1400px] px-4 py-6">
-        <h1 className="text-[18px] font-semibold tracking-tight">Your cart</h1>
+      <div className="mx-auto max-w-[1400px] px-4 py-8 sm:px-6">
+        <h1 className="text-[24px] font-bold tracking-tight">Your cart</h1>
         <Card className="mt-4">
           <EmptyState
             icon={<ShoppingCart className="size-5" aria-hidden />}
@@ -66,18 +66,18 @@ export default async function CartPage() {
   }
 
   return (
-    <div className="mx-auto max-w-[1400px] px-4 py-6">
-      <header className="mb-4">
-        <h1 className="text-[18px] font-semibold tracking-tight">Your cart</h1>
-        <p className="muted mt-1 text-[12.5px]">
-          {items.length} {items.length === 1 ? "item" : "items"} · digital delivery, no shipping
+    <div className="mx-auto max-w-[1400px] px-4 py-8 sm:px-6">
+      <header className="mb-5">
+        <h1 className="text-[24px] font-bold tracking-tight">Your cart</h1>
+        <p className="muted mt-1 text-[13.5px]">
+          {items.length} {items.length === 1 ? "item" : "items"} · instant digital delivery
         </p>
       </header>
 
-      <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
+      <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_340px]">
         <Card>
           <ul className="divide-y divide-line">
-            {items.map((item: any) => {
+            {items.map((item) => {
               const product = item.product;
               const price = chargedPrice.get(product.id) ?? product.salePriceMinor ?? product.priceMinor;
               const original = product.salePriceMinor ?? product.priceMinor;

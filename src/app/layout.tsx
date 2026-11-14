@@ -1,30 +1,36 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { JetBrains_Mono, Plus_Jakarta_Sans } from "next/font/google";
 
 import { env } from "@/lib/env";
 
 import "./globals.css";
 
-const inter = Inter({
+const plusJakarta = Plus_Jakarta_Sans({
   subsets: ["latin"],
   display: "swap",
-  variable: "--font-inter",
+  variable: "--font-jakarta",
+});
+
+const jetbrainsMono = JetBrains_Mono({
+  subsets: ["latin"],
+  display: "swap",
+  variable: "--font-mono-code",
 });
 
 export const metadata: Metadata = {
   title: {
-    default: `${env.marketplace.platformName} Marketplace`,
+    default: `${env.marketplace.platformName} — Digital Marketplace for Game Developers`,
     template: `%s · ${env.marketplace.platformName}`,
   },
   description:
-    "Marketplace for Roblox systems, Minecraft plugins, Discord bots, website templates and developer tooling.",
+    "Discover and buy Roblox systems, Minecraft plugins, Discord bots, website templates and developer tools from independent creators.",
   metadataBase: new URL(env.siteUrl),
   openGraph: { type: "website", siteName: env.marketplace.platformName },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={inter.variable}>
+    <html lang="en" className={`${plusJakarta.variable} ${jetbrainsMono.variable}`}>
       <body className="min-h-screen bg-canvas text-ink antialiased">{children}</body>
     </html>
   );

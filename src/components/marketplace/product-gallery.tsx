@@ -17,8 +17,9 @@ export function ProductGallery({ images, title }: { images: GalleryImage[]; titl
 
   if (total === 0) {
     return (
-      <div className="flex aspect-[2/1] items-center justify-center border-b border-line bg-elevated text-ink-subtle">
+      <div className="flex aspect-[2/1] flex-col items-center justify-center gap-2 border-b border-line bg-elevated text-ink-subtle">
         <FileArchive className="size-8" aria-hidden />
+        <span className="text-[12px]">No preview screenshots uploaded</span>
       </div>
     );
   }
@@ -48,7 +49,7 @@ export function ProductGallery({ images, title }: { images: GalleryImage[]; titl
               type="button"
               onClick={() => step(-1)}
               aria-label="Previous image"
-              className="absolute left-2 top-1/2 -translate-y-1/2 rounded-full border border-line bg-canvas/85 p-1.5 text-ink-muted transition-colors hover:text-ink"
+              className="absolute left-3 top-1/2 -translate-y-1/2 rounded-full border border-line bg-surface/90 p-2 text-ink shadow-sm backdrop-blur-xs transition-colors hover:bg-surface"
             >
               <ChevronLeft className="size-4" aria-hidden />
             </button>
@@ -56,11 +57,11 @@ export function ProductGallery({ images, title }: { images: GalleryImage[]; titl
               type="button"
               onClick={() => step(1)}
               aria-label="Next image"
-              className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full border border-line bg-canvas/85 p-1.5 text-ink-muted transition-colors hover:text-ink"
+              className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full border border-line bg-surface/90 p-2 text-ink shadow-sm backdrop-blur-xs transition-colors hover:bg-surface"
             >
               <ChevronRight className="size-4" aria-hidden />
             </button>
-            <span className="badge absolute right-2 top-2 tabular-nums">
+            <span className="badge absolute right-3 top-3 bg-surface/90 text-ink shadow-xs backdrop-blur-xs tabular-nums">
               {active + 1} / {total}
             </span>
           </>
@@ -77,8 +78,10 @@ export function ProductGallery({ images, title }: { images: GalleryImage[]; titl
               aria-selected={position === active}
               aria-label={`Show image ${position + 1}`}
               onClick={() => setIndex(position)}
-              className={`shrink-0 overflow-hidden rounded-[6px] border transition-colors ${
-                position === active ? "border-accent" : "border-line hover:border-line-strong"
+              className={`shrink-0 overflow-hidden rounded-[8px] border-2 transition-all ${
+                position === active
+                  ? "border-accent shadow-xs"
+                  : "border-transparent opacity-70 hover:opacity-100"
               }`}
             >
               {/* eslint-disable-next-line @next/next/no-img-element -- remote host configured in next.config.ts */}
@@ -86,7 +89,7 @@ export function ProductGallery({ images, title }: { images: GalleryImage[]; titl
                 src={image.url}
                 alt=""
                 loading="lazy"
-                className={`aspect-[2/1] w-24 object-cover ${position === active ? "" : "opacity-70"}`}
+                className="aspect-[2/1] w-24 object-cover"
               />
             </button>
           ))}

@@ -15,10 +15,9 @@ export default async function RegisterPage() {
 
   return (
     <div>
-      <h1 className="text-[18px] font-semibold tracking-tight">Create your account</h1>
-      <p className="muted mt-1 text-[12.5px]">
-        Only a username, display name and email are required. Identity documents and card details
-        are never collected by the marketplace.
+      <h1 className="text-[20px] font-bold tracking-tight">Create your account</h1>
+      <p className="muted mt-1.5 text-[13px] leading-relaxed">
+        Join KDILGAMES to buy digital products, access downloads anytime, or open a creator store.
       </p>
 
       {!isSupabaseConfigured ? (

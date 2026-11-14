@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { SearchX } from "lucide-react";
+import { SearchX, X } from "lucide-react";
 
 import { ProductGrid } from "@/components/marketplace/product-card";
 import { EmptyState } from "@/components/ui/alert";
@@ -58,21 +58,35 @@ export default async function BrowsePage({
   const sort = (SORT_OPTIONS.find((option) => option.value === params.sort)?.value ??
     "relevance") as ProductSort;
 
-  const result = await browseProducts({
-    q: params.q,
-    categoryIds: resolved?.ids,
-    seller: params.seller,
-    tag: params.tag,
-    license: params.license,
-    minPrice: toNumber(params.min),
-    maxPrice: toNumber(params.max),
-    sort,
-    page: Number.parseInt(params.page ?? "1", 10) || 1,
-  });
+  const [result, categories] = await Promise.all([
+    browseProducts({
+      q: params.q,
+      categoryIds: resolved?.ids,
+      seller: params.seller,
+      tag: params.tag,
+      license: params.license,
+      minPrice: toNumber(params.min),
+      maxPrice: toNumber(params.max),
+      sort,
+      page: Number.parseInt(params.page ?? "1", 10) || 1,
+    }),
+    listCategories(),
+  ]);
 
-  const categories = await listCategories();
+  const buildHref = (overrides: Partial<Record<keyof SearchParams, string | undefined>>) => {
+    const query = new URLSearchParams();
+    const merged: SearchParams = { ...params, ...overrides };
+    for (const [key, value] of Object.entries(merged)) {
+      if (!value) continue;
+      if (key === "page" && value === "1") continue;
+      if (key === "sort" && value === "relevance") continue;
+      query.set(key, value);
+    }
+    const suffix = query.toString();
+    return suffix ? `/browse?${suffix}` : "/browse";
+  };
 
-  const buildHref = (page: number) => {
+  const buildPageHref = (page: number) => {
     const query = new URLSearchParams();
     for (const [key, value] of Object.entries(params)) {
       if (value && key !== "page") query.set(key, value);
@@ -83,30 +97,69 @@ export default async function BrowsePage({
   };
 
   const activeCategory = resolved?.category;
+  const topCategories = categories.filter((category) => !category.parentId);
+  const hasFilters = Boolean(
+    params.q ||
+      categorySlug ||
+      params.seller ||
+      params.tag ||
+      params.license ||
+      params.min ||
+      params.max,
+  );
 
   return (
-    <div className="mx-auto max-w-[1400px] px-4 py-7">
-      <header className="mb-5">
-        <h1 className="text-[22px] font-semibold tracking-tight">
-          {activeCategory ? activeCategory.name : "Browse products"}
+    <div className="mx-auto max-w-[1400px] px-4 py-8 sm:px-6">
+      <header className="mb-6">
+        <h1 className="text-[26px] font-bold tracking-tight text-ink">
+          {activeCategory ? activeCategory.name : "Browse catalogue"}
         </h1>
-        <p className="muted mt-1 text-[13px]">
+        <p className="muted mt-1.5 max-w-2xl text-[14px]">
           {activeCategory?.description ??
-            "Filter by category, price and license. Results only ever come from published listings."}
+            "Find scripts, plugins, bots and templates by category, license type or price."}
         </p>
+
+        {topCategories.length > 0 ? (
+          <div className="mt-4 flex flex-wrap gap-2">
+            <Link
+              href={buildHref({ category: undefined, page: undefined })}
+              className={`badge transition-colors ${
+                !categorySlug
+                  ? "badge-accent"
+                  : "hover:border-line-strong hover:bg-surface hover:text-ink"
+              }`}
+            >
+              All categories
+            </Link>
+            {topCategories.map((category) => (
+              <Link
+                key={category.slug}
+                href={buildHref({ category: category.slug, page: undefined })}
+                className={`badge transition-colors ${
+                  categorySlug === category.slug
+                    ? "badge-accent"
+                    : "hover:border-line-strong hover:bg-surface hover:text-ink"
+                }`}
+              >
+                {category.name}
+                <span className="opacity-70 tabular-nums">{category._count.products}</span>
+              </Link>
+            ))}
+          </div>
+        ) : null}
       </header>
 
-      <div className="grid gap-5 lg:grid-cols-[260px_minmax(0,1fr)]">
-        <aside className="lg:sticky lg:top-20 lg:self-start">
+      <div className="grid gap-6 lg:grid-cols-[268px_minmax(0,1fr)]">
+        <aside className="lg:sticky lg:top-24 lg:self-start">
           <form action="/browse" className="surface space-y-4 p-4">
             <Field label="Search" htmlFor="q">
-              <Input id="q" name="q" defaultValue={params.q ?? ""} placeholder="Keywords" />
+              <Input id="q" name="q" defaultValue={params.q ?? ""} placeholder="Keywords..." />
             </Field>
 
             <Field label="Category" htmlFor="category">
               <Select id="category" name="category" defaultValue={categorySlug ?? ""}>
                 <option value="">All categories</option>
-                {categories.map((category: any) => (
+                {categories.map((category) => (
                   <option key={category.slug} value={category.slug}>
                     {category.name} ({category._count.products})
                   </option>
@@ -124,7 +177,7 @@ export default async function BrowsePage({
               </Select>
             </Field>
 
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-2 gap-2.5">
               <Field label="Min price" htmlFor="min">
                 <Input id="min" name="min" type="number" min={0} step="0.5" defaultValue={params.min} />
               </Field>
@@ -143,25 +196,58 @@ export default async function BrowsePage({
               </Select>
             </Field>
 
-            <div className="flex gap-2">
+            <div className="flex gap-2 pt-1">
               <Button type="submit" variant="primary" className="flex-1">
                 Apply filters
               </Button>
-              <Link href="/browse" className="btn btn-secondary">
-                Reset
-              </Link>
+              {hasFilters ? (
+                <Link href="/browse" className="btn btn-secondary">
+                  Reset
+                </Link>
+              ) : null}
             </div>
           </form>
         </aside>
 
         <section>
-          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-            <p className="muted text-[12.5px] tabular-nums">
-              {result.total} {result.total === 1 ? "product" : "products"}
-              {params.q ? ` for “${params.q}”` : ""}
-            </p>
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="muted text-[13px] tabular-nums">
+                {result.total} {result.total === 1 ? "product" : "products"}
+                {params.q ? ` for “${params.q}”` : ""}
+              </p>
+
+              {params.q ? (
+                <Link
+                  href={buildHref({ q: undefined, page: undefined })}
+                  className="badge hover:border-line-strong hover:text-ink"
+                >
+                  Search: {params.q}
+                  <X className="size-3" aria-hidden />
+                </Link>
+              ) : null}
+              {params.tag ? (
+                <Link
+                  href={buildHref({ tag: undefined, page: undefined })}
+                  className="badge hover:border-line-strong hover:text-ink"
+                >
+                  Tag: {params.tag}
+                  <X className="size-3" aria-hidden />
+                </Link>
+              ) : null}
+              {params.license ? (
+                <Link
+                  href={buildHref({ license: undefined, page: undefined })}
+                  className="badge hover:border-line-strong hover:text-ink"
+                >
+                  {params.license.toLowerCase()} license
+                  <X className="size-3" aria-hidden />
+                </Link>
+              ) : null}
+            </div>
+
             {result.totalPages > 1 ? (
-              <p className="subtle text-[12px] tabular-nums">
+              <p className="subtle text-[12.5px] tabular-nums">
                 Page {result.page} of {result.totalPages}
               </p>
             ) : null}
@@ -172,10 +258,10 @@ export default async function BrowsePage({
               <EmptyState
                 icon={<SearchX className="size-5" />}
                 title="No products match these filters"
-                description="Try widening the price range, clearing the search term, or browsing another category."
+                description="Try widening the price range, clearing the search term, or switching to another category."
                 action={
                   <Link href="/browse" className="btn btn-secondary btn-sm">
-                    Clear filters
+                    Clear all filters
                   </Link>
                 }
               />
@@ -186,8 +272,8 @@ export default async function BrowsePage({
               <Pagination
                 page={result.page}
                 totalPages={result.totalPages}
-                buildHref={buildHref}
-                className="mt-5"
+                buildHref={buildPageHref}
+                className="mt-6"
               />
             </>
           )}

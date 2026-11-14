@@ -129,41 +129,45 @@ export default async function ProductPage({ params }: PageProps) {
   const isOwnProduct = user?.sellerProfile?.id === product.sellerId;
   const price = product.salePriceMinor ?? product.priceMinor;
   const onSale = product.salePriceMinor !== null && product.salePriceMinor < product.priceMinor;
+  const discountPercent =
+    onSale && product.priceMinor > 0
+      ? Math.round(((product.priceMinor - price) / product.priceMinor) * 100)
+      : 0;
   const rating = product.ratingCount > 0 ? product.ratingSum / product.ratingCount : null;
-  const hasReview = reviews.some((review: any) => review.user.username === user?.username);
+  const hasReview = reviews.some((review) => review.user.username === user?.username);
   const canBuy = product.seller.status === "APPROVED" && product.seller.user.status === "ACTIVE";
 
   const distribution = [5, 4, 3, 2, 1].map((stars) => ({
     stars,
-    count: reviews.filter((review: any) => review.rating === stars).length,
+    count: reviews.filter((review) => review.rating === stars).length,
   }));
   const distributionTotal = reviews.length;
 
   return (
-    <div className="mx-auto max-w-[1400px] px-4 py-6">
-      <nav className="subtle mb-4 flex items-center gap-1.5 text-[12px]" aria-label="Breadcrumb">
+    <div className="mx-auto max-w-[1400px] px-4 py-8 sm:px-6">
+      <nav className="subtle mb-5 flex items-center gap-1.5 text-[12.5px]" aria-label="Breadcrumb">
         <Link href="/browse" className="hover:text-ink">
           Browse
         </Link>
-        <ChevronRight className="size-3" aria-hidden />
+        <ChevronRight className="size-3.5" aria-hidden />
         <Link href={`/category/${product.category.slug}`} className="hover:text-ink">
           {product.category.name}
         </Link>
-        <ChevronRight className="size-3" aria-hidden />
-        <span className="truncate text-ink-muted">{product.title}</span>
+        <ChevronRight className="size-3.5" aria-hidden />
+        <span className="truncate font-medium text-ink-muted">{product.title}</span>
       </nav>
 
-      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
-        <div className="space-y-5">
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_380px]">
+        <div className="space-y-6">
           <Card className="overflow-hidden">
             <ProductGallery images={product.images} title={product.title} />
           </Card>
 
           <Card>
-            <CardBody className="space-y-4">
+            <CardBody className="space-y-5 p-5 sm:p-6">
               <div>
-                <h2 className="text-[15px] font-semibold">Description</h2>
-                <div className="prose-legal mt-2 whitespace-pre-wrap text-[13px] leading-relaxed text-ink-muted">
+                <h2 className="text-[16px] font-semibold">About this product</h2>
+                <div className="prose-legal mt-2.5 whitespace-pre-wrap text-[14px] leading-relaxed text-ink-muted">
                   {product.description}
                 </div>
               </div>
@@ -171,22 +175,28 @@ export default async function ProductPage({ params }: PageProps) {
               {product.tags.length > 0 ? (
                 <div className="flex flex-wrap gap-1.5">
                   {product.tags.map((tag: string) => (
-                    <Link key={tag} href={`/browse?tag=${encodeURIComponent(tag)}`} className="badge">
+                    <Link
+                      key={tag}
+                      href={`/browse?tag=${encodeURIComponent(tag)}`}
+                      className="badge transition-colors hover:border-line-strong hover:bg-surface hover:text-ink"
+                    >
                       {tag}
                     </Link>
                   ))}
                 </div>
               ) : null}
 
-              <div className="grid gap-4 sm:grid-cols-2">
-                <SpecList title="Compatibility" value={product.compatibility} />
-                <SpecList title="Requirements" value={product.requirements} />
-              </div>
+              {(product.compatibility || product.requirements) ? (
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <SpecList title="Compatibility" value={product.compatibility} />
+                  <SpecList title="Requirements" value={product.requirements} />
+                </div>
+              ) : null}
 
               {product.licenseText ? (
-                <div>
-                  <h3 className="text-[13px] font-semibold">License</h3>
-                  <p className="muted mt-1 whitespace-pre-wrap text-[12.5px] leading-relaxed">
+                <div className="surface-elevated p-4">
+                  <h3 className="text-[13.5px] font-semibold text-ink">License terms</h3>
+                  <p className="muted mt-1.5 whitespace-pre-wrap text-[13px] leading-relaxed">
                     {product.licenseText}
                   </p>
                 </div>
@@ -197,27 +207,27 @@ export default async function ProductPage({ params }: PageProps) {
           <Card>
             <CardHeader
               title="Changelog"
-              description={`Current version ${product.version}`}
+              description={`Current release v${product.version}`}
             />
             {product.versions.length === 0 ? (
               <CardBody>
-                <p className="muted text-[12.5px]">
-                  No version history has been published for this product yet.
+                <p className="muted text-[13px]">
+                  No version history has been added for this product yet.
                 </p>
               </CardBody>
             ) : (
               <ul className="divide-y divide-line">
-                {product.versions.map((version: any) => (
-                  <li key={version.version} className="flex gap-3 px-4 py-3">
+                {product.versions.map((version) => (
+                  <li key={version.version} className="flex items-start gap-4 px-5 py-4">
                     <div className="flex w-24 shrink-0 flex-col gap-1">
-                      <span className="text-[12.5px] font-medium tabular-nums">
-                        {version.version}
+                      <span className="font-mono text-[13px] font-medium tabular-nums text-ink">
+                        v{version.version}
                       </span>
-                      <span className="subtle text-[11px]">
+                      <span className="subtle text-[11.5px]">
                         {version.releasedAt.toISOString().slice(0, 10)}
                       </span>
                     </div>
-                    <p className="muted whitespace-pre-wrap text-[12.5px] leading-relaxed">
+                    <p className="muted flex-1 whitespace-pre-wrap text-[13px] leading-relaxed">
                       {version.changelog}
                     </p>
                     {version.isLatest ? <Badge tone="positive">latest</Badge> : null}
@@ -229,35 +239,43 @@ export default async function ProductPage({ params }: PageProps) {
 
           <Card>
             <CardHeader
-              title={`Reviews${product._count.reviews > 0 ? ` (${product._count.reviews})` : ""}`}
-              description="Only buyers with a paid order can review."
+              title={`Customer reviews${product._count.reviews > 0 ? ` (${product._count.reviews})` : ""}`}
+              description="Verified purchases only."
             />
-            <CardBody className="space-y-4">
+            <CardBody className="space-y-5 p-5 sm:p-6">
               {rating !== null ? (
-                <div className="flex flex-wrap items-center gap-5">
-                  <div className="flex items-center gap-2">
-                    <span className="text-[26px] font-semibold tabular-nums">{rating.toFixed(1)}</span>
-                    <div className="flex items-center gap-0.5">
-                      {[1, 2, 3, 4, 5].map((star) => (
-                        <Star
-                          key={star}
-                          className={
-                            star <= Math.round(rating)
-                              ? "size-3.5 fill-caution text-caution"
-                              : "size-3.5 text-ink-subtle"
-                          }
-                          aria-hidden
-                        />
-                      ))}
+                <div className="flex flex-wrap items-center gap-6 rounded-[10px] border border-line bg-elevated/60 p-4">
+                  <div className="flex items-center gap-3">
+                    <span className="text-[32px] font-bold tabular-nums leading-none text-ink">
+                      {rating.toFixed(1)}
+                    </span>
+                    <div>
+                      <div className="flex items-center gap-0.5">
+                        {[1, 2, 3, 4, 5].map((star) => (
+                          <Star
+                            key={star}
+                            className={
+                              star <= Math.round(rating)
+                                ? "size-4 fill-caution text-caution"
+                                : "size-4 text-line-strong"
+                            }
+                            aria-hidden
+                          />
+                        ))}
+                      </div>
+                      <p className="subtle mt-1 text-[12px]">
+                        {product.ratingCount}{" "}
+                        {product.ratingCount === 1 ? "verified review" : "verified reviews"}
+                      </p>
                     </div>
                   </div>
-                  <div className="min-w-[180px] flex-1 space-y-1">
+                  <div className="min-w-[180px] flex-1 space-y-1.5">
                     {distribution.map((row) => (
                       <div key={row.stars} className="flex items-center gap-2">
-                        <span className="subtle w-3 text-[11px] tabular-nums">{row.stars}</span>
-                        <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-elevated">
+                        <span className="subtle w-3 text-[11.5px] tabular-nums">{row.stars}</span>
+                        <div className="h-2 flex-1 overflow-hidden rounded-full bg-raised">
                           <div
-                            className="h-full bg-caution"
+                            className="h-full rounded-full bg-caution"
                             style={{
                               width:
                                 distributionTotal > 0
@@ -266,7 +284,7 @@ export default async function ProductPage({ params }: PageProps) {
                             }}
                           />
                         </div>
-                        <span className="subtle w-6 text-right text-[11px] tabular-nums">
+                        <span className="subtle w-6 text-right text-[11.5px] tabular-nums">
                           {row.count}
                         </span>
                       </div>
@@ -280,7 +298,7 @@ export default async function ProductPage({ params }: PageProps) {
                   <Alert tone="info">You have already reviewed this product.</Alert>
                 ) : (
                   <div className="surface-elevated p-4">
-                    <h3 className="mb-3 text-[13px] font-semibold">Write a review</h3>
+                    <h3 className="mb-3 text-[14px] font-semibold">Write a review</h3>
                     <ReviewForm
                       action={submitReviewAction}
                       productId={product.id}
@@ -293,34 +311,34 @@ export default async function ProductPage({ params }: PageProps) {
               {reviews.length === 0 ? (
                 <EmptyState
                   title="No reviews yet"
-                  description="Reviews appear here once buyers who purchased this product publish one. The marketplace never generates placeholder reviews."
+                  description="Reviews appear here once customers who purchased this product share their feedback."
                 />
               ) : (
                 <ul className="space-y-3">
-                  {reviews.map((review: any) => (
+                  {reviews.map((review) => (
                     <li key={review.id} className="surface-elevated p-4">
                       <div className="flex flex-wrap items-center justify-between gap-2">
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2.5">
                           {review.user.avatarUrl ? (
                             // eslint-disable-next-line @next/next/no-img-element -- remote host configured in next.config.ts
                             <img
                               src={review.user.avatarUrl}
                               alt=""
                               loading="lazy"
-                              className="size-6 shrink-0 rounded-full border border-line object-cover"
+                              className="size-7 shrink-0 rounded-full border border-line object-cover"
                             />
                           ) : (
-                            <span className="flex size-6 shrink-0 items-center justify-center rounded-full border border-line bg-raised text-[10px] font-semibold text-ink-muted">
+                            <span className="flex size-7 shrink-0 items-center justify-center rounded-full border border-line bg-surface text-[11px] font-semibold text-ink-muted">
                               {review.user.displayName.slice(0, 1).toUpperCase()}
                             </span>
                           )}
-                          <span className="text-[12.5px] font-medium">
+                          <span className="text-[13px] font-semibold text-ink">
                             {review.user.displayName}
                           </span>
                           {review.isVerifiedPurchase ? (
                             <Badge tone="positive">
                               <BadgeCheck className="size-3" aria-hidden />
-                              verified purchase
+                              Verified purchase
                             </Badge>
                           ) : null}
                         </div>
@@ -330,29 +348,31 @@ export default async function ProductPage({ params }: PageProps) {
                               key={star}
                               className={
                                 star <= review.rating
-                                  ? "size-3 fill-caution text-caution"
-                                  : "size-3 text-ink-subtle"
+                                  ? "size-3.5 fill-caution text-caution"
+                                  : "size-3.5 text-line-strong"
                               }
                               aria-hidden
                             />
                           ))}
-                          <span className="subtle ml-1.5 text-[11px]">
+                          <span className="subtle ml-2 text-[11.5px]">
                             {review.createdAt.toISOString().slice(0, 10)}
                           </span>
                         </div>
                       </div>
                       {review.title ? (
-                        <p className="mt-2 text-[13px] font-medium">{review.title}</p>
+                        <p className="mt-2.5 text-[13.5px] font-semibold text-ink">
+                          {review.title}
+                        </p>
                       ) : null}
-                      <p className="muted mt-1 whitespace-pre-wrap text-[12.5px] leading-relaxed">
+                      <p className="muted mt-1 whitespace-pre-wrap text-[13px] leading-relaxed">
                         {review.body}
                       </p>
                       {review.sellerReply ? (
-                        <div className="mt-3 rounded-[7px] border border-line bg-surface p-3">
-                          <p className="subtle text-[11px] uppercase tracking-[0.04em]">
+                        <div className="mt-3 rounded-[8px] border border-line bg-surface p-3.5">
+                          <p className="subtle text-[11px] font-semibold uppercase tracking-[0.04em]">
                             Seller reply
                           </p>
-                          <p className="muted mt-1 text-[12.5px] leading-relaxed">
+                          <p className="muted mt-1 text-[13px] leading-relaxed">
                             {review.sellerReply}
                           </p>
                         </div>
@@ -365,9 +385,11 @@ export default async function ProductPage({ params }: PageProps) {
           </Card>
 
           {related.length > 0 ? (
-            <section>
-              <h2 className="mb-3 text-[15px] font-semibold">More in {product.category.name}</h2>
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <section className="pt-2">
+              <h2 className="mb-3 text-[18px] font-semibold tracking-tight">
+                More in {product.category.name}
+              </h2>
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                 {related.map((item) => (
                   <ProductCard key={item.slug} product={item} />
                 ))}
@@ -376,33 +398,33 @@ export default async function ProductPage({ params }: PageProps) {
           ) : null}
         </div>
 
-        <aside className="space-y-4 lg:sticky lg:top-20 lg:self-start">
+        <aside className="space-y-4 lg:sticky lg:top-24 lg:self-start">
           <Card>
-            <CardBody className="space-y-4">
+            <CardBody className="space-y-4 p-5">
               <div>
                 <Link
                   href={`/category/${product.category.slug}`}
-                  className="subtle text-[11px] uppercase tracking-[0.04em] hover:text-ink"
+                  className="subtle text-[11.5px] font-semibold uppercase tracking-[0.05em] hover:text-ink"
                 >
                   {product.category.name}
                 </Link>
-                <h1 className="mt-1 text-[18px] font-semibold leading-snug tracking-tight">
+                <h1 className="mt-1.5 text-[21px] font-bold leading-snug tracking-tight text-ink">
                   {product.title}
                 </h1>
-                <p className="muted mt-1.5 text-[12.5px] leading-relaxed">
+                <p className="muted mt-2 text-[13.5px] leading-relaxed">
                   {product.shortDescription}
                 </p>
               </div>
 
-              <div className="flex flex-wrap items-center gap-2 text-[12px] text-ink-muted">
+              <div className="flex flex-wrap items-center gap-3 text-[12.5px] text-ink-muted">
                 {rating !== null ? (
-                  <span className="flex items-center gap-1">
+                  <span className="flex items-center gap-1 font-medium text-ink">
                     <Star className="size-3.5 fill-caution text-caution" aria-hidden />
                     <span className="tabular-nums">{rating.toFixed(1)}</span>
                     <span className="subtle">({product.ratingCount})</span>
                   </span>
                 ) : (
-                  <Badge>no reviews yet</Badge>
+                  <Badge>New release</Badge>
                 )}
                 {product.salesCount > 0 ? (
                   <span className="tabular-nums">
@@ -412,14 +434,19 @@ export default async function ProductPage({ params }: PageProps) {
                 <span className="tabular-nums">{product.viewCount} views</span>
               </div>
 
-              <div className="flex items-baseline gap-2">
-                <span className="text-[24px] font-semibold tabular-nums">
+              <div className="flex flex-wrap items-baseline gap-2.5 border-y border-line py-3.5">
+                <span className="text-[28px] font-bold tracking-tight tabular-nums text-ink">
                   {formatMoney(price, product.currency)}
                 </span>
                 {onSale ? (
-                  <span className="subtle text-[13px] line-through tabular-nums">
-                    {formatMoney(product.priceMinor, product.currency)}
-                  </span>
+                  <>
+                    <span className="subtle text-[14px] line-through tabular-nums">
+                      {formatMoney(product.priceMinor, product.currency)}
+                    </span>
+                    {discountPercent > 0 ? (
+                      <Badge tone="accent">Save {discountPercent}%</Badge>
+                    ) : null}
+                  </>
                 ) : null}
               </div>
 
@@ -436,7 +463,7 @@ export default async function ProductPage({ params }: PageProps) {
 
               {!canBuy ? (
                 <Alert tone="warning">
-                  This listing is temporarily unavailable while the seller account is under review.
+                  This listing is temporarily unavailable while the seller store is under review.
                 </Alert>
               ) : isOwnProduct ? (
                 <Alert tone="info">This is your own listing.</Alert>
@@ -446,7 +473,7 @@ export default async function ProductPage({ params }: PageProps) {
                   You own this — open downloads
                 </Link>
               ) : (
-                <>
+                <div className="space-y-2.5 pt-1">
                   <AddToCartButton
                     action={addToCartAction}
                     productId={product.id}
@@ -458,16 +485,16 @@ export default async function ProductPage({ params }: PageProps) {
                     productId={product.id}
                     active={Boolean(wishlisted)}
                   />
-                </>
+                </div>
               )}
             </CardBody>
           </Card>
 
           <Card>
-            <CardHeader title="Sold by" />
-            <CardBody>
-              <Link href={`/seller/${product.seller.slug}`} className="flex items-center gap-3">
-                <span className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-[8px] border border-line bg-elevated text-[13px] font-semibold">
+            <CardHeader title="Creator" />
+            <CardBody className="p-5">
+              <Link href={`/seller/${product.seller.slug}`} className="group flex items-center gap-3">
+                <span className="flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-[10px] border border-line bg-elevated text-[14px] font-semibold text-ink">
                   {product.seller.logoUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element -- remote host configured in next.config.ts
                     <img src={product.seller.logoUrl} alt="" className="size-full object-cover" />
@@ -476,35 +503,35 @@ export default async function ProductPage({ params }: PageProps) {
                   )}
                 </span>
                 <span className="min-w-0">
-                  <span className="flex items-center gap-1.5 text-[13px] font-medium">
+                  <span className="flex items-center gap-1.5 text-[14px] font-semibold text-ink group-hover:text-accent">
                     {product.seller.storeName}
-                    <BadgeCheck className="size-3.5 text-accent" aria-hidden />
+                    <BadgeCheck className="size-4 text-accent" aria-hidden />
                   </span>
-                  <span className="subtle block text-[11.5px]">
+                  <span className="subtle block text-[12px]">
                     {product.seller._count.products} products · {product.seller._count.followers}{" "}
                     followers
                   </span>
                 </span>
               </Link>
 
-              <div className="divider my-3" />
+              <div className="divider my-4" />
 
-              <ul className="space-y-2">
-                <li className="flex items-center gap-2 text-[12px] text-ink-muted">
-                  <ShieldCheck className="size-3.5 text-positive" aria-hidden />
-                  Seller reviewed before publishing
+              <ul className="space-y-2.5">
+                <li className="flex items-center gap-2.5 text-[12.5px] text-ink-muted">
+                  <ShieldCheck className="size-4 shrink-0 text-positive" aria-hidden />
+                  Store reviewed by KDILGAMES staff
                 </li>
-                <li className="flex items-center gap-2 text-[12px] text-ink-muted">
-                  <Layers className="size-3.5 text-accent" aria-hidden />
-                  Updates delivered to previous buyers
+                <li className="flex items-center gap-2.5 text-[12.5px] text-ink-muted">
+                  <Layers className="size-4 shrink-0 text-accent" aria-hidden />
+                  Future updates included for buyers
                 </li>
-                <li className="flex items-center gap-2 text-[12px] text-ink-muted">
-                  <Download className="size-3.5 text-accent" aria-hidden />
-                  Private, expiring download links
+                <li className="flex items-center gap-2.5 text-[12.5px] text-ink-muted">
+                  <Download className="size-4 shrink-0 text-accent" aria-hidden />
+                  Instant private download after checkout
                 </li>
               </ul>
 
-              <div className="mt-3">
+              <div className="mt-4">
                 <ReportForm action={reportContentAction} targetType="PRODUCT" targetId={product.id} />
               </div>
             </CardBody>
@@ -520,9 +547,9 @@ function SpecList({ title, value }: { title: string; value: unknown }) {
   const text = typeof value === "string" ? value : JSON.stringify(value, null, 2);
 
   return (
-    <div>
-      <h3 className="text-[13px] font-semibold">{title}</h3>
-      <pre className="muted mt-1 whitespace-pre-wrap font-sans text-[12.5px] leading-relaxed">
+    <div className="surface-elevated p-4">
+      <h3 className="text-[13px] font-semibold text-ink">{title}</h3>
+      <pre className="muted mt-1.5 whitespace-pre-wrap font-sans text-[13px] leading-relaxed">
         {text}
       </pre>
     </div>
