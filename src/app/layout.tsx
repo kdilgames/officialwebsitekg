@@ -26,6 +26,7 @@ export const metadata: Metadata = {
     "Discover and buy Roblox systems, Minecraft plugins, Discord bots, website templates and developer tools from independent creators.",
   metadataBase: new URL(env.siteUrl),
   openGraph: { type: "website", siteName: env.marketplace.platformName },
+  twitter: { card: "summary_large_image" },
 };
 
 const THEME_INIT_SCRIPT = `(function(){try{var s=localStorage.getItem("kdil-theme");var t=s==="dark"||s==="light"?s:"light";document.documentElement.dataset.theme=t;document.documentElement.style.colorScheme=t;}catch(e){}})();`;

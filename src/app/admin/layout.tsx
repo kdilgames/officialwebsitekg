@@ -1,7 +1,8 @@
 import Link from "next/link";
-import { ExternalLink, Shield } from "lucide-react";
+import { ExternalLink } from "lucide-react";
 
 import { AdminNav } from "@/components/admin/admin-nav";
+import { BrandMark } from "@/components/layout/brand-mark";
 import { SiteHeader } from "@/components/layout/site-header";
 import { getAdminQueueCounts } from "@/lib/admin/queries";
 import { requireAdmin } from "@/lib/auth/session";
@@ -28,7 +29,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         <aside className="lg:w-[200px] lg:shrink-0">
           <div className="surface p-3">
             <div className="flex items-center gap-2">
-              <Shield className="size-4 shrink-0 text-accent" aria-hidden />
+              <BrandMark size="sm" showName={false} />
               <p className="min-w-0 flex-1 truncate text-[13px] font-medium">
                 {env.marketplace.platformName} admin
               </p>

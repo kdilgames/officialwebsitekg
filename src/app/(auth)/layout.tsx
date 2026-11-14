@@ -10,8 +10,8 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
         <ThemeToggle />
       </div>
 
-      <Link href="/" className="mb-6 rounded-[9px] p-0.5">
-        <BrandMark />
+      <Link href="/" className="mb-6 rounded-[11px] p-0.5" aria-label="KDILGAMES Home">
+        <BrandMark size="lg" />
       </Link>
 
       <div className="surface w-full max-w-lg p-6 shadow-sm sm:p-8">{children}</div>

@@ -12,6 +12,7 @@ import {
   Store,
 } from "lucide-react";
 
+import { BrandMark } from "@/components/layout/brand-mark";
 import { BundleCard } from "@/components/marketplace/bundle-card";
 import { getCategoryVisual } from "@/components/marketplace/category-visuals";
 import { ProductGrid, type ProductCardData } from "@/components/marketplace/product-card";
@@ -82,9 +83,12 @@ export default async function HomePage({
     <div className="mx-auto max-w-[1400px] px-4 py-8 sm:px-6 sm:py-10">
       <section className="grid gap-8 lg:grid-cols-[minmax(0,1.08fr)_minmax(360px,0.92fr)] lg:items-center lg:gap-12">
         <div>
-          <p className="text-[12px] font-semibold uppercase tracking-[0.08em] text-accent">
-            Digital marketplace for creators &amp; game developers
-          </p>
+          <div className="inline-flex items-center gap-2.5">
+            <BrandMark size="sm" showName={false} />
+            <p className="text-[12px] font-semibold uppercase tracking-[0.08em] text-accent">
+              Digital marketplace for creators &amp; game developers
+            </p>
+          </div>
 
           <h1 className="mt-3 max-w-2xl text-[32px] font-bold leading-[1.12] tracking-[-0.025em] text-ink sm:text-[42px] lg:text-[46px]">
             Quality scripts, plugins, bots, and templates — ready for your project.
@@ -424,9 +428,12 @@ export default async function HomePage({
 
       <section className="surface-elevated mt-8 flex flex-col items-start justify-between gap-6 p-6 sm:flex-row sm:items-center sm:p-8">
         <div className="max-w-2xl">
-          <h2 className="text-[20px] font-semibold tracking-tight text-ink sm:text-[22px]">
-            Sell your digital products on KDILGAMES
-          </h2>
+          <div className="flex items-center gap-3">
+            <BrandMark size="md" showName={false} />
+            <h2 className="text-[20px] font-semibold tracking-tight text-ink sm:text-[22px]">
+              Sell your digital products on KDILGAMES
+            </h2>
+          </div>
           <p className="muted mt-2 text-[13.5px] leading-relaxed">
             Publish your scripts, plugins, bots, or web templates to a dedicated storefront. Keep
             85% of every sale by default, push updates directly to buyers, and receive payouts

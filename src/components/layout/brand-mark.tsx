@@ -1,35 +1,52 @@
+import Image from "next/image";
+
 import { env } from "@/lib/env";
 
-export function BrandMark({ showName = true }: { showName?: boolean }) {
+const SIZE_CLASSES = {
+  sm: {
+    box: "size-6 rounded-[7px] p-[3px]",
+    text: "text-[13px]",
+    gap: "gap-2",
+  },
+  md: {
+    box: "size-9 rounded-[9px] p-[5px]",
+    text: "text-[15px] sm:text-[15.5px]",
+    gap: "gap-2.5",
+  },
+  lg: {
+    box: "size-11 rounded-[11px] p-[6px]",
+    text: "text-[18px]",
+    gap: "gap-3",
+  },
+} as const;
+
+export function BrandMark({
+  showName = true,
+  size = "md",
+}: {
+  showName?: boolean;
+  size?: keyof typeof SIZE_CLASSES;
+}) {
+  const styles = SIZE_CLASSES[size];
+
   return (
-    <span className="inline-flex items-center gap-2.5">
+    <span className={`inline-flex items-center ${styles.gap}`}>
       <span
-        className="flex size-8 shrink-0 items-center justify-center rounded-[9px] bg-accent-fill text-white shadow-xs"
-        aria-hidden
+        className={`flex shrink-0 items-center justify-center border border-[#2d3545] bg-gradient-to-b from-[#1e2430] to-[#11141c] shadow-xs ${styles.box}`}
+        aria-hidden={showName ? true : undefined}
       >
-        <svg
-          viewBox="0 0 24 24"
-          fill="none"
-          className="size-[18px]"
-          xmlns="http://www.w3.org/2000/svg"
-        >
-          <path
-            d="M6.5 5.5V18.5"
-            stroke="currentColor"
-            strokeWidth="2.4"
-            strokeLinecap="round"
-          />
-          <path
-            d="M17 6L10 12L17 18"
-            stroke="currentColor"
-            strokeWidth="2.4"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        </svg>
+        <Image
+          src="/images/brand/kdilgames-mark.png"
+          alt={showName ? "" : `${env.marketplace.platformName} logo`}
+          width={64}
+          height={64}
+          unoptimized
+          priority
+          className="size-full object-contain"
+        />
       </span>
       {showName ? (
-        <span className="text-[14.5px] font-bold tracking-[-0.02em] text-ink sm:text-[15px]">
+        <span className={`font-bold tracking-[-0.02em] text-ink ${styles.text}`}>
           {env.marketplace.platformName}
         </span>
       ) : null}
