@@ -6,7 +6,6 @@ import { redirect } from "next/navigation";
 import { errorState, formToObject, successState, toFieldErrors, type ActionState } from "@/lib/action-state";
 import { getRequestContext, recordAudit } from "@/lib/audit";
 import { getSessionUser } from "@/lib/auth/session";
-import { env } from "@/lib/env";
 import {
   CheckoutError,
   claimFreeOrderFromCart,
@@ -19,6 +18,7 @@ import { RefundError, submitRefundRequest } from "@/lib/payments/refunds";
 import { rateLimit } from "@/lib/rate-limit";
 import { getStripe } from "@/lib/stripe";
 import { safeNext } from "@/lib/utils/next";
+import { getRequestOrigin } from "@/lib/utils/origin";
 import { refundRequestSchema } from "@/lib/validation";
 
 /**
@@ -97,8 +97,9 @@ export async function startCheckoutAction(
 
   // Returning to the cart keeps the order reusable; Stripe sends the buyer back
   // with the session id, which the success page verifies server-side.
-  const successUrl = `${env.siteUrl}/checkout/success?session_id={CHECKOUT_SESSION_ID}`;
-  const cancelUrl = `${env.siteUrl}/checkout/cancel?order=${order.orderId}`;
+  const origin = await getRequestOrigin();
+  const successUrl = `${origin}/checkout/success?session_id={CHECKOUT_SESSION_ID}`;
+  const cancelUrl = `${origin}/checkout/cancel?order=${order.orderId}`;
 
   let checkoutUrl: string;
   try {

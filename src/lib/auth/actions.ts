@@ -2,14 +2,14 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { headers } from "next/headers";
 
 import { createSupabaseServerClient } from "@/lib/auth/server";
 import { isConfiguredStaffEmail, syncAuthenticatedUser } from "@/lib/auth/admin-access";
 import { prisma } from "@/lib/db";
-import { env, isSupabaseConfigured } from "@/lib/env";
+import { isSupabaseConfigured } from "@/lib/env";
 import { rateLimit } from "@/lib/rate-limit";
 import { getRequestContext, recordAudit } from "@/lib/audit";
+import { getRequestOrigin } from "@/lib/utils/origin";
 import {
   type ActionState,
   errorState,
@@ -35,16 +35,7 @@ function notConfigured(): ActionState {
 }
 
 async function authRedirectBaseUrl(): Promise<string> {
-  const headerList = await headers();
-  const proto =
-    headerList.get("x-forwarded-proto")?.split(",")[0]?.trim() ||
-    (env.siteUrl.startsWith("https://") ? "https" : "http");
-  const host =
-    headerList.get("x-forwarded-host")?.split(",")[0]?.trim() ||
-    headerList.get("host")?.trim();
-
-  if (!host) return env.siteUrl;
-  return `${proto}://${host}`;
+  return getRequestOrigin();
 }
 
 export async function signUpAction(

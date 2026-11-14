@@ -12,6 +12,7 @@ import {
   successState,
   toFieldErrors,
   type ActionState,
+  type ConnectActionState,
 } from "@/lib/action-state";
 import { notify, recordAudit } from "@/lib/audit";
 import { getSessionUser, type SessionUser } from "@/lib/auth/session";
@@ -22,11 +23,14 @@ import { formatMoney, minorUnitFactor } from "@/lib/money";
 import { rateLimit } from "@/lib/rate-limit";
 import {
   ConnectError,
+  MissingStripeAccountError,
   createConnectAccount,
   createOnboardingLink,
   isSupportedConnectCountry,
   retrieveConnectStatus,
 } from "@/lib/payments/connect";
+import { formatStripeConnectError } from "@/lib/payments/connect-errors";
+import { getRequestOrigin } from "@/lib/utils/origin";
 import { requestSellerPayout } from "@/lib/payments/payouts";
 import {
   AVATARS_BUCKET,
@@ -1018,29 +1022,54 @@ export async function finalizeStoreLogoAction(input: { path: string }): Promise<
 
 // ---------------------------------------------------------------- Stripe Connect
 
-export async function startConnectOnboardingAction(): Promise<void> {
+export async function startConnectOnboardingAction(
+  _previous: ConnectActionState,
+  _formData: FormData,
+): Promise<ConnectActionState> {
   const access = await gate();
-  if (!access.ok) redirect("/dashboard/settings?connect=unavailable");
+  if (!access.ok) {
+    return {
+      status: "error",
+      message: access.error.message ?? "Only approved sellers can connect a payout account.",
+    };
+  }
   const { user, seller } = access;
 
-  const country = (seller.country ?? user.country ?? "").toUpperCase();
+  const country = (seller.country ?? user.country ?? "").trim().toUpperCase();
   if (!isSupportedConnectCountry(country)) {
-    redirect("/dashboard/settings?connect=country");
+    return {
+      status: "error",
+      message:
+        "Add your two-letter ISO country code (for example HR, US, GB, or DE) in Store profile and save it before connecting Stripe.",
+    };
+  }
+
+  const origin = await getRequestOrigin();
+
+  async function provisionExpressAccount(): Promise<string> {
+    const newAccountId = await createConnectAccount({
+      sellerId: seller.id,
+      email: user.email,
+      country,
+      storeName: seller.storeName,
+    });
+    await prisma.sellerProfile.update({
+      where: { id: seller.id },
+      data: {
+        stripeAccountId: newAccountId,
+        stripeChargesEnabled: false,
+        stripePayoutsEnabled: false,
+        stripeDetailsSubmitted: false,
+        stripeOnboardedAt: null,
+      },
+    });
+    return newAccountId;
   }
 
   try {
     let accountId = seller.stripeAccountId;
     if (!accountId) {
-      accountId = await createConnectAccount({
-        sellerId: seller.id,
-        email: user.email,
-        country,
-        storeName: seller.storeName,
-      });
-      await prisma.sellerProfile.update({
-        where: { id: seller.id },
-        data: { stripeAccountId: accountId },
-      });
+      accountId = await provisionExpressAccount();
       await recordAudit({
         actorId: user.id,
         actorRole: user.role,
@@ -1051,21 +1080,55 @@ export async function startConnectOnboardingAction(): Promise<void> {
       });
     }
 
-    const url = await createOnboardingLink(accountId);
-    redirect(url);
-  } catch (error) {
-    if (error instanceof ConnectError) {
-      redirect("/dashboard/settings?connect=unconfigured");
+    let onboardingUrl: string;
+    try {
+      onboardingUrl = await createOnboardingLink(accountId, origin);
+    } catch (error) {
+      if (error instanceof MissingStripeAccountError) {
+        const recreatedId = await provisionExpressAccount();
+        await recordAudit({
+          actorId: user.id,
+          actorRole: user.role,
+          action: "seller.stripe_account.recreated",
+          entityType: "SellerProfile",
+          entityId: seller.id,
+          before: { stripeAccountId: accountId },
+          after: { stripeAccountId: recreatedId },
+        });
+        onboardingUrl = await createOnboardingLink(recreatedId, origin);
+      } else {
+        throw error;
+      }
     }
-    throw error;
+
+    if (!onboardingUrl.startsWith("https://")) {
+      return {
+        status: "error",
+        message: "Stripe did not return a valid onboarding link. Try again in a moment.",
+      };
+    }
+
+    revalidatePath("/dashboard/settings");
+    return { status: "redirect", url: onboardingUrl };
+  } catch (error) {
+    console.error("[seller] startConnectOnboardingAction failed:", error);
+    const message =
+      error instanceof ConnectError ? error.message : formatStripeConnectError(error, country);
+    return { status: "error", message };
   }
 }
 
-export async function refreshConnectStatusAction(): Promise<void> {
+export async function refreshConnectStatusAction(
+  _previous: ActionState,
+  _formData: FormData,
+): Promise<ActionState> {
   const access = await gate();
-  if (!access.ok) return;
+  if (!access.ok) return access.error;
   const { user, seller } = access;
-  if (!seller.stripeAccountId) return;
+
+  if (!seller.stripeAccountId) {
+    return errorState("No Stripe account is linked yet. Click Connect Stripe to get started.");
+  }
 
   try {
     const status = await retrieveConnectStatus(seller.stripeAccountId);
@@ -1088,12 +1151,57 @@ export async function refreshConnectStatusAction(): Promise<void> {
       entityId: seller.id,
       after: status,
     });
-  } catch {
-    // Stripe is unreachable or not configured; the page keeps showing the
-    // last known state instead of inventing a new one.
-  }
 
-  revalidatePath("/dashboard/settings");
+    revalidatePath("/dashboard/settings");
+    revalidatePath("/dashboard/earnings");
+    revalidatePath("/dashboard");
+
+    if (status.payoutsEnabled) {
+      return successState("Stripe verified your payout account. Payouts are enabled.");
+    }
+    if (status.requirementsCurrentlyDue.length > 0) {
+      return successState(
+        `Synced with Stripe (${status.requirementsCurrentlyDue.length} detail${
+          status.requirementsCurrentlyDue.length === 1 ? "" : "s"
+        } still needed). Click Continue onboarding to finish.`,
+      );
+    }
+    if (status.detailsSubmitted) {
+      return successState(
+        "Details submitted to Stripe. Verification is still in progress — check again shortly.",
+      );
+    }
+    return successState("Synced with Stripe. Complete Stripe onboarding to enable payouts.");
+  } catch (error) {
+    if (error instanceof MissingStripeAccountError) {
+      await prisma.sellerProfile.update({
+        where: { id: seller.id },
+        data: {
+          stripeAccountId: null,
+          stripeChargesEnabled: false,
+          stripePayoutsEnabled: false,
+          stripeDetailsSubmitted: false,
+          stripeOnboardedAt: null,
+        },
+      });
+      await recordAudit({
+        actorId: user.id,
+        actorRole: user.role,
+        action: "seller.stripe_account.cleared",
+        entityType: "SellerProfile",
+        entityId: seller.id,
+        before: { stripeAccountId: seller.stripeAccountId },
+      });
+      revalidatePath("/dashboard/settings");
+      revalidatePath("/dashboard/earnings");
+      return errorState(
+        "The saved Stripe account ID was not found in the active Stripe mode and was cleared. Click Connect Stripe to set up a fresh link.",
+      );
+    }
+
+    if (error instanceof ConnectError) return errorState(error.message);
+    return errorState(formatStripeConnectError(error));
+  }
 }
 
 // ---------------------------------------------------------------- payouts
