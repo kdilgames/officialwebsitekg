@@ -1,10 +1,10 @@
+import Image from "next/image";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import {
   ArrowRight,
   BadgeCheck,
   CheckCircle2,
-  ChevronRight,
   Download,
   Search,
   ShieldCheck,
@@ -72,7 +72,7 @@ export default async function HomePage({
 
   return (
     <div className="mx-auto max-w-[1400px] px-4 py-8 sm:px-6 sm:py-10">
-      <section className="grid gap-8 lg:grid-cols-[minmax(0,1.15fr)_minmax(340px,0.85fr)] lg:items-center lg:gap-12">
+      <section className="grid gap-8 lg:grid-cols-[minmax(0,1.08fr)_minmax(360px,0.92fr)] lg:items-center lg:gap-12">
         <div>
           <p className="text-[12px] font-semibold uppercase tracking-[0.08em] text-accent">
             Digital marketplace for creators &amp; game developers
@@ -100,7 +100,7 @@ export default async function HomePage({
               <input
                 type="search"
                 name="q"
-                placeholder="Search plugins, Roblox systems, Discord bots, templates..."
+                placeholder='Try "economy plugin", "Roblox UI kit", "portfolio"...'
                 aria-label="Search the marketplace"
                 className="h-10 w-full bg-transparent pl-9 pr-3 text-[14px] text-ink placeholder:text-ink-subtle focus:outline-none"
               />
@@ -112,16 +112,21 @@ export default async function HomePage({
 
           {displayedCategories.length > 0 ? (
             <div className="mt-4 flex flex-wrap items-center gap-2">
-              <span className="subtle text-[12px]">Browse:</span>
-              {displayedCategories.map((category: CategoryWithCount) => (
-                <Link
-                  key={category.slug}
-                  href={`/category/${category.slug}`}
-                  className="badge transition-colors hover:border-line-strong hover:bg-surface hover:text-ink"
-                >
-                  {category.name}
-                </Link>
-              ))}
+              <span className="subtle text-[12px]">Jump to:</span>
+              {displayedCategories.map((category: CategoryWithCount) => {
+                const visual = getCategoryVisual(category.slug, category.icon);
+                const Icon = visual.icon;
+                return (
+                  <Link
+                    key={category.slug}
+                    href={`/category/${category.slug}`}
+                    className="badge transition-colors hover:border-line-strong hover:bg-surface hover:text-ink"
+                  >
+                    <Icon className="size-3 text-ink-subtle" aria-hidden />
+                    {category.name}
+                  </Link>
+                );
+              })}
             </div>
           ) : null}
 
@@ -154,7 +159,7 @@ export default async function HomePage({
               ) : null}
             </div>
           ) : (
-            <CategoryDirectoryCard categories={displayedCategories} />
+            <EcosystemShowcaseCard categories={displayedCategories} />
           )}
         </div>
       </section>
@@ -191,7 +196,7 @@ export default async function HomePage({
           subtitle="Jump straight into the ecosystem you are building for"
           href="/browse"
         >
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {categories.map((category: CategoryWithCount) => {
               const visual = getCategoryVisual(category.slug, category.icon);
               const Icon = visual.icon;
@@ -199,25 +204,62 @@ export default async function HomePage({
                 <Link
                   key={category.slug}
                   href={`/category/${category.slug}`}
-                  className="surface card-interactive group flex items-start gap-4 p-5"
+                  className="surface card-interactive group flex flex-col overflow-hidden"
                 >
-                  <span
-                    className={`flex size-11 shrink-0 items-center justify-center rounded-[10px] border ${visual.chipClass}`}
+                  <div
+                    className={`relative aspect-[16/9] overflow-hidden border-b border-line ${visual.canvasClass}`}
                   >
-                    <Icon className="size-5" aria-hidden />
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center justify-between gap-2">
-                      <p className="text-[15px] font-semibold text-ink transition-colors group-hover:text-accent">
-                        {category.name}
-                      </p>
-                      <span className="subtle shrink-0 text-[12px] tabular-nums">
-                        {category._count.products}{" "}
-                        {category._count.products === 1 ? "item" : "items"}
-                      </span>
+                    {visual.imageUrl ? (
+                      <Image
+                        src={visual.imageUrl}
+                        alt={category.name}
+                        width={1200}
+                        height={670}
+                        sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
+                        className="size-full object-cover transition-transform duration-300 group-hover:scale-[1.03] dark:brightness-[0.94] dark:group-hover:brightness-100"
+                      />
+                    ) : (
+                      <div className="flex size-full flex-col items-center justify-center gap-2">
+                        <span
+                          className={`flex size-12 items-center justify-center rounded-[12px] border ${visual.chipClass}`}
+                        >
+                          <Icon className="size-6" aria-hidden />
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex flex-1 flex-col p-4 sm:p-5">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex min-w-0 items-center gap-2.5">
+                        <span
+                          className={`flex size-8 shrink-0 items-center justify-center rounded-[8px] border ${visual.chipClass}`}
+                        >
+                          <Icon className="size-4" aria-hidden />
+                        </span>
+                        <h3 className="truncate text-[15.5px] font-semibold text-ink transition-colors group-hover:text-accent">
+                          {category.name}
+                        </h3>
+                      </div>
+
+                      {category._count.products > 0 ? (
+                        <span className="subtle shrink-0 text-[12px] tabular-nums">
+                          {category._count.products}{" "}
+                          {category._count.products === 1 ? "item" : "items"}
+                        </span>
+                      ) : (
+                        <span className="subtle inline-flex shrink-0 items-center gap-1 text-[12px] font-medium transition-colors group-hover:text-accent">
+                          Explore
+                          <ArrowRight
+                            className="size-3.5 transition-transform group-hover:translate-x-0.5"
+                            aria-hidden
+                          />
+                        </span>
+                      )}
                     </div>
+
                     {category.description ? (
-                      <p className="muted mt-1 line-clamp-2 text-[13px] leading-relaxed">
+                      <p className="muted mt-2.5 text-[13px] leading-relaxed">
                         {category.description}
                       </p>
                     ) : null}
@@ -517,55 +559,64 @@ function CompactProductCard({ product }: { product: BrowseProduct }) {
   );
 }
 
-function CategoryDirectoryCard({ categories }: { categories: CategoryWithCount[] }) {
+function EcosystemShowcaseCard({ categories }: { categories: CategoryWithCount[] }) {
+  const showcaseCategories = categories.slice(0, 4);
+
   return (
     <div className="surface overflow-hidden">
-      <div className="flex items-center justify-between border-b border-line px-5 py-3.5">
+      <div className="flex items-center justify-between border-b border-line px-4 py-3 sm:px-5">
         <div>
-          <p className="text-[14px] font-semibold text-ink">Explore the catalogue</p>
-          <p className="subtle text-[12px]">Six core categories for digital builds</p>
+          <p className="text-[14px] font-semibold text-ink">Featured ecosystems</p>
+          <p className="subtle text-[12px]">Curated categories for digital builds</p>
         </div>
         <Link href="/browse" className="text-[12.5px] font-medium text-accent hover:underline">
           Browse all
         </Link>
       </div>
 
-      <ul className="divide-y divide-line">
-        {categories.map((category) => {
+      <div className="grid grid-cols-2 gap-3 p-3 sm:p-4">
+        {showcaseCategories.map((category, index) => {
           const visual = getCategoryVisual(category.slug, category.icon);
-          const Icon = visual.icon;
           return (
-            <li key={category.slug}>
-              <Link
-                href={`/category/${category.slug}`}
-                className="group flex items-center gap-3.5 px-5 py-3 transition-colors hover:bg-elevated/60"
-              >
-                <span
-                  className={`flex size-9 shrink-0 items-center justify-center rounded-[8px] border ${visual.chipClass}`}
-                >
-                  <Icon className="size-4" aria-hidden />
-                </span>
-                <div className="min-w-0 flex-1">
-                  <p className="text-[13.5px] font-semibold text-ink group-hover:text-accent">
+            <Link
+              key={category.slug}
+              href={`/category/${category.slug}`}
+              className="group relative aspect-[16/10] overflow-hidden rounded-[10px] border border-line bg-elevated"
+            >
+              {visual.imageUrl ? (
+                <Image
+                  src={visual.imageUrl}
+                  alt={category.name}
+                  width={1200}
+                  height={670}
+                  priority={index < 2}
+                  sizes="(min-width: 1024px) 22vw, 45vw"
+                  className="size-full object-cover transition-transform duration-300 group-hover:scale-[1.04]"
+                />
+              ) : null}
+              <div
+                className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/75 via-black/25 to-transparent"
+                aria-hidden
+              />
+              <div className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-2 p-2.5 sm:p-3">
+                <div className="min-w-0">
+                  <p className="truncate text-[13px] font-semibold leading-tight text-white sm:text-[13.5px]">
                     {category.name}
                   </p>
-                  {category.description ? (
-                    <p className="subtle truncate text-[12px]">{category.description}</p>
-                  ) : null}
+                  <p className="truncate text-[11px] text-white/80">{visual.shortLabel}</p>
                 </div>
-                <span className="subtle text-[12px] tabular-nums">{category._count.products}</span>
-                <ChevronRight
-                  className="size-4 shrink-0 text-ink-subtle transition-transform group-hover:translate-x-0.5 group-hover:text-ink"
+                <ArrowRight
+                  className="size-3.5 shrink-0 text-white/85 transition-transform group-hover:translate-x-0.5"
                   aria-hidden
                 />
-              </Link>
-            </li>
+              </div>
+            </Link>
           );
         })}
-      </ul>
+      </div>
 
-      <div className="flex items-center justify-between border-t border-line bg-elevated/60 px-5 py-3">
-        <span className="muted text-[12.5px]">Have assets or tools to share?</span>
+      <div className="flex items-center justify-between border-t border-line bg-elevated/60 px-4 py-3 sm:px-5">
+        <span className="muted text-[12.5px]">Have scripts or tools to share?</span>
         <Link
           href="/account/seller"
           className="inline-flex items-center gap-1 text-[12.5px] font-semibold text-accent hover:underline"

@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 
 import { BrandMark } from "@/components/layout/brand-mark";
+import { ThemeToggle } from "@/components/layout/theme-toggle";
 import { getSessionUser, isAdmin, isSeller } from "@/lib/auth/session";
 import { signOutAction } from "@/lib/auth/actions";
 import { prisma } from "@/lib/db";
@@ -32,12 +33,16 @@ export async function SiteHeader() {
 
   return (
     <header className="sticky top-0 z-40 border-b border-line bg-surface/95 backdrop-blur-md">
-      <div className="mx-auto flex h-16 max-w-[1400px] items-center gap-4 px-4 sm:px-6">
-        <Link href="/" className="shrink-0" aria-label="KDILGAMES Home">
+      <div className="mx-auto flex h-16 max-w-[1400px] items-center gap-3 px-4 sm:gap-4 sm:px-6">
+        <Link
+          href="/"
+          className="shrink-0 rounded-[9px] py-0.5 pr-1"
+          aria-label="KDILGAMES Home"
+        >
           <BrandMark />
         </Link>
 
-        <nav className="ml-2 hidden items-center gap-0.5 lg:flex" aria-label="Main navigation">
+        <nav className="ml-1 hidden items-center gap-0.5 lg:flex" aria-label="Main navigation">
           {NAV_LINKS.map((link) => (
             <Link
               key={link.href}
@@ -49,7 +54,7 @@ export async function SiteHeader() {
           ))}
         </nav>
 
-        <form action="/browse" className="relative ml-auto hidden w-full max-w-sm sm:block lg:max-w-md">
+        <form action="/browse" className="relative ml-auto hidden w-full max-w-xs sm:block lg:max-w-sm">
           <Search
             className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink-subtle"
             aria-hidden
@@ -57,22 +62,24 @@ export async function SiteHeader() {
           <input
             type="search"
             name="q"
-            placeholder="Search plugins, scripts, bots, templates..."
+            placeholder="Quick search..."
             aria-label="Search the marketplace"
             className="input h-9 bg-elevated/70 pl-9 focus:bg-surface"
           />
         </form>
 
-        <div className="ml-auto flex items-center gap-2 sm:ml-0">
+        <div className="ml-auto flex items-center gap-1.5 sm:ml-0 sm:gap-2">
+          <ThemeToggle />
+
           <Link
             href="/cart"
-            className="btn btn-ghost btn-sm relative"
+            className="btn btn-ghost btn-sm relative px-2 sm:px-2.5"
             aria-label={`Cart${cartCount > 0 ? `, ${cartCount} items` : ""}`}
           >
             <ShoppingCart className="size-4" aria-hidden />
             <span className="hidden xl:inline">Cart</span>
             {cartCount > 0 ? (
-              <span className="flex size-4 items-center justify-center rounded-full bg-accent text-[10px] font-semibold text-white">
+              <span className="flex size-4 items-center justify-center rounded-full bg-accent-fill text-[10px] font-semibold text-white">
                 {cartCount > 9 ? "9+" : cartCount}
               </span>
             ) : null}
@@ -139,11 +146,11 @@ export async function SiteHeader() {
             </details>
           ) : (
             <>
-              <Link href="/login" className="btn btn-ghost btn-sm">
+              <Link href="/login" className="btn btn-ghost btn-sm px-2 sm:px-3">
                 <LogIn className="size-3.5" aria-hidden />
-                Sign in
+                <span className="max-[420px]:hidden">Sign in</span>
               </Link>
-              <Link href="/register" className="btn btn-primary btn-sm">
+              <Link href="/register" className="btn btn-primary btn-sm px-2.5 sm:px-3">
                 Get started
               </Link>
             </>
@@ -164,7 +171,7 @@ export async function SiteHeader() {
               </Link>
             ))}
           </nav>
-          <form action="/browse" className="relative w-44 shrink-0 sm:hidden">
+          <form action="/browse" className="relative w-40 shrink-0 sm:hidden">
             <Search
               className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-ink-subtle"
               aria-hidden

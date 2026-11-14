@@ -1,11 +1,16 @@
 import Link from "next/link";
 
 import { BrandMark } from "@/components/layout/brand-mark";
+import { ThemeToggle } from "@/components/layout/theme-toggle";
 
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center px-4 py-12">
-      <Link href="/" className="mb-6">
+    <div className="relative flex min-h-screen flex-col items-center justify-center px-4 py-12">
+      <div className="absolute right-4 top-4 sm:right-6 sm:top-6">
+        <ThemeToggle />
+      </div>
+
+      <Link href="/" className="mb-6 rounded-[9px] p-0.5">
         <BrandMark />
       </Link>
 

@@ -4,7 +4,7 @@ export function BrandMark({ showName = true }: { showName?: boolean }) {
   return (
     <span className="inline-flex items-center gap-2.5">
       <span
-        className="flex size-8 shrink-0 items-center justify-center rounded-[9px] bg-accent text-white shadow-xs"
+        className="flex size-8 shrink-0 items-center justify-center rounded-[9px] bg-accent-fill text-white shadow-xs"
         aria-hidden
       >
         <svg
@@ -29,7 +29,7 @@ export function BrandMark({ showName = true }: { showName?: boolean }) {
         </svg>
       </span>
       {showName ? (
-        <span className="text-[15px] font-bold tracking-[-0.02em] text-ink">
+        <span className="text-[14.5px] font-bold tracking-[-0.02em] text-ink sm:text-[15px]">
           {env.marketplace.platformName}
         </span>
       ) : null}

@@ -142,7 +142,9 @@ export default async function BrowsePage({
                 }`}
               >
                 {category.name}
-                <span className="opacity-70 tabular-nums">{category._count.products}</span>
+                {category._count.products > 0 ? (
+                  <span className="opacity-70 tabular-nums">{category._count.products}</span>
+                ) : null}
               </Link>
             ))}
           </div>

@@ -28,9 +28,19 @@ export const metadata: Metadata = {
   openGraph: { type: "website", siteName: env.marketplace.platformName },
 };
 
+const THEME_INIT_SCRIPT = `(function(){try{var s=localStorage.getItem("kdil-theme");var t=s==="dark"||s==="light"?s:"light";document.documentElement.dataset.theme=t;document.documentElement.style.colorScheme=t;}catch(e){}})();`;
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${plusJakarta.variable} ${jetbrainsMono.variable}`}>
+    <html
+      lang="en"
+      data-theme="light"
+      suppressHydrationWarning
+      className={`${plusJakarta.variable} ${jetbrainsMono.variable}`}
+    >
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
+      </head>
       <body className="min-h-screen bg-canvas text-ink antialiased">{children}</body>
     </html>
   );

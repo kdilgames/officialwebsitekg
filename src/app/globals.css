@@ -1,8 +1,11 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
 /* ------------------------------------------------------------------
-   KDILGAMES Marketplace — light studio design tokens
-   Warm paper canvas, crisp white surfaces, grounded cobalt accent.
+   KDILGAMES Marketplace — light & dark studio design tokens
+   Default: warm paper canvas, white surfaces, cobalt accent.
+   Dark mode: grounded graphite slate, neutral depth, crisp legibility.
    ---------------------------------------------------------------- */
 @theme {
   --color-canvas: #faf9f5;
@@ -14,12 +17,24 @@
   --color-ink: #16171b;
   --color-ink-muted: #53555f;
   --color-ink-subtle: #787a84;
+
   --color-accent: #1d4ed8;
+  --color-accent-fill: #1d4ed8;
   --color-accent-hover: #1e40af;
   --color-accent-quiet: #edf2ff;
+  --color-accent-ink: #1e3a8a;
+
   --color-positive: #15803d;
+  --color-positive-quiet: rgba(21, 128, 61, 0.08);
+  --color-positive-ink: #14532d;
+
   --color-caution: #d97706;
+  --color-caution-quiet: rgba(217, 119, 6, 0.1);
+  --color-caution-ink: #78350f;
+
   --color-critical: #dc2626;
+  --color-critical-quiet: rgba(220, 38, 38, 0.08);
+  --color-critical-ink: #7f1d1d;
 
   --radius-card: 12px;
   --radius-control: 8px;
@@ -28,6 +43,60 @@
     "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --font-mono: var(--font-mono-code), ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas,
     "Liberation Mono", monospace;
+}
+
+:root {
+  --shadow-surface: 0 1px 2px rgba(22, 23, 27, 0.035);
+  --shadow-card-hover: 0 10px 24px -10px rgba(22, 23, 27, 0.12);
+  --shadow-btn-primary: 0 1px 2px rgba(29, 78, 216, 0.22);
+  --shadow-btn-secondary: 0 1px 2px rgba(22, 23, 27, 0.03);
+  --scrollbar-thumb: #d5d0c4;
+  --scrollbar-thumb-hover: #beb8aa;
+  --table-row-hover: rgba(22, 23, 27, 0.02);
+  --selection-bg: rgba(29, 78, 216, 0.14);
+  --focus-ring: rgba(29, 78, 216, 0.12);
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --color-canvas: #0e1116;
+  --color-surface: #151921;
+  --color-elevated: #1c212b;
+  --color-raised: #242a37;
+  --color-line: #262c38;
+  --color-line-strong: #374051;
+  --color-ink: #eff1f5;
+  --color-ink-muted: #a2a9b8;
+  --color-ink-subtle: #767f90;
+
+  --color-accent: #60a5fa;
+  --color-accent-fill: #2563eb;
+  --color-accent-hover: #1d4ed8;
+  --color-accent-quiet: rgba(59, 130, 246, 0.15);
+  --color-accent-ink: #bfdbfe;
+
+  --color-positive: #22c55e;
+  --color-positive-quiet: rgba(34, 197, 94, 0.14);
+  --color-positive-ink: #86efac;
+
+  --color-caution: #f59e0b;
+  --color-caution-quiet: rgba(245, 158, 11, 0.15);
+  --color-caution-ink: #fcd34d;
+
+  --color-critical: #f87171;
+  --color-critical-quiet: rgba(248, 113, 113, 0.14);
+  --color-critical-ink: #fca5a5;
+
+  --shadow-surface: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-card-hover: 0 12px 28px -10px rgba(0, 0, 0, 0.55);
+  --shadow-btn-primary: 0 1px 2px rgba(0, 0, 0, 0.35);
+  --shadow-btn-secondary: 0 1px 2px rgba(0, 0, 0, 0.2);
+  --scrollbar-thumb: #2f3747;
+  --scrollbar-thumb-hover: #414b60;
+  --table-row-hover: rgba(255, 255, 255, 0.03);
+  --selection-bg: rgba(96, 165, 250, 0.24);
+  --focus-ring: rgba(96, 165, 250, 0.2);
 }
 
 @layer base {
@@ -60,7 +129,7 @@
   }
 
   ::selection {
-    background: rgba(29, 78, 216, 0.14);
+    background: var(--selection-bg);
     color: var(--color-ink);
   }
 
@@ -77,12 +146,12 @@
     background: var(--color-canvas);
   }
   ::-webkit-scrollbar-thumb {
-    background: #d5d0c4;
+    background: var(--scrollbar-thumb);
     border: 2px solid var(--color-canvas);
     border-radius: 6px;
   }
   ::-webkit-scrollbar-thumb:hover {
-    background: #beb8aa;
+    background: var(--scrollbar-thumb-hover);
   }
 }
 
@@ -91,7 +160,7 @@
     background-color: var(--color-surface);
     border: 1px solid var(--color-line);
     border-radius: var(--radius-card);
-    box-shadow: 0 1px 2px rgba(22, 23, 27, 0.035);
+    box-shadow: var(--shadow-surface);
   }
 
   .surface-elevated {
@@ -110,7 +179,7 @@
   .card-interactive:hover {
     transform: translateY(-2px);
     border-color: var(--color-line-strong);
-    box-shadow: 0 10px 24px -10px rgba(22, 23, 27, 0.12);
+    box-shadow: var(--shadow-card-hover);
   }
 
   .btn {
@@ -140,9 +209,9 @@
   }
 
   .btn-primary {
-    background-color: var(--color-accent);
+    background-color: var(--color-accent-fill);
     color: #ffffff;
-    box-shadow: 0 1px 2px rgba(29, 78, 216, 0.22);
+    box-shadow: var(--shadow-btn-primary);
   }
   .btn-primary:hover:not(:disabled) {
     background-color: var(--color-accent-hover);
@@ -152,7 +221,7 @@
     background-color: var(--color-surface);
     border-color: var(--color-line);
     color: var(--color-ink);
-    box-shadow: 0 1px 2px rgba(22, 23, 27, 0.03);
+    box-shadow: var(--shadow-btn-secondary);
   }
   .btn-secondary:hover:not(:disabled) {
     background-color: var(--color-elevated);
@@ -170,12 +239,12 @@
 
   .btn-danger {
     background-color: transparent;
-    border-color: rgba(220, 38, 38, 0.32);
-    color: #b91c1c;
+    border-color: color-mix(in oklab, var(--color-critical) 36%, transparent);
+    color: var(--color-critical-ink);
   }
   .btn-danger:hover:not(:disabled) {
-    background-color: rgba(220, 38, 38, 0.08);
-    border-color: rgba(220, 38, 38, 0.5);
+    background-color: var(--color-critical-quiet);
+    border-color: color-mix(in oklab, var(--color-critical) 55%, transparent);
   }
 
   .btn-sm {
@@ -210,7 +279,7 @@
   .select:focus {
     outline: none;
     border-color: var(--color-accent);
-    box-shadow: 0 0 0 3px rgba(29, 78, 216, 0.12);
+    box-shadow: 0 0 0 3px var(--focus-ring);
   }
 
   .input:disabled,
@@ -245,24 +314,24 @@
   }
 
   .badge-accent {
-    border-color: rgba(29, 78, 216, 0.22);
+    border-color: color-mix(in oklab, var(--color-accent) 28%, transparent);
     background-color: var(--color-accent-quiet);
-    color: #1e40af;
+    color: var(--color-accent-ink);
   }
   .badge-positive {
-    border-color: rgba(21, 128, 61, 0.24);
-    background-color: rgba(21, 128, 61, 0.08);
-    color: #166534;
+    border-color: color-mix(in oklab, var(--color-positive) 28%, transparent);
+    background-color: var(--color-positive-quiet);
+    color: var(--color-positive-ink);
   }
   .badge-caution {
-    border-color: rgba(217, 119, 6, 0.26);
-    background-color: rgba(217, 119, 6, 0.1);
-    color: #92400e;
+    border-color: color-mix(in oklab, var(--color-caution) 32%, transparent);
+    background-color: var(--color-caution-quiet);
+    color: var(--color-caution-ink);
   }
   .badge-critical {
-    border-color: rgba(220, 38, 38, 0.26);
-    background-color: rgba(220, 38, 38, 0.08);
-    color: #991b1b;
+    border-color: color-mix(in oklab, var(--color-critical) 30%, transparent);
+    background-color: var(--color-critical-quiet);
+    color: var(--color-critical-ink);
   }
 
   .table {
@@ -294,7 +363,7 @@
   }
 
   .table tbody tr:hover {
-    background-color: rgba(22, 23, 27, 0.02);
+    background-color: var(--table-row-hover);
   }
 
   .divider {

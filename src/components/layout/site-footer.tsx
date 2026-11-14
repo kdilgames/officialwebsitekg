@@ -48,7 +48,7 @@ export function SiteFooter() {
       <div className="mx-auto max-w-[1400px] px-4 py-12 sm:px-6">
         <div className="grid gap-10 md:grid-cols-[minmax(0,1.5fr)_repeat(4,minmax(0,1fr))]">
           <div>
-            <Link href="/" className="inline-block">
+            <Link href="/" className="inline-block rounded-[9px] py-0.5 pr-1">
               <BrandMark />
             </Link>
             <p className="muted mt-3 max-w-xs text-[13px] leading-relaxed">

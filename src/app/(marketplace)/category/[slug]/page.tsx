@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ChevronRight, PackageOpen } from "lucide-react";
@@ -49,7 +50,8 @@ export default async function CategoryPage({ params, searchParams }: PageProps) 
   ]);
 
   const children = categories.filter((entry) => entry.parentId === category.id);
-  const visual = getCategoryVisual(category.slug);
+  const fullCategory = categories.find((entry) => entry.slug === category.slug);
+  const visual = getCategoryVisual(category.slug, fullCategory?.icon);
   const CategoryIcon = visual.icon;
 
   const buildSortHref = (nextSort: ProductSort) => {
@@ -71,7 +73,7 @@ export default async function CategoryPage({ params, searchParams }: PageProps) 
         <span className="font-medium text-ink-muted">{category.name}</span>
       </nav>
 
-      <header className="surface mb-6 flex flex-wrap items-center justify-between gap-4 p-5 sm:p-6">
+      <header className="surface mb-6 flex flex-col justify-between gap-5 overflow-hidden p-5 sm:flex-row sm:items-center sm:p-6">
         <div className="flex items-start gap-4">
           <span
             className={`flex size-12 shrink-0 items-center justify-center rounded-[12px] border ${visual.chipClass}`}
@@ -79,18 +81,34 @@ export default async function CategoryPage({ params, searchParams }: PageProps) 
             <CategoryIcon className="size-6" aria-hidden />
           </span>
           <div>
-            <h1 className="text-[24px] font-bold tracking-tight text-ink">{category.name}</h1>
+            <div className="flex flex-wrap items-center gap-2.5">
+              <h1 className="text-[24px] font-bold tracking-tight text-ink">{category.name}</h1>
+              {result.total > 0 ? (
+                <span className="badge tabular-nums">
+                  {result.total} {result.total === 1 ? "listing" : "listings"}
+                </span>
+              ) : null}
+            </div>
             {category.description ? (
-              <p className="muted mt-1 max-w-2xl text-[13.5px] leading-relaxed">
+              <p className="muted mt-1.5 max-w-2xl text-[13.5px] leading-relaxed">
                 {category.description}
               </p>
             ) : null}
           </div>
         </div>
 
-        <span className="badge tabular-nums">
-          {result.total} {result.total === 1 ? "listing" : "listings"}
-        </span>
+        {visual.imageUrl ? (
+          <div className="relative aspect-[16/9] w-full shrink-0 overflow-hidden rounded-[10px] border border-line bg-elevated sm:w-56 lg:w-64">
+            <Image
+              src={visual.imageUrl}
+              alt={category.name}
+              width={1200}
+              height={670}
+              sizes="(min-width: 1024px) 256px, (min-width: 640px) 224px, 100vw"
+              className="size-full object-cover dark:brightness-[0.94]"
+            />
+          </div>
+        ) : null}
       </header>
 
       {children.length > 0 ? (
@@ -102,7 +120,9 @@ export default async function CategoryPage({ params, searchParams }: PageProps) 
               className="badge hover:border-line-strong hover:bg-surface hover:text-ink"
             >
               {child.name}
-              <span className="subtle tabular-nums">{child._count.products}</span>
+              {child._count.products > 0 ? (
+                <span className="subtle tabular-nums">{child._count.products}</span>
+              ) : null}
             </Link>
           ))}
         </div>

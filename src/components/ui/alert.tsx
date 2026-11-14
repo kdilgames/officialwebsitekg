@@ -5,10 +5,10 @@ import { cn } from "@/lib/utils/cn";
 export type AlertTone = "info" | "success" | "warning" | "error";
 
 const TONES: Record<AlertTone, string> = {
-  info: "border-accent/25 bg-accent-quiet text-[#1e3a8a]",
-  success: "border-positive/25 bg-positive/8 text-[#14532d]",
-  warning: "border-caution/30 bg-caution/10 text-[#78350f]",
-  error: "border-critical/25 bg-critical/8 text-[#7f1d1d]",
+  info: "border-accent/25 bg-accent-quiet text-accent-ink",
+  success: "border-positive/25 bg-positive-quiet text-positive-ink",
+  warning: "border-caution/30 bg-caution-quiet text-caution-ink",
+  error: "border-critical/25 bg-critical-quiet text-critical-ink",
 };
 
 export function Alert({
