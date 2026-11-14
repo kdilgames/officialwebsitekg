@@ -16,7 +16,7 @@ import {
 import { BrandMark } from "@/components/layout/brand-mark";
 import { NotificationsBell } from "@/components/layout/notifications-bell";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
-import { getSessionUser, isAdmin, isSeller } from "@/lib/auth/session";
+import { getSessionUser, isAdmin, isOwner, isSeller } from "@/lib/auth/session";
 import { signOutAction } from "@/lib/auth/actions";
 import { prisma } from "@/lib/db";
 import { withSchemaFallback } from "@/lib/db-compat";
@@ -46,6 +46,8 @@ export async function SiteHeader() {
       ])
     : [0, 0, [], 0];
   const cartCount = itemCount + bundleCount;
+  const userIsAdmin = isAdmin(user);
+  const userIsOwner = isOwner(user);
 
   return (
     <header className="sticky top-0 z-40 border-b border-line bg-surface/95 backdrop-blur-md">
@@ -86,6 +88,17 @@ export async function SiteHeader() {
 
         <div className="ml-auto flex items-center gap-1 sm:ml-0 sm:gap-1.5">
           <ThemeToggle />
+
+          {userIsAdmin ? (
+            <Link
+              href="/admin"
+              className="btn btn-secondary btn-sm hidden px-2.5 sm:inline-flex"
+              title="Open Administration Panel"
+            >
+              <Shield className="size-3.5 text-accent" aria-hidden />
+              <span>Admin</span>
+            </Link>
+          ) : null}
 
           {user ? (
             <>
@@ -141,7 +154,13 @@ export async function SiteHeader() {
                     <p className="truncate text-[13px] font-medium text-ink">{user.displayName}</p>
                     <p className="subtle truncate text-[11.5px]">
                       @{user.username}
-                      {user.role === "ADMIN" ? " · admin" : isSeller(user) ? " · seller" : ""}
+                      {userIsOwner && userIsAdmin
+                        ? " · owner"
+                        : userIsAdmin
+                          ? " · admin"
+                          : isSeller(user)
+                            ? " · seller"
+                            : ""}
                     </p>
                   </div>
                 </div>
@@ -161,7 +180,7 @@ export async function SiteHeader() {
                 <MenuLink href="/account/notifications" icon={<Bell className="size-3.5" />}>
                   Notifications
                   {unreadNotifications > 0 ? (
-                    <span className="ml-auto rounded-full bg-accent-soft px-1.5 py-0.5 text-[10px] font-semibold text-accent">
+                    <span className="ml-auto rounded-full bg-accent-quiet px-1.5 py-0.5 text-[10px] font-semibold text-accent-ink">
                       {unreadNotifications}
                     </span>
                   ) : null}
@@ -175,10 +194,15 @@ export async function SiteHeader() {
                     Become a seller
                   </MenuLink>
                 )}
-                {isAdmin(user) ? (
-                  <MenuLink href="/admin" icon={<Shield className="size-3.5" />}>
-                    Administration
-                  </MenuLink>
+                {userIsAdmin ? (
+                  <>
+                    <MenuLink href="/admin" icon={<Shield className="size-3.5" />}>
+                      Administration
+                    </MenuLink>
+                    <MenuLink href="/admin/access" icon={<Shield className="size-3.5" />}>
+                      Access &amp; Emails
+                    </MenuLink>
+                  </>
                 ) : null}
                 <div className="divider my-1" />
                 <form action={signOutAction}>

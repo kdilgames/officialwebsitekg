@@ -58,10 +58,27 @@ function resolveSiteUrl(): string {
   }
 }
 
+function parseEmailList(value: string | undefined): string[] {
+  const raw = optional(value);
+  if (!raw) return [];
+  const emails = raw
+    .split(",")
+    .map((entry) => entry.trim().toLowerCase())
+    .filter((entry) => entry.includes("@"));
+  return [...new Set(emails)];
+}
+
+export const DEFAULT_OWNER_EMAIL = "kdilgames@gmail.com";
+
 export const env = {
   nodeEnv: process.env.NODE_ENV ?? "development",
 
   siteUrl: resolveSiteUrl(),
+
+  auth: {
+    ownerEmail: (optional(process.env.ADMIN_OWNER_EMAIL) ?? DEFAULT_OWNER_EMAIL).toLowerCase(),
+    adminEmails: parseEmailList(process.env.ADMIN_EMAILS),
+  },
 
   database: {
     // Derived from the pooler URL plus SUPABASE_DB_PASS; see resolveDatabaseUrl.

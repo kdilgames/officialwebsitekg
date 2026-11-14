@@ -523,3 +523,167 @@ export function SiteSettingForm({
     </form>
   );
 }
+
+// ---------------------------------------------------------------- email admin access
+
+export function GrantAdminEmailForm({ action }: { action: FormAction }) {
+  const [state, formAction, pending] = useActionState(action, idleState);
+
+  return (
+    <form action={formAction} className="space-y-3">
+      <Message state={state} />
+
+      <div className="flex flex-wrap items-end gap-3">
+        <Field
+          label="Email address"
+          htmlFor="grant-admin-email"
+          error={state.fieldErrors?.email}
+          className="min-w-[240px] flex-1"
+          hint="If this user has a verified account they become ADMIN right away; otherwise they are pre-authorized once their email is verified."
+        >
+          <Input
+            id="grant-admin-email"
+            name="email"
+            type="email"
+            required
+            placeholder="teammate@studio.com"
+          />
+        </Field>
+        <Button type="submit" variant="primary" size="sm" disabled={pending}>
+          {pending ? "Authorizing…" : "Authorize admin email"}
+        </Button>
+      </div>
+    </form>
+  );
+}
+
+// ---------------------------------------------------------------- quick platform settings
+
+export function AnnouncementForm({
+  action,
+  defaults,
+}: {
+  action: FormAction;
+  defaults: {
+    enabled: boolean;
+    text: string;
+    href: string;
+    linkLabel: string;
+    tone: "info" | "accent" | "positive";
+  };
+}) {
+  const [state, formAction, pending] = useActionState(action, idleState);
+
+  return (
+    <form action={formAction} className="space-y-3.5">
+      <Message state={state} />
+
+      <div className="grid gap-3.5 sm:grid-cols-3">
+        <Field label="Banner state" htmlFor="ann-enabled" error={state.fieldErrors?.enabled}>
+          <Select
+            id="ann-enabled"
+            name="enabled"
+            defaultValue={defaults.enabled ? "true" : "false"}
+          >
+            <option value="true">Active (visible on storefront)</option>
+            <option value="false">Paused (saved, hidden)</option>
+          </Select>
+        </Field>
+        <Field label="Tone" htmlFor="ann-tone" error={state.fieldErrors?.tone}>
+          <Select id="ann-tone" name="tone" defaultValue={defaults.tone}>
+            <option value="info">Neutral studio</option>
+            <option value="accent">Cobalt accent</option>
+            <option value="positive">Green highlight</option>
+          </Select>
+        </Field>
+        <Field
+          label="Link label (optional)"
+          htmlFor="ann-linkLabel"
+          error={state.fieldErrors?.linkLabel}
+        >
+          <Input
+            id="ann-linkLabel"
+            name="linkLabel"
+            maxLength={40}
+            defaultValue={defaults.linkLabel}
+            placeholder="Browse deals"
+          />
+        </Field>
+      </div>
+
+      <div className="grid gap-3.5 sm:grid-cols-3">
+        <Field
+          label="Announcement message"
+          htmlFor="ann-text"
+          error={state.fieldErrors?.text}
+          className="sm:col-span-2"
+          hint="Leave blank and save to remove the announcement bar completely."
+        >
+          <Input
+            id="ann-text"
+            name="text"
+            maxLength={200}
+            defaultValue={defaults.text}
+            placeholder="Launch weekend: use code LAUNCH20 for 20% off eligible resources."
+          />
+        </Field>
+        <Field
+          label="Link destination (optional)"
+          htmlFor="ann-href"
+          error={state.fieldErrors?.href}
+          hint="e.g. /browse or https://..."
+        >
+          <Input
+            id="ann-href"
+            name="href"
+            maxLength={400}
+            defaultValue={defaults.href}
+            placeholder="/browse"
+          />
+        </Field>
+      </div>
+
+      <Button type="submit" variant="primary" size="sm" disabled={pending}>
+        {pending ? "Saving…" : "Save announcement"}
+      </Button>
+    </form>
+  );
+}
+
+export function DiscordInviteForm({
+  action,
+  defaultUrl,
+}: {
+  action: FormAction;
+  defaultUrl: string;
+}) {
+  const [state, formAction, pending] = useActionState(action, idleState);
+
+  return (
+    <form action={formAction} className="space-y-3">
+      <Message state={state} />
+
+      <div className="flex flex-wrap items-end gap-3">
+        <Field
+          label="Discord invite URL"
+          htmlFor="discord-invite-url"
+          error={state.fieldErrors?.url}
+          className="min-w-[260px] flex-1"
+          hint="Leave empty and save to hide Discord links across the storefront footer and seller onboarding."
+        >
+          <Input
+            id="discord-invite-url"
+            name="url"
+            type="url"
+            defaultValue={defaultUrl}
+            placeholder="https://discord.gg/your-invite"
+          />
+        </Field>
+        <Button type="submit" variant="primary" size="sm" disabled={pending}>
+          {pending ? "Saving…" : "Save Discord URL"}
+        </Button>
+      </div>
+    </form>
+  );
+}
+

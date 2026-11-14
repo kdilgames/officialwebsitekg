@@ -54,6 +54,10 @@ export const loginSchema = z.object({
   password: z.string().min(1, "Enter your password."),
 });
 
+export const magicLinkSchema = z.object({
+  email: z.string().trim().toLowerCase().email("Enter a valid email address."),
+});
+
 export const forgotPasswordSchema = z.object({
   email: z.string().trim().toLowerCase().email("Enter a valid email address."),
 });
@@ -447,6 +451,46 @@ export const bundleSchema = z.object({
   ),
 });
 
+export const grantAdminByEmailSchema = z.object({
+  email: z.string().trim().toLowerCase().email("Enter a valid email address.").max(254),
+});
+
+export const announcementSettingSchema = z.object({
+  enabled: booleanFlag(true),
+  text: z
+    .string()
+    .trim()
+    .max(200, "Keep the announcement concise (under 200 characters).")
+    .optional()
+    .or(z.literal("").transform(() => undefined)),
+  href: z
+    .string()
+    .trim()
+    .max(400)
+    .optional()
+    .refine(
+      (value) => {
+        if (!value) return true;
+        if (value.startsWith("/") && !value.startsWith("//")) return true;
+        try {
+          const parsed = new URL(value);
+          return parsed.protocol === "http:" || parsed.protocol === "https:";
+        } catch {
+          return false;
+        }
+      },
+      { message: "Use an internal path (/browse) or an https:// URL." },
+    )
+    .transform((value) => (value && value.length > 0 ? value : undefined)),
+  linkLabel: z.string().trim().max(40).optional().or(z.literal("").transform(() => undefined)),
+  tone: z.enum(["info", "accent", "positive"]).default("info"),
+});
+
+export const discordSettingSchema = z.object({
+  url: optionalHttpUrl("Enter a valid Discord invite URL starting with https:// or http://."),
+});
+
 export type RegisterInput = z.infer<typeof registerSchema>;
 export type ProductInput = z.infer<typeof productSchema>;
 export type SellerApplicationInput = z.infer<typeof sellerApplicationSchema>;
+

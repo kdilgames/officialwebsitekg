@@ -45,6 +45,7 @@ const SECTIONS: Array<{ title: string; items: NavItem[] }> = [
   {
     title: "Platform",
     items: [
+      { href: "/admin/access", label: "Access & Emails" },
       { href: "/admin/users", label: "Users" },
       { href: "/admin/settings", label: "Settings" },
       { href: "/admin/audit", label: "Audit log" },

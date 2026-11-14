@@ -11,14 +11,32 @@ import {
   type ActionState,
 } from "@/lib/action-state";
 import { notify, recordAudit, recordModeration } from "@/lib/audit";
+import { getAllowlistedEmailsFromSettings } from "@/lib/auth/admin-access";
+import {
+  ADMIN_ALLOWLIST_SETTING_KEY,
+  canModifyAdminAccount,
+  canSuspendAccount,
+  isOwnerEmail,
+  normalizeEmail,
+  resolveOwnerEmail,
+} from "@/lib/auth/admin-access-rules";
 import { getSessionUser, type SessionUser } from "@/lib/auth/session";
 import { clampBps, percentToBps } from "@/lib/commission";
 import { prisma } from "@/lib/db";
+import { env } from "@/lib/env";
 import { minorUnitFactor } from "@/lib/money";
 import { ConnectError } from "@/lib/payments/connect";
 import { cancelPayout, executePayout } from "@/lib/payments/payouts";
 import { decideRefundRequest, executeRefund, failRefund, RefundError } from "@/lib/payments/refunds";
-import { categorySchema, commissionRuleSchema, couponSchema } from "@/lib/validation";
+import { SITE_ANNOUNCEMENT_KEY } from "@/lib/settings";
+import {
+  announcementSettingSchema,
+  categorySchema,
+  commissionRuleSchema,
+  couponSchema,
+  discordSettingSchema,
+  grantAdminByEmailSchema,
+} from "@/lib/validation";
 
 /**
  * Administrative actions.
@@ -72,7 +90,13 @@ export async function approveSellerAction(
   const sellerId = text(formData, "sellerId");
   const seller = await prisma.sellerProfile.findUnique({
     where: { id: sellerId },
-    select: { id: true, status: true, storeName: true, userId: true },
+    select: {
+      id: true,
+      status: true,
+      storeName: true,
+      userId: true,
+      user: { select: { role: true } },
+    },
   });
   if (!seller) return errorState("Seller application not found.");
 
@@ -99,7 +123,9 @@ export async function approveSellerAction(
         ...(commissionBps === undefined ? {} : { commissionBps }),
       },
     }),
-    prisma.user.update({ where: { id: seller.userId }, data: { role: "SELLER" } }),
+    ...(seller.user.role === "USER"
+      ? [prisma.user.update({ where: { id: seller.userId }, data: { role: "SELLER" } })]
+      : []),
   ]);
 
   await recordAudit({
@@ -1151,7 +1177,7 @@ export async function moderateReviewAction(formData: FormData): Promise<void> {
   revalidateStorefront(review.product.slug);
 }
 
-// ---------------------------------------------------------------- users
+// ---------------------------------------------------------------- users & email admin access
 
 export async function updateUserRoleAction(formData: FormData): Promise<void> {
   const access = await gate();
@@ -1163,25 +1189,45 @@ export async function updateUserRoleAction(formData: FormData): Promise<void> {
   const role = (["USER", "SELLER", "ADMIN"] as const).find((value) => value === raw);
   if (!role) return;
 
-  // An administrator must never be able to lock the platform out by demoting
-  // the last remaining administrator.
-  if (user.id === userId && role !== "ADMIN") return;
-  if (role !== "ADMIN") {
-    const admins = await prisma.user.count({ where: { role: "ADMIN", status: "ACTIVE" } });
-    const target = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { role: true },
-    });
-    if (target?.role === "ADMIN" && admins <= 1) return;
-  }
-
   const target = await prisma.user.findUnique({
     where: { id: userId },
-    select: { id: true, role: true, username: true },
+    select: { id: true, role: true, username: true, email: true },
   });
   if (!target) return;
 
+  const activeAdmins = await prisma.user.count({ where: { role: "ADMIN", status: "ACTIVE" } });
+  const check = canModifyAdminAccount({
+    actorId: user.id,
+    targetId: target.id,
+    targetEmail: target.email,
+    targetRole: target.role,
+    nextRole: role,
+    activeAdminCount: activeAdmins,
+    ownerEmail: env.auth.ownerEmail,
+  });
+  if (!check.allowed) return;
+
   await prisma.user.update({ where: { id: target.id }, data: { role } });
+
+  // If a previously allowlisted email is manually demoted via Users table, keep
+  // the DB allowlist synchronized so their next request does not re-promote them.
+  if (target.role === "ADMIN" && role !== "ADMIN") {
+    const targetEmail = normalizeEmail(target.email);
+    const currentAllowlist = await getAllowlistedEmailsFromSettings();
+    if (currentAllowlist.includes(targetEmail)) {
+      const updated = currentAllowlist.filter((entry) => entry !== targetEmail);
+      await prisma.siteSetting.upsert({
+        where: { key: ADMIN_ALLOWLIST_SETTING_KEY },
+        update: { value: updated, updatedById: user.id },
+        create: {
+          key: ADMIN_ALLOWLIST_SETTING_KEY,
+          value: updated,
+          description: "Emails granted ADMIN privileges upon verification.",
+          updatedById: user.id,
+        },
+      });
+    }
+  }
 
   await recordAudit({
     actorId: user.id,
@@ -1193,7 +1239,7 @@ export async function updateUserRoleAction(formData: FormData): Promise<void> {
     after: { role },
   });
 
-  revalidateAdmin("/admin/users");
+  revalidateAdmin("/admin/users", "/admin/access");
 }
 
 export async function suspendUserAction(formData: FormData): Promise<void> {
@@ -1203,14 +1249,27 @@ export async function suspendUserAction(formData: FormData): Promise<void> {
 
   const userId = text(formData, "userId");
   const reason = text(formData, "reason") || "Account suspended by platform staff.";
-  if (userId === user.id) return;
 
   const target = await prisma.user.findUnique({
     where: { id: userId },
-    select: { id: true, status: true, role: true, sellerProfile: { select: { id: true } } },
+    select: {
+      id: true,
+      email: true,
+      status: true,
+      role: true,
+      sellerProfile: { select: { id: true } },
+    },
   });
   if (!target || target.status === "SUSPENDED") return;
-  if (target.role === "ADMIN") return;
+
+  const check = canSuspendAccount({
+    actorId: user.id,
+    targetId: target.id,
+    targetEmail: target.email,
+    targetRole: target.role,
+    ownerEmail: env.auth.ownerEmail,
+  });
+  if (!check.allowed) return;
 
   // The session layer already refuses a suspended account, and the storefront
   // stops selling its listings here.
@@ -1243,7 +1302,7 @@ export async function suspendUserAction(formData: FormData): Promise<void> {
     after: { status: "SUSPENDED", reason },
   });
 
-  revalidateAdmin("/admin/users", "/admin/sellers");
+  revalidateAdmin("/admin/users", "/admin/sellers", "/admin/access");
   revalidateStorefront();
 }
 
@@ -1274,10 +1333,361 @@ export async function reinstateUserAction(formData: FormData): Promise<void> {
     after: { status: "ACTIVE" },
   });
 
-  revalidateAdmin("/admin/users");
+  revalidateAdmin("/admin/users", "/admin/access");
+}
+
+export async function grantAdminByEmailAction(
+  _previous: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const access = await gate();
+  if (!access.ok) return access.error;
+  const { user } = access;
+
+  const parsed = grantAdminByEmailSchema.safeParse(formToObject(formData));
+  if (!parsed.success) {
+    return errorState("Enter a valid email address.", toFieldErrors(parsed.error.issues));
+  }
+
+  const email = normalizeEmail(parsed.data.email);
+  const ownerEmail = resolveOwnerEmail(env.auth.ownerEmail);
+
+  if (isOwnerEmail(email, ownerEmail)) {
+    return successState(`${ownerEmail} is already the protected primary owner email.`);
+  }
+
+  const targetUser = await prisma.user.findFirst({
+    where: { email: { equals: email, mode: "insensitive" } },
+    select: {
+      id: true,
+      username: true,
+      email: true,
+      role: true,
+      status: true,
+      emailVerified: true,
+    },
+  });
+
+  if (targetUser && targetUser.status !== "ACTIVE") {
+    return errorState(
+      `Cannot grant administrator access because @${targetUser.username} is ${targetUser.status.toLowerCase()}.`,
+    );
+  }
+
+  const currentAllowlist = await getAllowlistedEmailsFromSettings();
+  const nextAllowlist = currentAllowlist.includes(email)
+    ? currentAllowlist
+    : [...currentAllowlist, email];
+
+  if (!env.auth.adminEmails.includes(email) && nextAllowlist.length !== currentAllowlist.length) {
+    await prisma.siteSetting.upsert({
+      where: { key: ADMIN_ALLOWLIST_SETTING_KEY },
+      update: { value: nextAllowlist, updatedById: user.id },
+      create: {
+        key: ADMIN_ALLOWLIST_SETTING_KEY,
+        value: nextAllowlist,
+        description: "Emails granted ADMIN privileges upon verification.",
+        updatedById: user.id,
+      },
+    });
+  }
+
+  if (targetUser && targetUser.emailVerified) {
+    const previousRole = targetUser.role;
+    if (previousRole !== "ADMIN") {
+      await prisma.user.update({
+        where: { id: targetUser.id },
+        data: { role: "ADMIN" },
+      });
+    }
+
+    await recordAudit({
+      actorId: user.id,
+      actorRole: user.role,
+      action: "admin.access_granted",
+      entityType: "User",
+      entityId: targetUser.id,
+      before: { role: previousRole },
+      after: { email, role: "ADMIN" },
+    });
+
+    if (previousRole !== "ADMIN") {
+      await notify({
+        userId: targetUser.id,
+        type: "SYSTEM",
+        title: "You were granted administrator access",
+        body: `Granted by @${user.username}. Open the administration panel to manage the marketplace.`,
+        href: "/admin",
+      });
+    }
+
+    revalidateAdmin("/admin/access", "/admin/users");
+    return successState(
+      previousRole === "ADMIN"
+        ? `${email} (@${targetUser.username}) already has administrator access.`
+        : `${email} (@${targetUser.username}) has been promoted to administrator.`,
+    );
+  }
+
+  await recordAudit({
+    actorId: user.id,
+    actorRole: user.role,
+    action: "admin.allowlist_added",
+    entityType: "SiteSetting",
+    entityId: ADMIN_ALLOWLIST_SETTING_KEY,
+    after: { email },
+  });
+
+  revalidateAdmin("/admin/access", "/admin/users");
+  return successState(
+    targetUser
+      ? `${email} added to allowlist. Once they confirm their email address, ADMIN access unlocks automatically.`
+      : `${email} added to the admin allowlist. When they sign in via the email link or verify their email, ADMIN access activates automatically.`,
+  );
+}
+
+export async function revokeAdminAccessAction(
+  _previous: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const access = await gate();
+  if (!access.ok) return access.error;
+  const { user } = access;
+
+  const email = normalizeEmail(text(formData, "email"));
+  if (!email) return errorState("Email address is missing.");
+
+  const ownerEmail = resolveOwnerEmail(env.auth.ownerEmail);
+  if (isOwnerEmail(email, ownerEmail)) {
+    return errorState(`The primary owner email (${ownerEmail}) is protected and cannot be revoked.`);
+  }
+
+  if (normalizeEmail(user.email) === email) {
+    return errorState("You cannot revoke administrator access from your own active session.");
+  }
+
+  const targetUser = await prisma.user.findFirst({
+    where: { email: { equals: email, mode: "insensitive" } },
+    select: {
+      id: true,
+      username: true,
+      email: true,
+      role: true,
+      sellerProfile: { select: { status: true } },
+    },
+  });
+
+  if (targetUser && targetUser.role === "ADMIN") {
+    const activeAdmins = await prisma.user.count({ where: { role: "ADMIN", status: "ACTIVE" } });
+    const nextRole = targetUser.sellerProfile?.status === "APPROVED" ? "SELLER" : "USER";
+    const check = canModifyAdminAccount({
+      actorId: user.id,
+      targetId: targetUser.id,
+      targetEmail: targetUser.email,
+      targetRole: targetUser.role,
+      nextRole,
+      activeAdminCount: activeAdmins,
+      ownerEmail,
+    });
+    if (!check.allowed) {
+      return errorState(check.reason ?? "Cannot modify this administrator account.");
+    }
+
+    await prisma.user.update({
+      where: { id: targetUser.id },
+      data: { role: nextRole },
+    });
+
+    await notify({
+      userId: targetUser.id,
+      type: "SYSTEM",
+      title: "Administrator access updated",
+      body: `Your account role was changed to ${nextRole.toLowerCase()}.`,
+      href: "/account",
+    }).catch(() => undefined);
+  }
+
+  const currentAllowlist = await getAllowlistedEmailsFromSettings();
+  if (currentAllowlist.includes(email)) {
+    const updated = currentAllowlist.filter((entry) => entry !== email);
+    await prisma.siteSetting.upsert({
+      where: { key: ADMIN_ALLOWLIST_SETTING_KEY },
+      update: { value: updated, updatedById: user.id },
+      create: {
+        key: ADMIN_ALLOWLIST_SETTING_KEY,
+        value: updated,
+        description: "Emails granted ADMIN privileges upon verification.",
+        updatedById: user.id,
+      },
+    });
+  }
+
+  await recordAudit({
+    actorId: user.id,
+    actorRole: user.role,
+    action: "admin.access_revoked",
+    entityType: targetUser ? "User" : "SiteSetting",
+    entityId: targetUser?.id ?? ADMIN_ALLOWLIST_SETTING_KEY,
+    after: { email },
+  });
+
+  revalidateAdmin("/admin/access", "/admin/users");
+
+  if (env.auth.adminEmails.includes(email)) {
+    return errorState(
+      `${email} is configured in the server ADMIN_EMAILS environment variable and will regain admin access on next sign-in until removed there.`,
+    );
+  }
+
+  return successState(`Administrator access revoked for ${email}.`);
 }
 
 // ---------------------------------------------------------------- settings
+
+export async function saveAnnouncementAction(
+  _previous: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const access = await gate();
+  if (!access.ok) return access.error;
+  const { user } = access;
+
+  const parsed = announcementSettingSchema.safeParse(formToObject(formData));
+  if (!parsed.success) {
+    return errorState("Please check the announcement fields.", toFieldErrors(parsed.error.issues));
+  }
+
+  const existing = await prisma.siteSetting.findUnique({
+    where: { key: SITE_ANNOUNCEMENT_KEY },
+    select: { value: true },
+  });
+
+  if (!parsed.data.text) {
+    if (existing) {
+      await prisma.siteSetting.delete({ where: { key: SITE_ANNOUNCEMENT_KEY } });
+      await recordAudit({
+        actorId: user.id,
+        actorRole: user.role,
+        action: "setting.deleted",
+        entityType: "SiteSetting",
+        entityId: SITE_ANNOUNCEMENT_KEY,
+        before: { value: existing.value },
+      });
+    }
+    revalidateAdmin("/admin/settings");
+    revalidatePath("/", "layout");
+    return successState("Announcement banner cleared.");
+  }
+
+  const value: Prisma.InputJsonValue = {
+    enabled: parsed.data.enabled,
+    text: parsed.data.text,
+    tone: parsed.data.tone,
+    ...(parsed.data.href ? { href: parsed.data.href } : {}),
+    ...(parsed.data.linkLabel ? { linkLabel: parsed.data.linkLabel } : {}),
+  };
+
+  await prisma.siteSetting.upsert({
+    where: { key: SITE_ANNOUNCEMENT_KEY },
+    update: {
+      value,
+      description: "Top storefront announcement strip managed from Administration.",
+      updatedById: user.id,
+    },
+    create: {
+      key: SITE_ANNOUNCEMENT_KEY,
+      value,
+      description: "Top storefront announcement strip managed from Administration.",
+      updatedById: user.id,
+    },
+  });
+
+  await recordAudit({
+    actorId: user.id,
+    actorRole: user.role,
+    action: existing ? "setting.updated" : "setting.created",
+    entityType: "SiteSetting",
+    entityId: SITE_ANNOUNCEMENT_KEY,
+    before: existing ? { value: existing.value } : undefined,
+    after: { value },
+  });
+
+  revalidateAdmin("/admin/settings");
+  revalidatePath("/", "layout");
+  return successState(
+    parsed.data.enabled
+      ? "Storefront announcement banner updated and live."
+      : "Announcement saved as paused (hidden on storefront).",
+  );
+}
+
+export async function saveDiscordSettingAction(
+  _previous: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const access = await gate();
+  if (!access.ok) return access.error;
+  const { user } = access;
+
+  const parsed = discordSettingSchema.safeParse(formToObject(formData));
+  if (!parsed.success) {
+    return errorState("Enter a valid Discord invite URL.", toFieldErrors(parsed.error.issues));
+  }
+
+  const key = "community_discord_url";
+  const existing = await prisma.siteSetting.findUnique({
+    where: { key },
+    select: { value: true },
+  });
+
+  if (!parsed.data.url) {
+    if (existing) {
+      await prisma.siteSetting.delete({ where: { key } });
+      await recordAudit({
+        actorId: user.id,
+        actorRole: user.role,
+        action: "setting.deleted",
+        entityType: "SiteSetting",
+        entityId: key,
+        before: { value: existing.value },
+      });
+    }
+    revalidateAdmin("/admin/settings");
+    revalidatePath("/", "layout");
+    revalidatePath("/account/seller");
+    return successState("Community Discord invite removed.");
+  }
+
+  await prisma.siteSetting.upsert({
+    where: { key },
+    update: {
+      value: parsed.data.url,
+      description: "Community Discord invite URL surfaced in storefront footer and onboarding.",
+      updatedById: user.id,
+    },
+    create: {
+      key,
+      value: parsed.data.url,
+      description: "Community Discord invite URL surfaced in storefront footer and onboarding.",
+      updatedById: user.id,
+    },
+  });
+
+  await recordAudit({
+    actorId: user.id,
+    actorRole: user.role,
+    action: existing ? "setting.updated" : "setting.created",
+    entityType: "SiteSetting",
+    entityId: key,
+    before: existing ? { value: existing.value } : undefined,
+    after: { value: parsed.data.url },
+  });
+
+  revalidateAdmin("/admin/settings");
+  revalidatePath("/", "layout");
+  revalidatePath("/account/seller");
+  return successState("Community Discord invite saved.");
+}
 
 export async function saveSiteSettingAction(
   _previous: ActionState,
@@ -1327,7 +1737,7 @@ export async function saveSiteSettingAction(
     after: { value },
   });
 
-  revalidateAdmin("/admin/settings");
+  revalidateAdmin("/admin/settings", "/admin/access");
   revalidatePath("/", "layout");
   revalidatePath("/account/seller");
   return successState(`Setting “${key}” saved.`);
@@ -1356,7 +1766,7 @@ export async function deleteSiteSettingAction(formData: FormData): Promise<void>
     before: { value: existing.value },
   });
 
-  revalidateAdmin("/admin/settings");
+  revalidateAdmin("/admin/settings", "/admin/access");
   revalidatePath("/", "layout");
   revalidatePath("/account/seller");
 }

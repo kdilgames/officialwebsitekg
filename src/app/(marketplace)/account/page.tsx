@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Download, ShoppingBag, Wallet } from "lucide-react";
+import { Download, Shield, ShoppingBag, Wallet } from "lucide-react";
 
 import { ImageUploader } from "@/components/account/image-uploader";
 import { DeleteAccountForm, ProfileForm } from "@/components/forms/account-forms";
@@ -14,7 +14,7 @@ import {
   updateProfileAction,
 } from "@/lib/account/actions";
 import { changePasswordAction } from "@/lib/auth/actions";
-import { requireUser } from "@/lib/auth/session";
+import { isAdmin, isOwner, requireUser } from "@/lib/auth/session";
 import { prisma } from "@/lib/db";
 import { env } from "@/lib/env";
 import { formatMoney } from "@/lib/money";
@@ -24,6 +24,8 @@ export const metadata = { title: "Account settings" };
 
 export default async function AccountPage() {
   const user = await requireUser("/account");
+  const userIsAdmin = isAdmin(user);
+  const userIsOwner = isOwner(user);
 
   const [paidOrders, wishlistCount, downloadCount] = await Promise.all([
     prisma.order.findMany({
@@ -58,16 +60,49 @@ export default async function AccountPage() {
           ) : (
             <Badge tone="caution">Email not verified</Badge>
           )}
-          <Badge tone={user.role === "ADMIN" ? "accent" : "neutral"}>{user.role.toLowerCase()}</Badge>
+          {userIsOwner ? <Badge tone="accent">owner</Badge> : null}
+          <Badge tone={userIsAdmin ? "accent" : "neutral"}>{user.role.toLowerCase()}</Badge>
         </div>
       </header>
 
       {user.emailVerified ? null : (
         <Alert tone="warning" title="Verify your email address">
-          We sent a confirmation link to {user.email}. Verifying is required before you can apply to
-          sell or receive payouts.
+          We sent a confirmation link to {user.email}.{" "}
+          {userIsOwner
+            ? "Confirming this owner email is required to unlock protected Owner Administrator privileges."
+            : "Verifying is required before you can apply to sell or receive payouts."}
         </Alert>
       )}
+
+      {userIsAdmin ? (
+        <Card className="border-accent/25">
+          <CardHeader
+            title={
+              <span className="inline-flex items-center gap-2">
+                <Shield className="size-4 text-accent" aria-hidden />
+                Platform Administration
+              </span>
+            }
+            description={
+              userIsOwner
+                ? `Signed in with the protected owner email (${user.email}).`
+                : `Administrator access enabled for ${user.email}.`
+            }
+            actions={<Badge tone="accent">{userIsOwner ? "owner · admin" : "admin"}</Badge>}
+          />
+          <CardBody className="flex flex-wrap items-center gap-2">
+            <Link href="/admin" className="btn btn-primary btn-sm">
+              Open Admin Panel
+            </Link>
+            <Link href="/admin/access" className="btn btn-secondary btn-sm">
+              Access &amp; Emails
+            </Link>
+            <Link href="/admin/settings" className="btn btn-secondary btn-sm">
+              Storefront settings
+            </Link>
+          </CardBody>
+        </Card>
+      ) : null}
 
       <div className="grid gap-3 sm:grid-cols-3">
         <StatCard
