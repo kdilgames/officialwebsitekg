@@ -5,7 +5,10 @@ import { notFound } from "next/navigation";
 import { ChevronRight, PackageOpen } from "lucide-react";
 
 import { getCompatibilityTagsForCategory } from "@/components/marketplace/category-filters";
-import { getCategoryVisual } from "@/components/marketplace/category-visuals";
+import {
+  getCategoryIcon,
+  getCategoryVisual,
+} from "@/components/marketplace/category-visuals";
 import { ProductGrid } from "@/components/marketplace/product-card";
 import { EmptyState } from "@/components/ui/alert";
 import { Pagination } from "@/components/ui/table";
@@ -64,11 +67,18 @@ export default async function CategoryPage({ params, searchParams }: PageProps) 
     listCategories(),
   ]);
 
-  const children = categories.filter((entry) => entry.parentId === category.id);
   const fullCategory = categories.find((entry) => entry.slug === category.slug);
-  const visual = getCategoryVisual(category.slug, fullCategory?.icon);
+  const children = categories.filter((entry) => entry.parentId === category.id);
+  const siblings =
+    children.length === 0 && fullCategory?.parentId
+      ? categories.filter((entry) => entry.parentId === fullCategory.parentId)
+      : [];
+  const visual = getCategoryVisual(category.slug, fullCategory?.icon, category.parent?.slug);
   const CategoryIcon = visual.icon;
-  const compatibilityTags = getCompatibilityTagsForCategory(category.slug);
+  const compatibilityTags = getCompatibilityTagsForCategory(
+    category.slug,
+    category.parent?.slug,
+  );
 
   const buildFilterHref = (overrides: {
     sort?: string;
@@ -96,6 +106,14 @@ export default async function CategoryPage({ params, searchParams }: PageProps) 
         <Link href="/browse" className="hover:text-ink">
           Browse
         </Link>
+        {category.parent ? (
+          <>
+            <ChevronRight className="size-3.5" aria-hidden />
+            <Link href={`/category/${category.parent.slug}`} className="hover:text-ink">
+              {category.parent.name}
+            </Link>
+          </>
+        ) : null}
         <ChevronRight className="size-3.5" aria-hidden />
         <span className="font-medium text-ink-muted">{category.name}</span>
       </nav>
@@ -139,19 +157,54 @@ export default async function CategoryPage({ params, searchParams }: PageProps) 
       </header>
 
       {children.length > 0 ? (
-        <div className="mb-4 flex flex-wrap gap-2">
-          {children.map((child) => (
-            <Link
-              key={child.slug}
-              href={`/category/${child.slug}`}
-              className="badge hover:border-line-strong hover:bg-surface hover:text-ink"
-            >
-              {child.name}
-              {child._count.products > 0 ? (
-                <span className="subtle tabular-nums">{child._count.products}</span>
-              ) : null}
-            </Link>
-          ))}
+        <div className="mb-4 flex flex-wrap items-center gap-2">
+          <span className="badge badge-accent">All {category.name}</span>
+          {children.map((child) => {
+            const ChildIcon = getCategoryIcon(child.icon, child.slug);
+            return (
+              <Link
+                key={child.slug}
+                href={`/category/${child.slug}`}
+                className="badge transition-colors hover:border-line-strong hover:bg-surface hover:text-ink"
+              >
+                <ChildIcon className="size-3.5 text-ink-subtle" aria-hidden />
+                {child.name}
+                {child._count.products > 0 ? (
+                  <span className="subtle tabular-nums">{child._count.products}</span>
+                ) : null}
+              </Link>
+            );
+          })}
+        </div>
+      ) : siblings.length > 0 && category.parent ? (
+        <div className="mb-4 flex flex-wrap items-center gap-2">
+          <Link
+            href={`/category/${category.parent.slug}`}
+            className="badge transition-colors hover:border-line-strong hover:bg-surface hover:text-ink"
+          >
+            All {category.parent.name}
+          </Link>
+          {siblings.map((sib) => {
+            const SibIcon = getCategoryIcon(sib.icon, sib.slug);
+            const active = sib.slug === category.slug;
+            return (
+              <Link
+                key={sib.slug}
+                href={`/category/${sib.slug}`}
+                className={`badge transition-colors ${
+                  active
+                    ? "badge-accent"
+                    : "hover:border-line-strong hover:bg-surface hover:text-ink"
+                }`}
+              >
+                <SibIcon className="size-3.5" aria-hidden />
+                {sib.name}
+                {sib._count.products > 0 ? (
+                  <span className="opacity-70 tabular-nums">{sib._count.products}</span>
+                ) : null}
+              </Link>
+            );
+          })}
         </div>
       ) : null}
 

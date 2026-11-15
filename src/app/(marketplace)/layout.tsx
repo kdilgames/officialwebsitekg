@@ -1,12 +1,18 @@
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 
+import { CategoryNavBar } from "@/components/layout/category-nav-bar";
 import { SiteFooter } from "@/components/layout/site-footer";
 import { SiteHeader } from "@/components/layout/site-header";
+import { withSchemaFallback } from "@/lib/db-compat";
+import { listCategories } from "@/lib/queries/products";
 import { getSiteAnnouncement } from "@/lib/settings";
 
 export default async function MarketplaceLayout({ children }: { children: React.ReactNode }) {
-  const announcement = await getSiteAnnouncement();
+  const [announcement, categories] = await Promise.all([
+    getSiteAnnouncement(),
+    withSchemaFallback(() => listCategories(), []),
+  ]);
 
   const barClasses =
     announcement?.tone === "positive"
@@ -34,6 +40,7 @@ export default async function MarketplaceLayout({ children }: { children: React.
         </div>
       ) : null}
       <SiteHeader />
+      <CategoryNavBar categories={categories} />
       <main className="flex-1">{children}</main>
       <SiteFooter />
     </div>

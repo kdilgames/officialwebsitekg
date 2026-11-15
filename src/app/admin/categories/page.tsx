@@ -1,17 +1,22 @@
-import { FolderTree } from "lucide-react";
+import { FolderTree, Sparkles } from "lucide-react";
 
 import { CategoryForm } from "@/components/admin/admin-forms";
-import { ActionButton } from "@/components/admin/action-forms";
+import { ActionButton, StateActionButton } from "@/components/admin/action-forms";
 import { EmptyState } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import {
   createCategoryAction,
   deleteCategoryAction,
+  seedDefaultSubcategoriesAction,
   toggleCategoryAction,
   updateCategoryAction,
 } from "@/lib/admin/actions";
 import { listAllCategories } from "@/lib/admin/queries";
+import {
+  DEFAULT_PARENT_CATEGORIES,
+  DEFAULT_SUBCATEGORIES,
+} from "@/lib/catalog-hierarchy";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Categories · Admin" };
@@ -20,16 +25,46 @@ export default async function AdminCategoriesPage() {
   const categories = await listAllCategories();
   const names = new Map<string, string>(categories.map((category: any) => [category.id, category.name]));
   const options = categories.map((category: any) => ({ id: category.id, name: category.name }));
+  const existingSlugs = new Set(categories.map((category: { slug: string }) => category.slug));
+  const missingDefaultsCount =
+    DEFAULT_PARENT_CATEGORIES.filter((entry) => !existingSlugs.has(entry.slug)).length +
+    DEFAULT_SUBCATEGORIES.filter((entry) => !existingSlugs.has(entry.slug)).length;
 
   return (
     <div className="space-y-4">
-      <header>
-        <h1 className="text-[18px] font-semibold tracking-tight">Categories</h1>
-        <p className="muted mt-1 text-[12.5px]">
-          Categories are managed here and appear in the storefront navigation. A category can only be
-          deleted when it holds no products and no sub-categories.
-        </p>
+      <header className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-[18px] font-semibold tracking-tight">Categories</h1>
+          <p className="muted mt-1 text-[12.5px]">
+            Categories are managed here and appear in the storefront navigation. A category can only
+            be deleted when it holds no products and no sub-categories.
+          </p>
+        </div>
       </header>
+
+      {missingDefaultsCount > 0 ? (
+        <Card>
+          <CardHeader
+            title="Default subcategories pack"
+            description={`${missingDefaultsCount} built-in category or subcategory slug${missingDefaultsCount === 1 ? " is" : "s are"} not in the database yet (e.g. Roblox Scripts, Game setups, Maps, Vehicles, Weapons, Models, Clothing, Graphics & UI, Animations & VFX, Audio).`}
+          />
+          <CardBody className="flex flex-wrap items-center justify-between gap-3">
+            <p className="muted max-w-2xl text-[12.5px]">
+              Add all missing default top-level ecosystems and subcategories safely without touching
+              or overwriting anything you already customized.
+            </p>
+            <StateActionButton
+              action={seedDefaultSubcategoriesAction}
+              fields={{}}
+              variant="primary"
+              pendingLabel="Adding subcategories…"
+            >
+              <Sparkles className="size-3.5" aria-hidden />
+              Add {missingDefaultsCount} default categories &amp; subcategories
+            </StateActionButton>
+          </CardBody>
+        </Card>
+      ) : null}
 
       <Card>
         <CardHeader

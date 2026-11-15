@@ -1,12 +1,35 @@
 import {
   Bot,
+  Box,
+  Car,
   Code2,
+  Crosshair,
+  FileCode,
   Gamepad2,
+  Globe,
+  Image,
+  Layers,
+  Layout,
+  LayoutDashboard,
   LayoutTemplate,
+  Map,
+  Monitor,
+  Music,
   Package,
+  Palette,
   Pickaxe,
+  Plug,
+  Puzzle,
+  Server,
+  Shirt,
+  ShoppingBag,
+  Sparkles,
+  Terminal,
+  Wrench,
   type LucideIcon,
 } from "lucide-react";
+
+import { inferRootCategorySlug } from "@/lib/catalog-hierarchy";
 
 export type CategoryVisual = {
   icon: LucideIcon;
@@ -18,6 +41,37 @@ export type CategoryVisual = {
   chipClass: string;
   /** Soft dual-theme background for fallback product thumbnails */
   canvasClass: string;
+};
+
+const ICON_BY_NAME: Record<string, LucideIcon> = {
+  "gamepad-2": Gamepad2,
+  pickaxe: Pickaxe,
+  "layout-template": LayoutTemplate,
+  bot: Bot,
+  code: Code2,
+  "code-2": Code2,
+  package: Package,
+  wrench: Wrench,
+  map: Map,
+  car: Car,
+  crosshair: Crosshair,
+  box: Box,
+  shirt: Shirt,
+  palette: Palette,
+  sparkles: Sparkles,
+  music: Music,
+  plug: Plug,
+  server: Server,
+  image: Image,
+  "file-code": FileCode,
+  "shopping-bag": ShoppingBag,
+  globe: Globe,
+  layout: Layout,
+  layers: Layers,
+  puzzle: Puzzle,
+  "layout-dashboard": LayoutDashboard,
+  terminal: Terminal,
+  monitor: Monitor,
 };
 
 const VISUALS_BY_SLUG: Record<string, CategoryVisual> = {
@@ -78,22 +132,39 @@ const DEFAULT_VISUAL: CategoryVisual = {
   canvasClass: "bg-elevated",
 };
 
-export function getCategoryVisual(slug: string, iconName?: string | null): CategoryVisual {
+export function getCategoryIcon(iconName?: string | null, slug?: string | null): LucideIcon {
+  if (iconName && ICON_BY_NAME[iconName]) {
+    return ICON_BY_NAME[iconName];
+  }
+  const rootSlug = inferRootCategorySlug(slug);
+  if (rootSlug && VISUALS_BY_SLUG[rootSlug]) {
+    return VISUALS_BY_SLUG[rootSlug].icon;
+  }
+  return Package;
+}
+
+export function getCategoryVisual(
+  slug: string,
+  iconName?: string | null,
+  parentSlug?: string | null,
+): CategoryVisual {
   const exact = VISUALS_BY_SLUG[slug];
   if (exact) return exact;
 
-  switch (iconName) {
-    case "gamepad-2":
-      return VISUALS_BY_SLUG.roblox as CategoryVisual;
-    case "pickaxe":
-      return VISUALS_BY_SLUG.minecraft as CategoryVisual;
-    case "layout-template":
-      return VISUALS_BY_SLUG["website-templates"] as CategoryVisual;
-    case "bot":
-      return VISUALS_BY_SLUG["discord-bots"] as CategoryVisual;
-    case "code":
-      return VISUALS_BY_SLUG["software-dev-tools"] as CategoryVisual;
-    default:
-      return DEFAULT_VISUAL;
+  const rootSlug = inferRootCategorySlug(slug, parentSlug);
+  const rootVisual = rootSlug ? VISUALS_BY_SLUG[rootSlug] : undefined;
+  const namedIcon = iconName ? ICON_BY_NAME[iconName] : undefined;
+
+  if (rootVisual) {
+    return {
+      ...rootVisual,
+      icon: namedIcon ?? rootVisual.icon,
+    };
   }
+
+  if (namedIcon) {
+    return { ...DEFAULT_VISUAL, icon: namedIcon };
+  }
+
+  return DEFAULT_VISUAL;
 }

@@ -14,7 +14,9 @@ import {
   type ActionState,
   type ConnectActionState,
   type CreateProductDraftResult,
+  type PublishProductUpdateResult,
 } from "@/lib/action-state";
+import { encodeUpdateChangelog, formatVersionNotificationBody } from "@/lib/update-format";
 import { notify, recordAudit } from "@/lib/audit";
 import { getSessionUser, type SessionUser } from "@/lib/auth/session";
 import { prisma } from "@/lib/db";
@@ -572,13 +574,19 @@ export async function createVersionAction(
 
   const productId = String(formData.get("productId") ?? "");
   const version = String(formData.get("version") ?? "").trim();
+  const updateTitle = String(formData.get("updateTitle") ?? "").trim();
   const changelog = String(formData.get("changelog") ?? "").trim();
 
   if (!/^[0-9A-Za-z.\-+]{1,32}$/.test(version)) {
     return errorState("Use a version such as 1.2.0.", { version: "Invalid version." });
   }
-  if (changelog.length < 3 || changelog.length > 4000) {
-    return errorState("Describe what changed (3–4000 characters).", {
+  if (updateTitle.length > 140) {
+    return errorState("Update title must be 140 characters or shorter.", {
+      updateTitle: "140 characters max.",
+    });
+  }
+  if (changelog.length < 3 || changelog.length > 8000) {
+    return errorState("Describe what changed (3–8000 characters).", {
       changelog: "Describe what changed.",
     });
   }
@@ -595,13 +603,15 @@ export async function createVersionAction(
   });
   if (clash) return errorState("That version already exists.", { version: "Already published." });
 
+  const encodedChangelog = encodeUpdateChangelog(updateTitle, changelog);
+
   await prisma.$transaction([
     prisma.productVersion.updateMany({
       where: { productId: product.id },
       data: { isLatest: false },
     }),
     prisma.productVersion.create({
-      data: { productId: product.id, version, changelog, isLatest: true },
+      data: { productId: product.id, version, changelog: encodedChangelog, isLatest: true },
     }),
     prisma.product.update({
       where: { id: product.id },
@@ -635,14 +645,154 @@ export async function createVersionAction(
         userId: buyerId,
         type: "ORDER",
         title: `Update: ${product.title} v${version}`,
-        body: changelog.slice(0, 140),
-        href: "/account/orders",
+        body: formatVersionNotificationBody(encodedChangelog, version),
+        href:
+          product.status === "PUBLISHED"
+            ? `/product/${product.slug}?tab=updates`
+            : "/account/orders",
       })),
     });
   }
 
   revalidateProduct(product.id, product.slug);
+  revalidatePath("/account/orders");
   return successState(`Version ${version} published. Existing buyers can download it.`);
+}
+
+export async function publishProductUpdateFromPageAction(input: {
+  productId: string;
+  version: string;
+  postUpdate: boolean;
+  updateTitle?: string;
+  updateMessage?: string;
+}): Promise<PublishProductUpdateResult> {
+  const access = await gate();
+  if (!access.ok) return { ok: false, state: access.error };
+  const { user, seller } = access;
+
+  const version = input.version.trim();
+  const updateTitle = (input.updateTitle ?? "").trim();
+  const updateMessage = (input.updateMessage ?? "").trim();
+
+  if (!/^[0-9A-Za-z.\-+]{1,32}$/.test(version)) {
+    return {
+      ok: false,
+      state: errorState("Use a version number such as 1.2.0 or 4.1.", {
+        version: "Use 1–32 letters, digits, dots, hyphens, or +.",
+      }),
+    };
+  }
+
+  if (updateTitle.length > 140) {
+    return {
+      ok: false,
+      state: errorState("Update title must be 140 characters or shorter.", {
+        updateTitle: "140 characters max.",
+      }),
+    };
+  }
+
+  if (updateMessage.length > 8000) {
+    return {
+      ok: false,
+      state: errorState("Update message must be 8000 characters or shorter.", {
+        updateMessage: "8000 characters max.",
+      }),
+    };
+  }
+
+  if (input.postUpdate && updateTitle.length < 3 && updateMessage.length < 3) {
+    return {
+      ok: false,
+      state: errorState("Add an update title or update message (at least 3 characters).", {
+        updateMessage: "Add an update title or message.",
+      }),
+    };
+  }
+
+  const product = await prisma.product.findFirst({
+    where: { id: input.productId, sellerId: seller.id },
+    select: { id: true, slug: true, title: true, status: true },
+  });
+  if (!product) {
+    return { ok: false, state: errorState("Product not found in your store.") };
+  }
+
+  const clash = await prisma.productVersion.findUnique({
+    where: { productId_version: { productId: product.id, version } },
+    select: { id: true },
+  });
+  if (clash) {
+    return {
+      ok: false,
+      state: errorState(`Version ${version} already exists.`, {
+        version: "Already published.",
+      }),
+    };
+  }
+
+  const encodedChangelog = input.postUpdate
+    ? encodeUpdateChangelog(updateTitle, updateMessage)
+    : encodeUpdateChangelog(updateTitle || `Release v${version}`, updateMessage);
+
+  const [, createdVersion] = await prisma.$transaction([
+    prisma.productVersion.updateMany({
+      where: { productId: product.id },
+      data: { isLatest: false },
+    }),
+    prisma.productVersion.create({
+      data: {
+        productId: product.id,
+        version,
+        changelog: encodedChangelog,
+        isLatest: true,
+      },
+      select: { id: true },
+    }),
+    prisma.product.update({
+      where: { id: product.id },
+      data: { version, updatedAt: new Date() },
+    }),
+  ]);
+
+  await recordAudit({
+    actorId: user.id,
+    actorRole: user.role,
+    action: "product.version.created",
+    entityType: "Product",
+    entityId: product.id,
+    after: { version, postUpdate: input.postUpdate },
+  });
+
+  const buyers = await prisma.orderItem.findMany({
+    where: {
+      productId: product.id,
+      status: "PAID",
+      order: { status: { in: ["PAID", "PARTIALLY_REFUNDED"] } },
+    },
+    select: { order: { select: { buyerId: true } } },
+  });
+  const buyerIds = [...new Set(buyers.map((row) => row.order.buyerId))].filter(
+    (id) => id !== user.id,
+  );
+  if (buyerIds.length > 0) {
+    await prisma.notification.createMany({
+      data: buyerIds.map((buyerId) => ({
+        userId: buyerId,
+        type: "ORDER",
+        title: `Update: ${product.title} v${version}`,
+        body: formatVersionNotificationBody(encodedChangelog, version),
+        href:
+          product.status === "PUBLISHED"
+            ? `/product/${product.slug}?tab=updates`
+            : "/account/orders",
+      })),
+    });
+  }
+
+  revalidateProduct(product.id, product.slug);
+  revalidatePath("/account/orders");
+  return { ok: true, versionId: createdVersion.id };
 }
 
 // ---------------------------------------------------------------- uploads
@@ -719,6 +869,7 @@ export async function finalizeProductFileAction(input: {
   fileName: string;
   versionId?: string | null;
   note?: string;
+  replacePreviousFiles?: boolean;
 }): Promise<ActionState> {
   const access = await gate();
   if (!access.ok) return access.error;
@@ -767,22 +918,33 @@ export async function finalizeProductFileAction(input: {
     versionId = version?.id ?? null;
   }
 
-  const file = await prisma.productFile.create({
-    data: {
-      productId: product.id,
-      versionId,
-      storageBucket: PRODUCT_FILES_BUCKET,
-      storagePath: canonicalPath,
-      fileName: sanitizeFileName(name),
-      sizeBytes,
-      mimeType: mimeFor(name),
-      scanStatus: isScannerConfigured ? "PENDING" : "SKIPPED",
-      scanNote: isScannerConfigured
-        ? "Automated scan initiated. Results will appear shortly."
-        : "No malware scanner is configured on this deployment, so this file was not scanned. The seller is responsible for its contents.",
-      isActive: true,
-    },
-    select: { id: true },
+  const file = await prisma.$transaction(async (tx) => {
+    const created = await tx.productFile.create({
+      data: {
+        productId: product.id,
+        versionId,
+        storageBucket: PRODUCT_FILES_BUCKET,
+        storagePath: canonicalPath,
+        fileName: sanitizeFileName(name),
+        sizeBytes,
+        mimeType: mimeFor(name),
+        scanStatus: isScannerConfigured ? "PENDING" : "SKIPPED",
+        scanNote: isScannerConfigured
+          ? "Automated scan initiated. Results will appear shortly."
+          : "No malware scanner is configured on this deployment, so this file was not scanned. The seller is responsible for its contents.",
+        isActive: true,
+      },
+      select: { id: true },
+    });
+
+    if (input.replacePreviousFiles) {
+      await tx.productFile.updateMany({
+        where: { productId: product.id, id: { not: created.id }, isActive: true },
+        data: { isActive: false },
+      });
+    }
+
+    return created;
   });
 
   if (isScannerConfigured) {
@@ -800,6 +962,7 @@ export async function finalizeProductFileAction(input: {
       fileName: sanitizeFileName(name),
       sizeBytes,
       version: input.note ?? null,
+      replacePreviousFiles: Boolean(input.replacePreviousFiles),
     },
   });
 

@@ -12,6 +12,7 @@ import { AnswerQuestionForm } from "@/components/marketplace/product-actions";
 import { ProductForm, VersionForm } from "@/components/forms/product-forms";
 import { Alert } from "@/components/ui/alert";
 import { Badge, StatusBadge } from "@/components/ui/badge";
+import { BBCodeContent } from "@/components/ui/bbcode-content";
 import { Button, buttonClass } from "@/components/ui/button";
 import { Card, CardBody, CardHeader, StatCard } from "@/components/ui/card";
 import { requireSeller } from "@/lib/auth/session";
@@ -23,6 +24,7 @@ import {
   hideProductQuestionAction,
 } from "@/lib/marketplace/actions";
 import { formatMoney, minorToDecimalString } from "@/lib/money";
+import { parseUpdateChangelog } from "@/lib/update-format";
 import {
   archiveProductAction,
   createVersionAction,
@@ -256,27 +258,37 @@ export default async function ManageProductPage({
             <p className="muted text-[12.5px]">No versions recorded yet.</p>
           ) : (
             <ul className="space-y-2">
-              {product.versions.map((version: any) => (
-                <li
-                  key={version.id}
-                  className="surface-elevated flex flex-wrap items-start justify-between gap-2 p-3"
-                >
-                  <div className="min-w-0">
-                    <p className="flex items-center gap-2 text-[13px] font-medium">
-                      {version.version}
-                      {version.isLatest ? (
-                        <span className="badge badge-accent">latest</span>
+              {product.versions.map((version) => {
+                const parsed = parseUpdateChangelog(version.changelog);
+                return (
+                  <li
+                    key={version.id}
+                    className="surface-elevated flex flex-wrap items-start justify-between gap-2 p-3"
+                  >
+                    <div className="min-w-0 flex-1 space-y-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="font-mono text-[13px] font-medium">
+                          v{version.version}
+                        </span>
+                        {version.isLatest ? (
+                          <span className="badge badge-accent">latest</span>
+                        ) : null}
+                        {parsed.title ? (
+                          <span className="text-[13px] font-semibold text-ink">
+                            {parsed.title}
+                          </span>
+                        ) : null}
+                      </div>
+                      {parsed.body ? (
+                        <BBCodeContent value={parsed.body} className="text-[12.5px]" />
                       ) : null}
-                    </p>
-                    <p className="muted mt-1 whitespace-pre-wrap text-[12.5px]">
-                      {version.changelog}
-                    </p>
-                  </div>
-                  <span className="subtle shrink-0 text-[11.5px]">
-                    {version.releasedAt.toISOString().slice(0, 10)}
-                  </span>
-                </li>
-              ))}
+                    </div>
+                    <span className="subtle shrink-0 text-[11.5px]">
+                      {version.releasedAt.toISOString().slice(0, 10)}
+                    </span>
+                  </li>
+                );
+              })}
             </ul>
           )}
 

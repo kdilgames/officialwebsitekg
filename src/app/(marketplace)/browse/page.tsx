@@ -3,11 +3,13 @@ import Link from "next/link";
 import { SearchX, X } from "lucide-react";
 
 import { getCompatibilityTagsForCategory } from "@/components/marketplace/category-filters";
+import { getCategoryIcon } from "@/components/marketplace/category-visuals";
 import { ProductGrid } from "@/components/marketplace/product-card";
 import { EmptyState } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Field, Input, Select } from "@/components/ui/form";
 import { Pagination } from "@/components/ui/table";
+import { buildCategoryTree } from "@/lib/catalog-hierarchy";
 import {
   browseProducts,
   categoryWithDescendants,
@@ -105,8 +107,16 @@ export default async function BrowsePage({
   };
 
   const activeCategory = resolved?.category;
-  const topCategories = categories.filter((category) => !category.parentId);
-  const compatibilityTags = getCompatibilityTagsForCategory(activeCategory?.slug ?? categorySlug);
+  const categoryTree = buildCategoryTree(categories);
+  const activeParentNode = categoryTree.find(
+    (node) =>
+      node.slug === categorySlug ||
+      node.children.some((child) => child.slug === categorySlug),
+  );
+  const compatibilityTags = getCompatibilityTagsForCategory(
+    activeCategory?.slug ?? categorySlug,
+    activeCategory?.parent?.slug,
+  );
   const hasFilters = Boolean(
     params.q ||
       categorySlug ||
@@ -129,7 +139,7 @@ export default async function BrowsePage({
             "Find scripts, plugins, bots and templates by category, license type or price."}
         </p>
 
-        {topCategories.length > 0 ? (
+        {categoryTree.length > 0 ? (
           <div className="mt-4 flex flex-wrap gap-2">
             <Link
               href={buildHref({ category: undefined, tag: undefined, page: undefined })}
@@ -141,22 +151,61 @@ export default async function BrowsePage({
             >
               All categories
             </Link>
-            {topCategories.map((category) => (
-              <Link
-                key={category.slug}
-                href={buildHref({ category: category.slug, page: undefined })}
-                className={`badge transition-colors ${
-                  categorySlug === category.slug
-                    ? "badge-accent"
-                    : "hover:border-line-strong hover:bg-surface hover:text-ink"
-                }`}
-              >
-                {category.name}
-                {category._count.products > 0 ? (
-                  <span className="opacity-70 tabular-nums">{category._count.products}</span>
-                ) : null}
-              </Link>
-            ))}
+            {categoryTree.map((node) => {
+              const selected = activeParentNode?.slug === node.slug;
+              return (
+                <Link
+                  key={node.slug}
+                  href={buildHref({ category: node.slug, page: undefined })}
+                  className={`badge transition-colors ${
+                    selected
+                      ? "badge-accent"
+                      : "hover:border-line-strong hover:bg-surface hover:text-ink"
+                  }`}
+                >
+                  {node.name}
+                  {node.totalProducts > 0 ? (
+                    <span className="opacity-70 tabular-nums">{node.totalProducts}</span>
+                  ) : null}
+                </Link>
+              );
+            })}
+          </div>
+        ) : null}
+
+        {activeParentNode && activeParentNode.children.length > 0 ? (
+          <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
+            <span className="subtle text-[12px]">{activeParentNode.name}:</span>
+            <Link
+              href={buildHref({ category: activeParentNode.slug, page: undefined })}
+              className={`badge transition-colors ${
+                categorySlug === activeParentNode.slug
+                  ? "badge-accent"
+                  : "hover:border-line-strong hover:bg-surface hover:text-ink"
+              }`}
+            >
+              All {activeParentNode.name}
+            </Link>
+            {activeParentNode.children.map((child) => {
+              const SubIcon = getCategoryIcon(child.icon, child.slug);
+              return (
+                <Link
+                  key={child.slug}
+                  href={buildHref({ category: child.slug, page: undefined })}
+                  className={`badge transition-colors ${
+                    categorySlug === child.slug
+                      ? "badge-accent"
+                      : "hover:border-line-strong hover:bg-surface hover:text-ink"
+                  }`}
+                >
+                  <SubIcon className="size-3" aria-hidden />
+                  {child.name}
+                  {child.directProducts > 0 ? (
+                    <span className="opacity-70 tabular-nums">{child.directProducts}</span>
+                  ) : null}
+                </Link>
+              );
+            })}
           </div>
         ) : null}
 
@@ -212,11 +261,24 @@ export default async function BrowsePage({
             <Field label="Category" htmlFor="category">
               <Select id="category" name="category" defaultValue={categorySlug ?? ""}>
                 <option value="">All categories</option>
-                {categories.map((category) => (
-                  <option key={category.slug} value={category.slug}>
-                    {category.name} ({category._count.products})
-                  </option>
-                ))}
+                {categoryTree.map((node) =>
+                  node.children.length > 0 ? (
+                    <optgroup key={node.id} label={node.name}>
+                      <option value={node.slug}>
+                        All {node.name} ({node.totalProducts})
+                      </option>
+                      {node.children.map((child) => (
+                        <option key={child.id} value={child.slug}>
+                          {node.name} → {child.name} ({child.directProducts})
+                        </option>
+                      ))}
+                    </optgroup>
+                  ) : (
+                    <option key={node.id} value={node.slug}>
+                      {node.name} ({node.totalProducts})
+                    </option>
+                  ),
+                )}
               </Select>
             </Field>
 

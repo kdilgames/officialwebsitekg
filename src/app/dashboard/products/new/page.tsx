@@ -72,7 +72,8 @@ export default async function NewProductPage() {
                 defaults={{
                   title: "",
                   slug: "",
-                  categoryId: categories[0]?.id ?? "",
+                  categoryId:
+                    categories.find((entry) => !entry.parentId)?.id ?? categories[0]?.id ?? "",
                   shortDescription: "",
                   description: "",
                   price: "",

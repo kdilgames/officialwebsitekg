@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useRef, useState, type FormEvent } from "react";
+import { useActionState, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { zip } from "fflate";
@@ -8,6 +8,7 @@ import { CheckCircle2, FileArchive, FolderUp, ImagePlus, Loader2, Trash2, Upload
 
 import { getCompatibilityTagsForCategory } from "@/components/marketplace/category-filters";
 import { Alert } from "@/components/ui/alert";
+import { BBCodeEditor } from "@/components/ui/bbcode-editor";
 import { Button } from "@/components/ui/button";
 import { Field, Input, Select, Textarea } from "@/components/ui/form";
 import { createSupabaseBrowserClient } from "@/lib/auth/client";
@@ -112,7 +113,7 @@ export function ProductForm({
   maxImages = 8,
 }: {
   action: FormAction;
-  categories: Array<{ id: string; name: string; slug: string }>;
+  categories: Array<{ id: string; name: string; slug: string; parentId?: string | null }>;
   defaults: ProductFormDefaults;
   submitLabel?: string;
   productId?: string;
@@ -133,10 +134,33 @@ export function ProductForm({
   const [customState, setCustomState] = useState<ActionState | null>(null);
   const state = customState ?? serverState;
 
+  const { topCategories, childrenByParentId, categoryById } = useMemo(() => {
+    const byId = new Map(categories.map((entry) => [entry.id, entry]));
+    const roots = categories.filter((entry) => !entry.parentId || !byId.has(entry.parentId));
+    const grouped = new Map<string, Array<(typeof categories)[number]>>();
+    for (const entry of categories) {
+      if (entry.parentId && byId.has(entry.parentId)) {
+        const list = grouped.get(entry.parentId) ?? [];
+        list.push(entry);
+        grouped.set(entry.parentId, list);
+      }
+    }
+    return { topCategories: roots, childrenByParentId: grouped, categoryById: byId };
+  }, [categories]);
+
+  const initialSelection = useMemo(() => {
+    const initial = categoryById.get(defaults.categoryId);
+    if (initial?.parentId && categoryById.has(initial.parentId)) {
+      return { parentId: initial.parentId, childId: initial.id };
+    }
+    return { parentId: defaults.categoryId, childId: "" };
+  }, [categoryById, defaults.categoryId]);
+
   const [titleValue, setTitleValue] = useState(defaults.title);
   const [slugValue, setSlugValue] = useState(defaults.slug);
   const [slugManuallyEdited, setSlugManuallyEdited] = useState(Boolean(defaults.slug));
-  const [selectedCategoryId, setSelectedCategoryId] = useState(defaults.categoryId);
+  const [selectedParentId, setSelectedParentId] = useState(initialSelection.parentId);
+  const [selectedSubCategoryId, setSelectedSubCategoryId] = useState(initialSelection.childId);
   const [tagsValue, setTagsValue] = useState(defaults.tags);
 
   const [queuedFiles, setQueuedFiles] = useState<File[]>([]);
@@ -174,8 +198,17 @@ export function ProductForm({
     };
   }, []);
 
-  const selectedCategory = categories.find((entry) => entry.id === selectedCategoryId);
-  const suggestedTags = getCompatibilityTagsForCategory(selectedCategory?.slug);
+  const availableSubcategories = useMemo(
+    () => (selectedParentId ? childrenByParentId.get(selectedParentId) ?? [] : []),
+    [childrenByParentId, selectedParentId],
+  );
+  const effectiveCategoryId = selectedSubCategoryId || selectedParentId;
+  const selectedCategory = categoryById.get(effectiveCategoryId);
+  const selectedParentCategory = categoryById.get(selectedParentId);
+  const suggestedTags = getCompatibilityTagsForCategory(
+    selectedCategory?.slug,
+    selectedParentCategory?.slug,
+  );
   const activeTagSet = new Set(
     tagsValue
       .split(",")
@@ -586,19 +619,50 @@ export function ProductForm({
         </Field>
       </div>
 
-      <div className="grid gap-3.5 sm:grid-cols-3">
-        <Field label="Category" htmlFor="categoryId" error={state.fieldErrors?.categoryId}>
+      <input type="hidden" name="categoryId" value={effectiveCategoryId} />
+
+      <div className="grid gap-3.5 sm:grid-cols-2 lg:grid-cols-4">
+        <Field label="Category" htmlFor="parentCategoryId" error={state.fieldErrors?.categoryId}>
           <Select
-            id="categoryId"
-            name="categoryId"
-            value={selectedCategoryId}
-            onChange={(event) => setSelectedCategoryId(event.target.value)}
+            id="parentCategoryId"
+            value={selectedParentId}
+            onChange={(event) => {
+              setSelectedParentId(event.target.value);
+              setSelectedSubCategoryId("");
+            }}
             required
           >
             <option value="">Choose a category…</option>
-            {categories.map((category) => (
+            {topCategories.map((category) => (
               <option key={category.id} value={category.id}>
                 {category.name}
+              </option>
+            ))}
+          </Select>
+        </Field>
+        <Field
+          label="Subcategory"
+          htmlFor="subCategoryId"
+          hint={
+            availableSubcategories.length > 0
+              ? `Pick a specific ${selectedParentCategory?.name ?? "category"} type.`
+              : "No subcategories available."
+          }
+        >
+          <Select
+            id="subCategoryId"
+            value={selectedSubCategoryId}
+            onChange={(event) => setSelectedSubCategoryId(event.target.value)}
+            disabled={availableSubcategories.length === 0}
+          >
+            <option value="">
+              {availableSubcategories.length > 0
+                ? `General (${selectedParentCategory?.name ?? "All"})`
+                : "None"}
+            </option>
+            {availableSubcategories.map((sub) => (
+              <option key={sub.id} value={sub.id}>
+                {sub.name}
               </option>
             ))}
           </Select>
@@ -636,12 +700,12 @@ export function ProductForm({
         label="Description"
         htmlFor="description"
         error={state.fieldErrors?.description}
-        hint="What it does, how it is configured, and anything buyers must know before purchase."
+        hint="Customize with headings, bold text, bullet lists, colors, links, images, spoilers or code blocks using BBCode."
       >
-        <Textarea
+        <BBCodeEditor
           id="description"
           name="description"
-          rows={8}
+          rows={9}
           defaultValue={defaults.description}
           maxLength={20000}
           required
@@ -1096,20 +1160,30 @@ export function VersionForm({
       <input type="hidden" name="productId" value={productId} />
       <Message state={state} />
 
-      <div className="grid gap-3.5 sm:grid-cols-[160px_1fr]">
-        <Field label="Version" htmlFor="version" error={state.fieldErrors?.version}>
-          <Input id="version" name="version" placeholder="1.1.0" required maxLength={32} />
+      <div className="grid gap-3.5 sm:grid-cols-[180px_1fr]">
+        <Field label="Version" htmlFor="version-new" error={state.fieldErrors?.version}>
+          <Input id="version-new" name="version" placeholder="1.1.0" required maxLength={32} />
         </Field>
-        <Field label="Changelog" htmlFor="changelog" error={state.fieldErrors?.changelog}>
-          <Textarea
-            id="changelog"
-            name="changelog"
-            rows={3}
-            placeholder="What changed for buyers who already own this product."
-            required
+        <Field label="Update title" htmlFor="updateTitle" error={state.fieldErrors?.updateTitle}>
+          <Input
+            id="updateTitle"
+            name="updateTitle"
+            placeholder="e.g. Major performance improvements & new modules"
+            maxLength={140}
           />
         </Field>
       </div>
+
+      <Field label="Update message / Changelog" htmlFor="changelog" error={state.fieldErrors?.changelog}>
+        <BBCodeEditor
+          id="changelog"
+          name="changelog"
+          rows={5}
+          maxLength={8000}
+          required
+          placeholder="Describe what changed for buyers using BBCode ([h2], [list][*]..., [b], [color], etc.)."
+        />
+      </Field>
 
       <Button type="submit" variant="primary" disabled={pending}>
         {pending ? "Publishing…" : "Publish version"}

@@ -18,6 +18,10 @@ export type CreateProductDraftResult =
   | { ok: true; productId: string; versionId: string | null }
   | { ok: false; state: ActionState };
 
+export type PublishProductUpdateResult =
+  | { ok: true; versionId: string }
+  | { ok: false; state: ActionState };
+
 export const idleConnectState: ConnectActionState = { status: "idle" };
 
 export function errorState(message: string, fieldErrors?: Record<string, string>): ActionState {

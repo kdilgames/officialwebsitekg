@@ -21,6 +21,7 @@ import {
   resolveOwnerEmail,
 } from "@/lib/auth/admin-access-rules";
 import { getSessionUser, type SessionUser } from "@/lib/auth/session";
+import { seedDefaultCatalog } from "@/lib/catalog-seed";
 import { clampBps, percentToBps } from "@/lib/commission";
 import { prisma } from "@/lib/db";
 import { env } from "@/lib/env";
@@ -728,6 +729,39 @@ export async function deleteCategoryAction(formData: FormData): Promise<void> {
   });
 
   revalidateAdmin("/admin/categories");
+}
+
+export async function seedDefaultSubcategoriesAction(
+  _previous: ActionState,
+  _formData: FormData,
+): Promise<ActionState> {
+  void _previous;
+  void _formData;
+  const access = await gate();
+  if (!access.ok) return access.error;
+  const { user } = access;
+
+  const result = await seedDefaultCatalog(prisma);
+
+  await recordAudit({
+    actorId: user.id,
+    actorRole: user.role,
+    action: "category.defaults.seeded",
+    entityType: "Category",
+    entityId: "default-hierarchy",
+    after: result,
+  });
+
+  revalidateAdmin("/admin/categories");
+  revalidateStorefront();
+
+  if (result.parentsCreated === 0 && result.subcategoriesCreated === 0) {
+    return successState("All default categories and subcategories already exist.");
+  }
+
+  return successState(
+    `Added ${result.parentsCreated} top-level categor${result.parentsCreated === 1 ? "y" : "ies"} and ${result.subcategoriesCreated} subcategor${result.subcategoriesCreated === 1 ? "y" : "ies"}.`,
+  );
 }
 
 // ---------------------------------------------------------------- commissions

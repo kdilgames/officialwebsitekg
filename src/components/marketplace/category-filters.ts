@@ -1,3 +1,5 @@
+import { inferRootCategorySlug } from "@/lib/catalog-hierarchy";
+
 /**
  * Curated compatibility and topic tags tailored for each marketplace category.
  *
@@ -78,7 +80,17 @@ const POPULAR_FALLBACK_TAGS = [
   "ui-kit",
 ];
 
-export function getCompatibilityTagsForCategory(categorySlug?: string | null): string[] {
-  if (!categorySlug) return POPULAR_FALLBACK_TAGS;
-  return CATEGORY_COMPATIBILITY_TAGS[categorySlug] ?? POPULAR_FALLBACK_TAGS;
+export function getCompatibilityTagsForCategory(
+  categorySlug?: string | null,
+  parentSlug?: string | null,
+): string[] {
+  if (!categorySlug && !parentSlug) return POPULAR_FALLBACK_TAGS;
+  if (categorySlug && CATEGORY_COMPATIBILITY_TAGS[categorySlug]) {
+    return CATEGORY_COMPATIBILITY_TAGS[categorySlug];
+  }
+  const rootSlug = inferRootCategorySlug(categorySlug, parentSlug);
+  if (rootSlug && CATEGORY_COMPATIBILITY_TAGS[rootSlug]) {
+    return CATEGORY_COMPATIBILITY_TAGS[rootSlug];
+  }
+  return POPULAR_FALLBACK_TAGS;
 }

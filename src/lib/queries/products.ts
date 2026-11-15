@@ -184,12 +184,24 @@ export async function listCategories() {
 
 /** Category plus every descendant, so a parent page lists child products too. */
 export async function categoryWithDescendants(slug: string): Promise<{
-  category: { id: string; name: string; slug: string; description: string | null } | null;
+  category: {
+    id: string;
+    name: string;
+    slug: string;
+    description: string | null;
+    parent: { name: string; slug: string } | null;
+  } | null;
   ids: string[];
 }> {
   const category = await prisma.category.findUnique({
     where: { slug },
-    select: { id: true, name: true, slug: true, description: true },
+    select: {
+      id: true,
+      name: true,
+      slug: true,
+      description: true,
+      parent: { select: { name: true, slug: true } },
+    },
   });
   if (!category) return { category: null, ids: [] };
 

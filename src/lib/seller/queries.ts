@@ -362,7 +362,7 @@ export async function listActiveCategories() {
   return prisma.category.findMany({
     where: { isActive: true },
     orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
-    select: { id: true, name: true, slug: true },
+    select: { id: true, name: true, slug: true, parentId: true },
   });
 }
 

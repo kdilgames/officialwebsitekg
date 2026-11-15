@@ -16,6 +16,7 @@ import { BrandMark } from "@/components/layout/brand-mark";
 import { BundleCard } from "@/components/marketplace/bundle-card";
 import { getCategoryVisual } from "@/components/marketplace/category-visuals";
 import { ProductGrid, type ProductCardData } from "@/components/marketplace/product-card";
+import { buildCategoryTree } from "@/lib/catalog-hierarchy";
 import { formatMoney } from "@/lib/money";
 import {
   browseProducts,
@@ -76,6 +77,7 @@ export default async function HomePage({
     ? featured.items.some((item) => item.slug === heroProduct.slug)
     : false;
   const supportingProducts = showcaseProducts.slice(1, 3);
+  const categoryTree = buildCategoryTree(categories);
   const topCategories = categories.filter((category: CategoryWithCount) => !category.parentId);
   const displayedCategories = (topCategories.length > 0 ? topCategories : categories).slice(0, 6);
 
@@ -222,14 +224,14 @@ export default async function HomePage({
         </Section>
       ) : null}
 
-      {categories.length > 0 ? (
+      {categoryTree.length > 0 ? (
         <Section
           title="Browse by category"
           subtitle="Jump straight into the ecosystem you are building for"
           href="/browse"
         >
           <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            {categories.map((category: CategoryWithCount) => {
+            {categoryTree.map((category) => {
               const visual = getCategoryVisual(category.slug, category.icon);
               const Icon = visual.icon;
               return (
@@ -274,10 +276,10 @@ export default async function HomePage({
                         </h3>
                       </div>
 
-                      {category._count.products > 0 ? (
+                      {category.totalProducts > 0 ? (
                         <span className="subtle shrink-0 text-[12px] tabular-nums">
-                          {category._count.products}{" "}
-                          {category._count.products === 1 ? "item" : "items"}
+                          {category.totalProducts}{" "}
+                          {category.totalProducts === 1 ? "item" : "items"}
                         </span>
                       ) : (
                         <span className="subtle inline-flex shrink-0 items-center gap-1 text-[12px] font-medium transition-colors group-hover:text-accent">
@@ -294,6 +296,24 @@ export default async function HomePage({
                       <p className="muted mt-2.5 text-[13px] leading-relaxed">
                         {category.description}
                       </p>
+                    ) : null}
+
+                    {category.children.length > 0 ? (
+                      <div className="mt-3 flex flex-wrap gap-1.5">
+                        {category.children.slice(0, 4).map((child) => (
+                          <span
+                            key={child.id}
+                            className="rounded-md border border-line bg-elevated/70 px-2 py-0.5 text-[11px] text-ink-muted"
+                          >
+                            {child.name}
+                          </span>
+                        ))}
+                        {category.children.length > 4 ? (
+                          <span className="rounded-md border border-line bg-elevated/70 px-2 py-0.5 text-[11px] text-ink-subtle">
+                            +{category.children.length - 4} more
+                          </span>
+                        ) : null}
+                      </div>
                     ) : null}
                   </div>
                 </Link>
