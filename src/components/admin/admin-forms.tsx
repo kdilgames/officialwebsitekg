@@ -687,3 +687,54 @@ export function DiscordInviteForm({
   );
 }
 
+export function DiscordWebhookForm({
+  action,
+  isConfigured,
+  maskedPreview,
+}: {
+  action: FormAction;
+  isConfigured: boolean;
+  maskedPreview: string | null;
+}) {
+  const [state, formAction, pending] = useActionState(action, idleState);
+
+  return (
+    <form action={formAction} className="space-y-3">
+      <Message state={state} />
+
+      <Field
+        label="Discord release webhook URL"
+        htmlFor="discord-release-webhook-url"
+        error={state.fieldErrors?.url}
+        hint={
+          maskedPreview
+            ? `Currently active: ${maskedPreview}. Paste a new URL to replace it, send a test message, or remove it.`
+            : "In Discord: Channel Settings -> Integrations -> Webhooks -> Copy Webhook URL."
+        }
+      >
+        <Input
+          id="discord-release-webhook-url"
+          name="url"
+          type="url"
+          placeholder="https://discord.com/api/webhooks/..."
+          autoComplete="off"
+        />
+      </Field>
+
+      <div className="flex flex-wrap items-center gap-2">
+        <Button type="submit" name="intent" value="save" variant="primary" size="sm" disabled={pending}>
+          {pending ? "Working…" : isConfigured ? "Update webhook" : "Save webhook"}
+        </Button>
+        <Button type="submit" name="intent" value="test" variant="secondary" size="sm" disabled={pending}>
+          Send test message
+        </Button>
+        {isConfigured ? (
+          <Button type="submit" name="intent" value="clear" variant="danger" size="sm" disabled={pending}>
+            Remove webhook
+          </Button>
+        ) : null}
+      </div>
+    </form>
+  );
+}
+

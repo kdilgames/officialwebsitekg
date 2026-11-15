@@ -25,16 +25,26 @@ import { clampBps, percentToBps } from "@/lib/commission";
 import { prisma } from "@/lib/db";
 import { env } from "@/lib/env";
 import { minorUnitFactor } from "@/lib/money";
+import {
+  notifyDiscordApprovedProduct,
+  sendDiscordTestWebhook,
+} from "@/lib/discord-webhook";
+import { maskDiscordWebhookUrl, parseDiscordWebhookUrl } from "@/lib/discord-webhook-rules";
 import { ConnectError } from "@/lib/payments/connect";
 import { cancelPayout, executePayout } from "@/lib/payments/payouts";
 import { decideRefundRequest, executeRefund, failRefund, RefundError } from "@/lib/payments/refunds";
-import { SITE_ANNOUNCEMENT_KEY } from "@/lib/settings";
+import {
+  DISCORD_RELEASE_WEBHOOK_KEY,
+  getDiscordReleaseWebhookUrl,
+  SITE_ANNOUNCEMENT_KEY,
+} from "@/lib/settings";
 import {
   announcementSettingSchema,
   categorySchema,
   commissionRuleSchema,
   couponSchema,
   discordSettingSchema,
+  discordWebhookSettingSchema,
   grantAdminByEmailSchema,
 } from "@/lib/validation";
 
@@ -312,8 +322,16 @@ export async function approveProductAction(formData: FormData): Promise<void> {
       id: true,
       slug: true,
       title: true,
+      shortDescription: true,
+      priceMinor: true,
+      salePriceMinor: true,
+      currency: true,
+      version: true,
+      thumbnailUrl: true,
       status: true,
+      publishedAt: true,
       salesCount: true,
+      category: { select: { name: true } },
       seller: { select: { userId: true, storeName: true, status: true } },
       _count: { select: { files: { where: { isActive: true } }, images: true } },
     },
@@ -325,11 +343,13 @@ export async function approveProductAction(formData: FormData): Promise<void> {
   if (product._count.files === 0) return;
   if (product.seller.status !== "APPROVED") return;
 
+  const isFirstPublish = product.publishedAt === null;
+
   await prisma.product.update({
     where: { id: product.id },
     data: {
       status: "PUBLISHED",
-      publishedAt: product.salesCount > 0 ? undefined : new Date(),
+      publishedAt: product.publishedAt ?? new Date(),
       reviewedAt: new Date(),
       reviewedById: user.id,
       rejectionReason: null,
@@ -359,6 +379,21 @@ export async function approveProductAction(formData: FormData): Promise<void> {
     body: `“${product.title}” was approved and is now on the storefront.`,
     href: `/product/${product.slug}`,
   });
+
+  if (isFirstPublish) {
+    await notifyDiscordApprovedProduct({
+      slug: product.slug,
+      title: product.title,
+      shortDescription: product.shortDescription,
+      priceMinor: product.priceMinor,
+      salePriceMinor: product.salePriceMinor,
+      currency: product.currency,
+      version: product.version,
+      thumbnailUrl: product.thumbnailUrl,
+      categoryName: product.category.name,
+      storeName: product.seller.storeName,
+    });
+  }
 
   revalidateAdmin("/admin/products");
   revalidateStorefront(product.slug);
@@ -1687,6 +1722,106 @@ export async function saveDiscordSettingAction(
   revalidatePath("/", "layout");
   revalidatePath("/account/seller");
   return successState("Community Discord invite saved.");
+}
+
+export async function saveDiscordWebhookSettingAction(
+  _previous: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const access = await gate();
+  if (!access.ok) return access.error;
+  const { user } = access;
+
+  const intent = text(formData, "intent") || "save";
+  const key = DISCORD_RELEASE_WEBHOOK_KEY;
+
+  if (intent === "clear") {
+    const existing = await prisma.siteSetting.findUnique({
+      where: { key },
+      select: { key: true },
+    });
+    if (existing) {
+      await prisma.siteSetting.delete({ where: { key } });
+      await recordAudit({
+        actorId: user.id,
+        actorRole: user.role,
+        action: "setting.deleted",
+        entityType: "SiteSetting",
+        entityId: key,
+      });
+    }
+    revalidateAdmin("/admin/settings");
+    return successState("Discord release notifications disabled.");
+  }
+
+  const rawUrl = text(formData, "url");
+
+  if (intent === "test") {
+    const targetUrl = rawUrl
+      ? parseDiscordWebhookUrl(rawUrl)
+      : await getDiscordReleaseWebhookUrl();
+    if (!targetUrl) {
+      return errorState(
+        rawUrl
+          ? "Enter a valid Discord webhook URL (https://discord.com/api/webhooks/...)."
+          : "Paste a Discord webhook URL first or save one before testing.",
+        rawUrl ? { url: "Invalid Discord webhook URL." } : undefined,
+      );
+    }
+
+    const result = await sendDiscordTestWebhook(targetUrl);
+    if (!result.ok) {
+      return errorState(result.error);
+    }
+    return successState("Test notification sent to Discord!");
+  }
+
+  const parsed = discordWebhookSettingSchema.safeParse({ url: rawUrl });
+  if (!parsed.success) {
+    return errorState(
+      "Enter a valid Discord webhook URL.",
+      toFieldErrors(parsed.error.issues),
+    );
+  }
+
+  const canonicalUrl = parseDiscordWebhookUrl(parsed.data.url);
+  if (!canonicalUrl) {
+    return errorState("Enter a valid Discord webhook URL.", {
+      url: "Invalid Discord webhook URL.",
+    });
+  }
+
+  const existing = await prisma.siteSetting.findUnique({
+    where: { key },
+    select: { key: true },
+  });
+
+  await prisma.siteSetting.upsert({
+    where: { key },
+    update: {
+      value: canonicalUrl,
+      description: "Discord webhook triggered when a new listing is approved.",
+      updatedById: user.id,
+    },
+    create: {
+      key,
+      value: canonicalUrl,
+      description: "Discord webhook triggered when a new listing is approved.",
+      updatedById: user.id,
+    },
+  });
+
+  await recordAudit({
+    actorId: user.id,
+    actorRole: user.role,
+    action: existing ? "setting.updated" : "setting.created",
+    entityType: "SiteSetting",
+    entityId: key,
+    after: { webhook: maskDiscordWebhookUrl(canonicalUrl) },
+  });
+
+  revalidateAdmin("/admin/settings");
+  return successState("Discord release webhook saved.");
 }
 
 export async function saveSiteSettingAction(

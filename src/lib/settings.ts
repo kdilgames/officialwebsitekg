@@ -1,6 +1,8 @@
 import { prisma } from "@/lib/db";
+import { parseDiscordWebhookUrl } from "@/lib/discord-webhook-rules";
 
 export const SITE_ANNOUNCEMENT_KEY = "site_announcement";
+export const DISCORD_RELEASE_WEBHOOK_KEY = "discord_release_webhook_url";
 
 export type AnnouncementTone = "info" | "accent" | "positive";
 
@@ -74,6 +76,18 @@ export async function getSiteAnnouncementRaw(): Promise<SiteAnnouncement | null>
       select: { value: true },
     });
     return parseSiteAnnouncement(setting?.value);
+  } catch {
+    return null;
+  }
+}
+
+export async function getDiscordReleaseWebhookUrl(): Promise<string | null> {
+  try {
+    const setting = await prisma.siteSetting.findUnique({
+      where: { key: DISCORD_RELEASE_WEBHOOK_KEY },
+      select: { value: true },
+    });
+    return parseDiscordWebhookUrl(setting?.value);
   } catch {
     return null;
   }

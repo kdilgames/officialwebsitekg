@@ -45,12 +45,16 @@ function jsonToText(value: unknown): string {
 
 export default async function ManageProductPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ productId: string }>;
+  searchParams: Promise<{ created?: string; submitted?: string }>;
 }) {
   const user = await requireSeller();
   const seller = user.sellerProfile;
-  const { productId } = await params;
+  const [{ productId }, query] = await Promise.all([params, searchParams]);
+  const justCreated = query.created === "1";
+  const justSubmitted = query.submitted === "1";
 
   const [product, categories, rules] = await Promise.all([
     getSellerProduct(seller.id, productId),
@@ -122,6 +126,19 @@ export default async function ManageProductPage({
           </Link>
         </div>
       </header>
+
+      {justCreated ? (
+        <Alert
+          tone="success"
+          title={justSubmitted ? "Listing created and submitted for review" : "Listing created"}
+        >
+          {justSubmitted
+            ? "Your files are attached and an administrator has been notified to review your product."
+            : activeFiles.length > 0
+              ? "Your listing and files are saved below. Submit it for review whenever you are ready to go live."
+              : "Your draft listing is saved. Upload your downloadable files and screenshots below before submitting for review."}
+        </Alert>
+      ) : null}
 
       {product.status === "PENDING_REVIEW" ? (
         <Alert tone="info" title="Waiting for review">

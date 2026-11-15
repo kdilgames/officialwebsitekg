@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { isValidDiscordWebhookUrl } from "@/lib/discord-webhook-rules";
 import { parseVideoEmbedUrl } from "@/lib/utils/media";
 
 export const TERMS_VERSION = "2026-10-17";
@@ -488,6 +489,16 @@ export const announcementSettingSchema = z.object({
 
 export const discordSettingSchema = z.object({
   url: optionalHttpUrl("Enter a valid Discord invite URL starting with https:// or http://."),
+});
+
+export const discordWebhookSettingSchema = z.object({
+  url: z
+    .string()
+    .trim()
+    .max(500)
+    .refine((value) => value.length > 0 && isValidDiscordWebhookUrl(value), {
+      message: "Enter a valid Discord webhook URL (https://discord.com/api/webhooks/...).",
+    }),
 });
 
 export type RegisterInput = z.infer<typeof registerSchema>;

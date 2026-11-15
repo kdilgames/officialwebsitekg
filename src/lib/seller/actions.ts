@@ -13,6 +13,7 @@ import {
   toFieldErrors,
   type ActionState,
   type ConnectActionState,
+  type CreateProductDraftResult,
 } from "@/lib/action-state";
 import { notify, recordAudit } from "@/lib/audit";
 import { getSessionUser, type SessionUser } from "@/lib/auth/session";
@@ -49,6 +50,11 @@ import {
   type StorageBucket,
   type UploadTicket,
 } from "@/lib/storage";
+import {
+  ALLOWED_FILE_EXTENSIONS,
+  ALLOWED_IMAGE_EXTENSIONS,
+  extensionOfFileName,
+} from "@/lib/upload-rules";
 import { bundleSchema, couponSchema, productSchema } from "@/lib/validation";
 import { bpsToPercent, formatBps, resolveCommissionRate } from "@/lib/commission";
 
@@ -74,25 +80,6 @@ async function gate(): Promise<SellerGate> {
   return { ok: true, user, seller: user.sellerProfile };
 }
 
-/**
- * Extensions accepted for product files.
- *
- * Executables and shell scripts are deliberately excluded: this deployment has
- * no malware scanner, so it cannot vouch for them. Everything else a digital
- * product realistically ships as (archives, engine packages, assets, documents)
- * is allowed.
- */
-const ALLOWED_FILE_EXTENSIONS = new Set([
-  "zip", "rar", "7z", "tar", "gz", "tgz", "jar", "unitypackage",
-  "rbxm", "rbxmx", "rbxl", "rbxlx", "lua", "luau", "js", "json", "txt", "md", "pdf",
-  "png", "jpg", "jpeg", "webp", "gif", "svg", "blend", "fbx", "obj", "gltf", "glb",
-  "uasset", "pak", "yml", "yaml", "toml", "cfg", "ini", "csv", "xlsx", "docx", "pptx",
-  "mp3", "wav", "ogg", "mp4", "webm", "ttf", "otf", "woff", "woff2",
-  "sk", "sb3", "mcpack", "mcaddon", "mcworld", "schem", "mcstructure", "dat", "db",
-]);
-
-const ALLOWED_IMAGE_EXTENSIONS = new Set(["png", "jpg", "jpeg", "webp", "gif", "avif"]);
-
 const MIME_BY_EXTENSION: Record<string, string> = {
   zip: "application/zip",
   rar: "application/vnd.rar",
@@ -117,8 +104,7 @@ const MIME_BY_EXTENSION: Record<string, string> = {
 };
 
 function extensionOf(fileName: string): string {
-  const parts = sanitizeFileName(fileName).split(".");
-  return parts.length > 1 ? (parts.pop() ?? "").toLowerCase() : "";
+  return extensionOfFileName(fileName);
 }
 
 /** The MIME type is derived from the extension, never taken from the browser. */
@@ -173,30 +159,112 @@ function parseProduct(formData: FormData) {
   };
 }
 
-export async function createProductAction(
-  _previous: ActionState,
+export async function saveProductDraftForUploadAction(
   formData: FormData,
-): Promise<ActionState> {
+  existingProductId?: string,
+): Promise<CreateProductDraftResult> {
   const access = await gate();
-  if (!access.ok) return access.error;
+  if (!access.ok) return { ok: false, state: access.error };
   const { user, seller } = access;
 
   const parsed = parseProduct(formData);
-  if (!parsed.ok) return parsed.state;
+  if (!parsed.ok) return { ok: false, state: parsed.state };
   const { data, priceMinor, salePriceMinor } = parsed;
 
   const category = await prisma.category.findFirst({
     where: { id: data.categoryId, isActive: true },
     select: { id: true },
   });
-  if (!category) return errorState("Pick an active category.", { categoryId: "Unknown category." });
+  if (!category) {
+    return {
+      ok: false,
+      state: errorState("Pick an active category.", { categoryId: "Unknown category." }),
+    };
+  }
+
+  if (existingProductId) {
+    const existing = await prisma.product.findFirst({
+      where: { id: existingProductId, sellerId: seller.id },
+      select: {
+        id: true,
+        slug: true,
+        status: true,
+        version: true,
+        versions: { orderBy: { createdAt: "desc" }, take: 1, select: { id: true } },
+      },
+    });
+    if (!existing) {
+      return { ok: false, state: errorState("Draft product not found in your store.") };
+    }
+    if (existing.status !== "DRAFT") {
+      return {
+        ok: false,
+        state: errorState("This listing is no longer in draft state."),
+      };
+    }
+
+    if (data.slug !== existing.slug) {
+      const clash = await prisma.product.findUnique({
+        where: { slug: data.slug },
+        select: { id: true },
+      });
+      if (clash) {
+        return {
+          ok: false,
+          state: errorState("That listing page link slug is already in use.", {
+            slug: "Already in use.",
+          }),
+        };
+      }
+    }
+
+    await prisma.product.update({
+      where: { id: existing.id },
+      data: {
+        categoryId: category.id,
+        title: data.title,
+        slug: data.slug,
+        shortDescription: data.shortDescription,
+        description: data.description,
+        priceMinor,
+        salePriceMinor,
+        currency: data.currency,
+        tags: data.tags,
+        version: data.version,
+        licenseType: data.licenseType,
+        licenseText: emptyToNull(data.licenseText),
+        demoUrl: emptyToNull(data.demoUrl),
+        videoUrl: emptyToNull(data.videoUrl),
+        compatibility: data.compatibility ? data.compatibility : Prisma.DbNull,
+        requirements: data.requirements ? data.requirements : Prisma.DbNull,
+      },
+    });
+
+    const latestVersion = existing.versions[0] ?? null;
+    if (latestVersion && existing.version !== data.version) {
+      await prisma.productVersion
+        .update({
+          where: { id: latestVersion.id },
+          data: { version: data.version },
+        })
+        .catch(() => undefined);
+    }
+
+    revalidateProduct(existing.id, data.slug);
+    return { ok: true, productId: existing.id, versionId: latestVersion?.id ?? null };
+  }
 
   const clash = await prisma.product.findUnique({
     where: { slug: data.slug },
     select: { id: true },
   });
   if (clash) {
-    return errorState("That product URL is already taken.", { slug: "Already in use." });
+    return {
+      ok: false,
+      state: errorState("That listing page link slug is already in use.", {
+        slug: "Already in use.",
+      }),
+    };
   }
 
   const created = await prisma.product.create({
@@ -223,13 +291,14 @@ export async function createProductAction(
     select: { id: true },
   });
 
-  await prisma.productVersion.create({
+  const versionRow = await prisma.productVersion.create({
     data: {
       productId: created.id,
       version: data.version,
       changelog: "Initial release.",
       isLatest: true,
     },
+    select: { id: true },
   });
 
   await recordAudit({
@@ -242,7 +311,16 @@ export async function createProductAction(
   });
 
   revalidateProduct(created.id, data.slug);
-  redirect(`/dashboard/products/${created.id}`);
+  return { ok: true, productId: created.id, versionId: versionRow.id };
+}
+
+export async function createProductAction(
+  _previous: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const result = await saveProductDraftForUploadAction(formData);
+  if (!result.ok) return result.state;
+  redirect(`/dashboard/products/${result.productId}`);
 }
 
 export async function updateProductAction(
@@ -277,7 +355,11 @@ export async function updateProductAction(
       where: { slug: data.slug },
       select: { id: true },
     });
-    if (clash) return errorState("That product URL is already taken.", { slug: "Already in use." });
+    if (clash) {
+      return errorState("That listing page link slug is already in use.", {
+        slug: "Already in use.",
+      });
+    }
   }
 
   // A seller may never approve their own listing: editing a live product sends
@@ -326,12 +408,11 @@ export async function updateProductAction(
   );
 }
 
-export async function submitProductForReviewAction(formData: FormData): Promise<void> {
-  const access = await gate();
-  if (!access.ok) return;
+async function submitProductForReviewInternal(
+  access: Extract<SellerGate, { ok: true }>,
+  productId: string,
+): Promise<ActionState> {
   const { user, seller } = access;
-
-  const productId = String(formData.get("productId") ?? "");
   const product = await prisma.product.findFirst({
     where: { id: productId, sellerId: seller.id },
     select: {
@@ -341,13 +422,17 @@ export async function submitProductForReviewAction(formData: FormData): Promise<
       _count: { select: { files: { where: { isActive: true } }, images: true } },
     },
   });
-  if (!product) return;
-  if (product.status === "PUBLISHED" || product.status === "PENDING_REVIEW") return;
-  if (product.status === "SUSPENDED") return;
+  if (!product) return errorState("Product not found in your store.");
+  if (product.status === "PUBLISHED" || product.status === "PENDING_REVIEW") {
+    return errorState("Listing is already submitted or live.");
+  }
+  if (product.status === "SUSPENDED") {
+    return errorState("Suspended listings cannot be submitted.");
+  }
 
   if (product._count.files === 0) {
     // There is nothing to deliver, so it must not go live.
-    return;
+    return errorState("Attach at least one file before submitting for review.");
   }
 
   await prisma.product.update({
@@ -379,6 +464,20 @@ export async function submitProductForReviewAction(formData: FormData): Promise<
   }
 
   revalidateProduct(product.id, product.slug);
+  return successState("Listing submitted for admin review.");
+}
+
+export async function submitCreatedProductForReviewAction(productId: string): Promise<ActionState> {
+  const access = await gate();
+  if (!access.ok) return access.error;
+  return submitProductForReviewInternal(access, productId);
+}
+
+export async function submitProductForReviewAction(formData: FormData): Promise<void> {
+  const access = await gate();
+  if (!access.ok) return;
+  const productId = String(formData.get("productId") ?? "");
+  await submitProductForReviewInternal(access, productId);
 }
 
 export async function archiveProductAction(formData: FormData): Promise<void> {

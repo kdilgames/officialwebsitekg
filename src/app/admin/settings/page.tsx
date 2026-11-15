@@ -4,6 +4,7 @@ import { Settings2 } from "lucide-react";
 import {
   AnnouncementForm,
   DiscordInviteForm,
+  DiscordWebhookForm,
   SiteSettingForm,
 } from "@/components/admin/admin-forms";
 import { ActionButton } from "@/components/admin/action-forms";
@@ -14,11 +15,17 @@ import {
   deleteSiteSettingAction,
   saveAnnouncementAction,
   saveDiscordSettingAction,
+  saveDiscordWebhookSettingAction,
   saveSiteSettingAction,
 } from "@/lib/admin/actions";
 import { listSiteSettings } from "@/lib/admin/queries";
+import { maskDiscordWebhookUrl } from "@/lib/discord-webhook-rules";
 import { env } from "@/lib/env";
-import { getSiteAnnouncementRaw } from "@/lib/settings";
+import {
+  DISCORD_RELEASE_WEBHOOK_KEY,
+  getDiscordReleaseWebhookUrl,
+  getSiteAnnouncementRaw,
+} from "@/lib/settings";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Settings · Admin" };
@@ -34,10 +41,13 @@ function asEditableText(value: unknown): string {
 }
 
 export default async function AdminSettingsPage() {
-  const [settings, announcement] = await Promise.all([
+  const [settings, announcement, releaseWebhookUrl] = await Promise.all([
     listSiteSettings(),
     getSiteAnnouncementRaw(),
+    getDiscordReleaseWebhookUrl(),
   ]);
+
+  const maskedWebhook = releaseWebhookUrl ? maskDiscordWebhookUrl(releaseWebhookUrl) : null;
 
   const discordSetting = settings.find((row) => row.key === "community_discord_url");
   const defaultDiscordUrl =
@@ -112,6 +122,21 @@ export default async function AdminSettingsPage() {
       </Card>
 
       <Card>
+        <CardHeader
+          title="Discord release notifications"
+          description="Automatically posts a product launch card to your Discord channel when a new listing is approved."
+          actions={releaseWebhookUrl ? <Badge tone="positive">connected</Badge> : <Badge>disabled</Badge>}
+        />
+        <CardBody>
+          <DiscordWebhookForm
+            action={saveDiscordWebhookSettingAction}
+            isConfigured={Boolean(releaseWebhookUrl)}
+            maskedPreview={maskedWebhook}
+          />
+        </CardBody>
+      </Card>
+
+      <Card>
         <CardHeader title="Custom / advanced setting" description="Stored as JSON when the value parses as JSON." />
         <CardBody>
           <SiteSettingForm action={saveSiteSettingAction} />
@@ -132,47 +157,59 @@ export default async function AdminSettingsPage() {
           />
         ) : (
           <ul className="divide-y divide-line">
-            {settings.map((setting) => (
-              <li key={setting.key} className="space-y-3 px-4 py-4">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="font-mono text-[12.5px] font-medium">{setting.key}</p>
-                    {setting.description ? (
-                      <p className="muted mt-0.5 text-[12px]">{setting.description}</p>
-                    ) : null}
-                    <p className="subtle mt-0.5 text-[11.5px]">
-                      Updated {setting.updatedAt.toISOString().slice(0, 10)}
-                      {setting.updatedBy ? ` by ${setting.updatedBy.displayName}` : ""}
+            {settings.map((setting) => {
+              const isWebhookKey = setting.key === DISCORD_RELEASE_WEBHOOK_KEY;
+              return (
+                <li key={setting.key} className="space-y-3 px-4 py-4">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="font-mono text-[12.5px] font-medium">{setting.key}</p>
+                      {setting.description ? (
+                        <p className="muted mt-0.5 text-[12px]">{setting.description}</p>
+                      ) : null}
+                      <p className="subtle mt-0.5 text-[11.5px]">
+                        Updated {setting.updatedAt.toISOString().slice(0, 10)}
+                        {setting.updatedBy ? ` by ${setting.updatedBy.displayName}` : ""}
+                      </p>
+                    </div>
+
+                    <ActionButton
+                      action={deleteSiteSettingAction}
+                      fields={{ key: setting.key }}
+                      variant="danger"
+                      confirm={`Delete the setting “${setting.key}”?`}
+                    >
+                      Delete
+                    </ActionButton>
+                  </div>
+
+                  {isWebhookKey ? (
+                    <p className="subtle font-mono text-[11.5px]">
+                      {typeof setting.value === "string"
+                        ? maskDiscordWebhookUrl(setting.value) || "configured"
+                        : "configured"}{" "}
+                      (manage via Discord release notifications above)
                     </p>
-                  </div>
-
-                  <ActionButton
-                    action={deleteSiteSettingAction}
-                    fields={{ key: setting.key }}
-                    variant="danger"
-                    confirm={`Delete the setting “${setting.key}”?`}
-                  >
-                    Delete
-                  </ActionButton>
-                </div>
-
-                <details>
-                  <summary className="cursor-pointer text-[12px] text-ink-muted hover:text-ink">
-                    Edit value
-                  </summary>
-                  <div className="surface-elevated mt-2 p-3">
-                    <SiteSettingForm
-                      action={saveSiteSettingAction}
-                      defaults={{
-                        key: setting.key,
-                        value: asEditableText(setting.value),
-                        description: setting.description ?? "",
-                      }}
-                    />
-                  </div>
-                </details>
-              </li>
-            ))}
+                  ) : (
+                    <details>
+                      <summary className="cursor-pointer text-[12px] text-ink-muted hover:text-ink">
+                        Edit value
+                      </summary>
+                      <div className="surface-elevated mt-2 p-3">
+                        <SiteSettingForm
+                          action={saveSiteSettingAction}
+                          defaults={{
+                            key: setting.key,
+                            value: asEditableText(setting.value),
+                            description: setting.description ?? "",
+                          }}
+                        />
+                      </div>
+                    </details>
+                  )}
+                </li>
+              );
+            })}
           </ul>
         )}
       </Card>
