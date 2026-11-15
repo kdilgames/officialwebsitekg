@@ -193,3 +193,33 @@ export function canSuspendAccount(params: {
 
   return { allowed: true };
 }
+
+export type ExistingEmailRelinkDecision =
+  | { action: "relink" }
+  | { action: "block"; status: "SUSPENDED" | "DELETED" }
+  | { action: "reject_unverified" };
+
+/**
+ * Determines whether a signed-in Supabase Auth user whose `authUserId` is not
+ * yet present in `public."User"` may relink an existing row matching the same
+ * normalized email address.
+ *
+ * Security invariants:
+ * - Suspended or soft-deleted accounts NEVER become active or get relinked.
+ * - Active accounts can ONLY be relinked once Supabase confirms email ownership
+ *   (`emailVerified === true`), preventing unverified account takeover.
+ */
+export function evaluateExistingEmailRelink(params: {
+  emailVerified: boolean;
+  existingStatus: "ACTIVE" | "SUSPENDED" | "DELETED";
+}): ExistingEmailRelinkDecision {
+  if (params.existingStatus === "SUSPENDED" || params.existingStatus === "DELETED") {
+    return { action: "block", status: params.existingStatus };
+  }
+
+  if (!params.emailVerified) {
+    return { action: "reject_unverified" };
+  }
+
+  return { action: "relink" };
+}

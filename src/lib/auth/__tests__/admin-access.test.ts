@@ -5,6 +5,7 @@ import {
   canSuspendAccount,
   DEFAULT_OWNER_EMAIL,
   evaluateAdminPromotion,
+  evaluateExistingEmailRelink,
   isEmailAllowlistedAdmin,
   isOwnerEmail,
   normalizeEmail,
@@ -121,6 +122,28 @@ describe("evaluateAdminPromotion", () => {
     });
 
     expect(result.shouldPromote).toBe(false);
+  });
+});
+
+describe("evaluateExistingEmailRelink", () => {
+  it("allows relinking an active user only when email ownership is verified", () => {
+    expect(
+      evaluateExistingEmailRelink({ emailVerified: true, existingStatus: "ACTIVE" }),
+    ).toEqual({ action: "relink" });
+
+    expect(
+      evaluateExistingEmailRelink({ emailVerified: false, existingStatus: "ACTIVE" }),
+    ).toEqual({ action: "reject_unverified" });
+  });
+
+  it("blocks suspended and deleted accounts regardless of email verification", () => {
+    expect(
+      evaluateExistingEmailRelink({ emailVerified: true, existingStatus: "SUSPENDED" }),
+    ).toEqual({ action: "block", status: "SUSPENDED" });
+
+    expect(
+      evaluateExistingEmailRelink({ emailVerified: false, existingStatus: "DELETED" }),
+    ).toEqual({ action: "block", status: "DELETED" });
   });
 });
 

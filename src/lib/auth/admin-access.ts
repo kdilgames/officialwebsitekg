@@ -5,6 +5,7 @@ import { notify, recordAudit } from "@/lib/audit";
 import {
   ADMIN_ALLOWLIST_SETTING_KEY,
   evaluateAdminPromotion,
+  evaluateExistingEmailRelink,
   isEmailAllowlistedAdmin,
   normalizeEmail,
   parseAdminAllowlist,
@@ -12,6 +13,7 @@ import {
   resolveOwnerEmail,
 } from "@/lib/auth/admin-access-rules";
 import { prisma } from "@/lib/db";
+import { isUniqueConstraintError } from "@/lib/db-compat";
 import { env } from "@/lib/env";
 
 export type AuthSessionUser = User & { sellerProfile: SellerProfile | null };
@@ -79,9 +81,88 @@ export async function uniqueUsername(raw: string): Promise<string> {
   return `${seed.slice(0, 16)}${Date.now().toString(36)}`;
 }
 
-export async function provisionMarketplaceUser(authUser: AuthUser): Promise<AuthSessionUser | null> {
+async function findOrRelinkUserByEmail(params: {
+  authUserId: string;
+  email: string;
+  emailVerified: boolean;
+}): Promise<AuthSessionUser | null | undefined> {
+  const existingByEmail = await prisma.user.findFirst({
+    where: { email: { equals: params.email, mode: "insensitive" } },
+    include: { sellerProfile: true },
+  });
+  if (!existingByEmail) return undefined;
+
+  const decision = evaluateExistingEmailRelink({
+    emailVerified: params.emailVerified,
+    existingStatus: existingByEmail.status,
+  });
+
+  if (decision.action === "block") {
+    // Return suspended/deleted account without relinking so syncAuthenticatedUser
+    // blocks access consistently instead of creating duplicates or raising P2002.
+    return existingByEmail;
+  }
+
+  if (decision.action === "reject_unverified") {
+    return null;
+  }
+
+  const previousAuthUserId = existingByEmail.authUserId;
+  try {
+    const updated = await prisma.user.update({
+      where: { id: existingByEmail.id },
+      data: {
+        authUserId: params.authUserId,
+        email: params.email,
+        ...(params.emailVerified && !existingByEmail.emailVerified ? { emailVerified: true } : {}),
+      },
+      include: { sellerProfile: true },
+    });
+
+    await recordAudit({
+      actorId: updated.id,
+      actorRole: updated.role,
+      action: "auth.user_relinked",
+      entityType: "User",
+      entityId: updated.id,
+      before: { authUserId: previousAuthUserId },
+      after: { authUserId: params.authUserId, email: params.email },
+    }).catch(() => undefined);
+
+    return updated;
+  } catch (error) {
+    if (isUniqueConstraintError(error)) {
+      const raced = await prisma.user.findUnique({
+        where: { authUserId: params.authUserId },
+        include: { sellerProfile: true },
+      });
+      if (raced) return raced;
+    }
+    throw error;
+  }
+}
+
+export async function provisionMarketplaceUser(
+  authUser: AuthUser,
+  options?: { markEmailVerified?: boolean },
+): Promise<AuthSessionUser | null> {
   const email = normalizeEmail(authUser.email);
   if (!email) return null;
+
+  const existingByAuth = await prisma.user.findUnique({
+    where: { authUserId: authUser.id },
+    include: { sellerProfile: true },
+  });
+  if (existingByAuth) return existingByAuth;
+
+  const isAuthConfirmed = Boolean(authUser.email_confirmed_at) || Boolean(options?.markEmailVerified);
+
+  const relinked = await findOrRelinkUserByEmail({
+    authUserId: authUser.id,
+    email,
+    emailVerified: isAuthConfirmed,
+  });
+  if (relinked !== undefined) return relinked;
 
   const meta = (authUser.user_metadata ?? {}) as Record<string, unknown>;
   const base =
@@ -89,26 +170,47 @@ export async function provisionMarketplaceUser(authUser: AuthUser): Promise<Auth
       ? meta.username
       : (email.split("@")[0] ?? "user");
 
-  const username = await uniqueUsername(base);
-  const displayName =
-    typeof meta.display_name === "string" && meta.display_name.trim().length > 0
-      ? meta.display_name.trim()
-      : username;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const candidateSeed =
+      attempt === 0 ? base : `${base.slice(0, 16)}_${Math.random().toString(36).slice(2, 6)}`;
+    const username = await uniqueUsername(candidateSeed);
+    const displayName =
+      typeof meta.display_name === "string" && meta.display_name.trim().length > 0
+        ? meta.display_name.trim()
+        : username;
 
-  return prisma.user.upsert({
-    where: { authUserId: authUser.id },
-    update: {},
-    create: {
-      authUserId: authUser.id,
-      username,
-      displayName,
-      email,
-      emailVerified: Boolean(authUser.email_confirmed_at),
-      termsAcceptedAt: meta.terms_version ? new Date() : null,
-      termsVersion: typeof meta.terms_version === "string" ? meta.terms_version : null,
-    },
-    include: { sellerProfile: true },
-  });
+    try {
+      return await prisma.user.create({
+        data: {
+          authUserId: authUser.id,
+          username,
+          displayName,
+          email,
+          emailVerified: isAuthConfirmed,
+          termsAcceptedAt: meta.terms_version ? new Date() : null,
+          termsVersion: typeof meta.terms_version === "string" ? meta.terms_version : null,
+        },
+        include: { sellerProfile: true },
+      });
+    } catch (error) {
+      if (!isUniqueConstraintError(error)) throw error;
+
+      const byAuth = await prisma.user.findUnique({
+        where: { authUserId: authUser.id },
+        include: { sellerProfile: true },
+      });
+      if (byAuth) return byAuth;
+
+      const emailMatch = await findOrRelinkUserByEmail({
+        authUserId: authUser.id,
+        email,
+        emailVerified: isAuthConfirmed,
+      });
+      if (emailMatch !== undefined) return emailMatch;
+    }
+  }
+
+  return null;
 }
 
 export type SyncAuthenticatedUserResult = {
@@ -136,7 +238,7 @@ export async function syncAuthenticatedUser(
   });
 
   if (!user) {
-    user = await provisionMarketplaceUser(authUser);
+    user = await provisionMarketplaceUser(authUser, options);
   }
 
   if (!user) {
@@ -183,20 +285,41 @@ export async function syncAuthenticatedUser(
   const needsUpdate =
     emailChanged || needsVerifiedSync || shouldPromote || Boolean(options?.updateLastLogin);
 
+  let appliedPromotion = shouldPromote;
+
   if (needsUpdate) {
     const previousRole = user.role;
-    user = await prisma.user.update({
-      where: { id: user.id },
-      data: {
-        ...(emailChanged ? { email: authEmail } : {}),
-        ...(needsVerifiedSync ? { emailVerified: true } : {}),
-        ...(shouldPromote ? { role: "ADMIN" } : {}),
-        ...(options?.updateLastLogin ? { lastLoginAt: new Date() } : {}),
-      },
-      include: { sellerProfile: true },
-    });
+    try {
+      user = await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          ...(emailChanged ? { email: authEmail } : {}),
+          ...(needsVerifiedSync ? { emailVerified: true } : {}),
+          ...(shouldPromote ? { role: "ADMIN" } : {}),
+          ...(options?.updateLastLogin ? { lastLoginAt: new Date() } : {}),
+        },
+        include: { sellerProfile: true },
+      });
+    } catch (error) {
+      if (!emailChanged || !isUniqueConstraintError(error)) {
+        throw error;
+      }
 
-    if (shouldPromote) {
+      appliedPromotion = false;
+      const fallbackNeedsUpdate = needsVerifiedSync || Boolean(options?.updateLastLogin);
+      if (fallbackNeedsUpdate) {
+        user = await prisma.user.update({
+          where: { id: user.id },
+          data: {
+            ...(needsVerifiedSync ? { emailVerified: true } : {}),
+            ...(options?.updateLastLogin ? { lastLoginAt: new Date() } : {}),
+          },
+          include: { sellerProfile: true },
+        });
+      }
+    }
+
+    if (appliedPromotion) {
       await recordAudit({
         actorId: user.id,
         actorRole: "ADMIN",
@@ -223,7 +346,7 @@ export async function syncAuthenticatedUser(
   return {
     user,
     accountStatus: user.status,
-    promoted: shouldPromote,
-    promotionReason,
+    promoted: appliedPromotion,
+    promotionReason: appliedPromotion ? promotionReason : null,
   };
 }

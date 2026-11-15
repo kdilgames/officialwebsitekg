@@ -27,20 +27,27 @@ function positiveInt(value: string | undefined, fallback: number): number {
  * (encrypt but do not verify the CA chain), which is what Supabase's pooler
  * requires: its certificate chain is rooted in a private CA.
  */
-function resolveDatabaseUrl(): string | undefined {
-  const explicit = optional(process.env.DATABASE_URL) ?? optional(process.env.DIRECT_URL);
+export function resolveDatabaseUrlFromEnv(source: Record<string, string | undefined>): string | undefined {
+  const explicit = optional(source.DATABASE_URL) ?? optional(source.DIRECT_URL);
   if (explicit && !explicit.includes("[YOUR-PASSWORD]")) return explicit;
 
-  const raw =
-    optional(process.env.SUPABASE_POOLER_URL) ?? optional(process.env.SUPABASE_DB_URL);
+  const raw = optional(source.SUPABASE_POOLER_URL) ?? optional(source.SUPABASE_DB_URL);
   if (!raw) return undefined;
 
-  const password = optional(process.env.SUPABASE_DB_PASS);
-  const url = new URL(raw.includes("[YOUR-PASSWORD]") ? raw.replace("[YOUR-PASSWORD]", "") : raw);
-  if (password) url.password = password;
-  url.searchParams.set("sslmode", "require");
-  url.searchParams.set("uselibpqcompat", "true");
-  return url.toString();
+  const password = optional(source.SUPABASE_DB_PASS);
+  try {
+    const url = new URL(raw.includes("[YOUR-PASSWORD]") ? raw.replace("[YOUR-PASSWORD]", "") : raw);
+    if (password) url.password = password;
+    url.searchParams.set("sslmode", "require");
+    url.searchParams.set("uselibpqcompat", "true");
+    return url.toString();
+  } catch {
+    return undefined;
+  }
+}
+
+function resolveDatabaseUrl(): string | undefined {
+  return resolveDatabaseUrlFromEnv(process.env);
 }
 
 function resolveSiteUrl(): string {

@@ -17,7 +17,7 @@ import {
 import { cn } from "@/lib/utils/cn";
 
 export function CategoryNavBar({ categories }: { categories: FlatCategoryRow[] }) {
-  const pathname = usePathname();
+  const pathname = usePathname() ?? "";
   const wrapperRef = useRef<HTMLDivElement>(null);
   const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 

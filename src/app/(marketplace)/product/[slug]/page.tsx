@@ -28,7 +28,6 @@ import {
 import {
   ProductDetailTabs,
   ProductTabJumpButton,
-  normalizeProductTab,
 } from "@/components/marketplace/product-detail-tabs";
 import { ProductGallery } from "@/components/marketplace/product-gallery";
 import { ProductCard } from "@/components/marketplace/product-card";
@@ -53,6 +52,7 @@ import { prisma } from "@/lib/db";
 import { withSchemaFallback } from "@/lib/db-compat";
 import { env, isSupabaseConfigured } from "@/lib/env";
 import { formatMoney } from "@/lib/money";
+import { normalizeProductTab } from "@/lib/product-tabs";
 import { PRODUCT_CARD_SELECT } from "@/lib/queries/products";
 import { parseUpdateChangelog } from "@/lib/update-format";
 import { formatBytes } from "@/lib/upload-rules";
@@ -152,28 +152,42 @@ async function loadProduct(slug: string) {
   );
 }
 
+function safeOgImageUrl(raw: string | null | undefined): string | undefined {
+  if (typeof raw !== "string") return undefined;
+  const trimmed = raw.trim();
+  if (!trimmed) return undefined;
+  if (trimmed.startsWith("/") && !trimmed.startsWith("//")) return trimmed;
+  return safeHttpUrl(trimmed) ?? undefined;
+}
+
 export async function generateMetadata({
   params,
 }: {
   params: Promise<{ slug: string }>;
 }): Promise<Metadata> {
   const { slug } = await params;
-  const product = await prisma.product.findFirst({
-    where: { slug, status: "PUBLISHED" },
-    select: { title: true, shortDescription: true, thumbnailUrl: true },
-  });
+  try {
+    const product = await prisma.product.findFirst({
+      where: { slug, status: "PUBLISHED" },
+      select: { title: true, shortDescription: true, thumbnailUrl: true },
+    });
 
-  if (!product) return { title: "Product not found" };
+    if (!product) return { title: "Product not found" };
 
-  return {
-    title: product.title,
-    description: product.shortDescription,
-    openGraph: {
+    const ogImage = safeOgImageUrl(product.thumbnailUrl);
+
+    return {
       title: product.title,
       description: product.shortDescription,
-      images: product.thumbnailUrl ? [product.thumbnailUrl] : undefined,
-    },
-  };
+      openGraph: {
+        title: product.title,
+        description: product.shortDescription,
+        images: ogImage ? [ogImage] : undefined,
+      },
+    };
+  } catch {
+    return { title: "Product" };
+  }
 }
 
 function formatCalendarDate(date: Date): string {
@@ -192,7 +206,9 @@ export default async function ProductPage({ params, searchParams }: PageProps) {
   if (!product) notFound();
 
   // View counting is a best-effort metric, never a source of truth for money.
-  await prisma.product.update({ where: { id: product.id }, data: { viewCount: { increment: 1 } } });
+  await prisma.product
+    .update({ where: { id: product.id }, data: { viewCount: { increment: 1 } } })
+    .catch(() => undefined);
 
   const user = await getSessionUser();
 

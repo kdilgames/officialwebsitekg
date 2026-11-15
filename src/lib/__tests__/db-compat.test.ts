@@ -1,7 +1,7 @@
 import { Prisma } from "@prisma/client";
 import { describe, expect, it } from "vitest";
 
-import { isMissingSchemaError, withSchemaFallback } from "../db-compat";
+import { isMissingSchemaError, isUniqueConstraintError, withSchemaFallback } from "../db-compat";
 
 describe("isMissingSchemaError", () => {
   it("recognises Prisma P2021 missing table errors", () => {
@@ -26,6 +26,29 @@ describe("isMissingSchemaError", () => {
   it("does not mask connection errors such as ECONNREFUSED", () => {
     expect(isMissingSchemaError({ code: "ECONNREFUSED", message: "connect ECONNREFUSED" })).toBe(false);
     expect(isMissingSchemaError(new Error("Timed out"))).toBe(false);
+  });
+});
+
+describe("isUniqueConstraintError", () => {
+  it("recognises Prisma P2002 and wrapped PostgreSQL 23505 errors", () => {
+    const err = new Prisma.PrismaClientKnownRequestError("Unique constraint failed on the fields: (`email`)", {
+      code: "P2002",
+      clientVersion: "7.10.1",
+    });
+    expect(isUniqueConstraintError(err)).toBe(true);
+    expect(isUniqueConstraintError({ code: "P2002" })).toBe(true);
+    expect(isUniqueConstraintError({ cause: { code: "23505" } })).toBe(true);
+    expect(
+      isUniqueConstraintError({
+        meta: { driverAdapterError: { cause: { originalCode: "23505" } } },
+      }),
+    ).toBe(true);
+  });
+
+  it("returns false for unrelated errors or primitive inputs", () => {
+    expect(isUniqueConstraintError({ code: "ECONNREFUSED" })).toBe(false);
+    expect(isUniqueConstraintError(new Error("Other failure"))).toBe(false);
+    expect(isUniqueConstraintError(null)).toBe(false);
   });
 });
 

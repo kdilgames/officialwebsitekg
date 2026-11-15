@@ -5,13 +5,9 @@ import { usePathname } from "next/navigation";
 import { FileText, History, MessageSquare, Star } from "lucide-react";
 
 import { cn } from "@/lib/utils/cn";
+import type { ProductTabKey } from "@/lib/product-tabs";
 
-export type ProductTabKey = "overview" | "updates" | "reviews" | "qa";
-
-export function normalizeProductTab(raw: string | undefined): ProductTabKey {
-  if (raw === "updates" || raw === "reviews" || raw === "qa") return raw;
-  return "overview";
-}
+export type { ProductTabKey };
 
 export function ProductDetailTabs({
   initialTab = "overview",
@@ -32,7 +28,7 @@ export function ProductDetailTabs({
   reviewsContent: ReactNode;
   qaContent: ReactNode;
 }) {
-  const pathname = usePathname();
+  const pathname = usePathname() ?? "";
   const [overrideTab, setOverrideTab] = useState<{
     tab: ProductTabKey;
     forInitial: ProductTabKey;
@@ -68,6 +64,7 @@ export function ProductDetailTabs({
 
   function selectTab(next: ProductTabKey) {
     setOverrideTab({ tab: next, forInitial: initialTab });
+    if (!pathname) return;
     const nextUrl = next === "overview" ? pathname : `${pathname}?tab=${next}`;
     window.history.replaceState(null, "", nextUrl);
   }
@@ -172,14 +169,16 @@ export function ProductTabJumpButton({
   children: ReactNode;
   className?: string;
 }) {
-  const pathname = usePathname();
+  const pathname = usePathname() ?? "";
 
   return (
     <button
       type="button"
       onClick={() => {
-        const nextUrl = targetTab === "overview" ? pathname : `${pathname}?tab=${targetTab}`;
-        window.history.replaceState(null, "", nextUrl);
+        if (pathname) {
+          const nextUrl = targetTab === "overview" ? pathname : `${pathname}?tab=${targetTab}`;
+          window.history.replaceState(null, "", nextUrl);
+        }
         window.dispatchEvent(new CustomEvent("product-tab-change", { detail: targetTab }));
         window.scrollTo({ top: 0, behavior: "smooth" });
       }}
