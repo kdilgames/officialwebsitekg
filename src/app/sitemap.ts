@@ -18,6 +18,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${origin}/sellers`, lastModified: now, changeFrequency: "daily", priority: 0.7 },
     { url: `${origin}/studios`, lastModified: now, changeFrequency: "weekly", priority: 0.7 },
     { url: `${origin}/studios/privacy`, lastModified: now, changeFrequency: "monthly", priority: 0.4 },
+    { url: `${origin}/studios/terms`, lastModified: now, changeFrequency: "monthly", priority: 0.4 },
     { url: `${origin}/privacy`, lastModified: now, changeFrequency: "monthly", priority: 0.4 },
     ...STUDIO_APPS.flatMap((app) => [
       {
@@ -28,6 +29,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       },
       {
         url: `${origin}/studios/${app.slug}/privacy`,
+        lastModified: now,
+        changeFrequency: "monthly" as const,
+        priority: 0.45,
+      },
+      {
+        url: `${origin}/studios/${app.slug}/terms`,
         lastModified: now,
         changeFrequency: "monthly" as const,
         priority: 0.45,

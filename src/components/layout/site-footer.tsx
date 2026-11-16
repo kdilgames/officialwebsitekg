@@ -39,7 +39,9 @@ const COLUMNS = [
       { href: "/studios", label: "All Apps & Games" },
       { href: "/studios/byterack-tycoon", label: "ByteRack Tycoon" },
       { href: "/studios/byterack-tycoon/privacy", label: "ByteRack Privacy Policy" },
+      { href: "/studios/byterack-tycoon/terms", label: "ByteRack Terms of Service" },
       { href: "/studios/privacy", label: "Studios Privacy Policy" },
+      { href: "/studios/terms", label: "Studios Terms of Service" },
     ],
   },
   {

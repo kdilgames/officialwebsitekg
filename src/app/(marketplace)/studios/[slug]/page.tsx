@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, CheckCircle2, ExternalLink, ShieldCheck } from "lucide-react";
+import { ArrowLeft, CheckCircle2, ExternalLink, FileText, ShieldCheck } from "lucide-react";
 
 import { StudiosSidebar } from "@/components/studios/studios-sidebar";
 import { STUDIO_APPS, getStudioAppBySlug } from "@/lib/studios/apps";
@@ -94,6 +94,10 @@ export default async function StudioAppPage({
                     <ShieldCheck className="size-4" aria-hidden />
                     Read Privacy Policy
                   </Link>
+                  <Link href={`/studios/${app.slug}/terms`} className="btn btn-secondary">
+                    <FileText className="size-4 text-accent" aria-hidden />
+                    Terms of Service
+                  </Link>
                   {app.playStoreUrl ? (
                     <a
                       href={app.playStoreUrl}
@@ -137,10 +141,16 @@ export default async function StudioAppPage({
                     Dedicated privacy policy URL for Google Play Store and in-app verification.
                   </p>
                 </div>
-                <Link href={`/studios/${app.slug}/privacy`} className="btn btn-secondary btn-sm">
-                  <ShieldCheck className="size-3.5 text-accent" aria-hidden />
-                  /studios/{app.slug}/privacy
-                </Link>
+                <div className="flex flex-wrap gap-2">
+                  <Link href={`/studios/${app.slug}/privacy`} className="btn btn-secondary btn-sm">
+                    <ShieldCheck className="size-3.5 text-accent" aria-hidden />
+                    /studios/{app.slug}/privacy
+                  </Link>
+                  <Link href={`/studios/${app.slug}/terms`} className="btn btn-secondary btn-sm">
+                    <FileText className="size-3.5 text-accent" aria-hidden />
+                    /studios/{app.slug}/terms
+                  </Link>
+                </div>
               </div>
             </div>
           </article>

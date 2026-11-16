@@ -43,6 +43,13 @@ export type StudioApp = {
     summary: string;
     sections: StudioPrivacySection[];
   };
+  termsOfService: {
+    effectiveDate: string;
+    lastUpdated: string;
+    version: string;
+    summary: string;
+    sections: StudioPrivacySection[];
+  };
 };
 
 export const STUDIO_SOCIAL_LINKS = [
@@ -179,6 +186,93 @@ export const STUDIO_APPS: StudioApp[] = [
         },
       ],
     },
+    termsOfService: {
+      effectiveDate: "November 16, 2026",
+      lastUpdated: "November 16, 2026",
+      version: "1.0",
+      summary:
+        "Terms of Service for ByteRack Tycoon (com.karlo.byterack), published by KDILGAMES Software Studios (Croatia, EU) for Google Play users and EU Digital Services Act compliance.",
+      sections: [
+        {
+          heading: "1. Scope & Publisher Information",
+          paragraphs: [
+            'These Terms of Service govern your download, installation, and use of the mobile game ByteRack Tycoon (package ID com.karlo.byterack), developed and published by KDILGAMES Software Studios ("we", "our", or "us"), operated in Croatia (EU).',
+            "By downloading or playing ByteRack Tycoon through Google Play, you also remain subject to the Google Play Terms of Service.",
+          ],
+          links: [
+            {
+              label: "ByteRack Tycoon Privacy Policy",
+              href: "/studios/byterack-tycoon/privacy",
+            },
+          ],
+        },
+        {
+          heading: "2. License & Permitted Use",
+          paragraphs: [
+            "We grant you a personal, non-exclusive, non-transferable, revocable license to download and play ByteRack Tycoon on compatible Android devices strictly for personal, non-commercial entertainment.",
+          ],
+          bullets: [
+            "You may not redistribute, resell, decompile, or publish modified versions of the application package.",
+            "You may not attempt to bypass, spoof, or manipulate Google Play Billing purchase verification.",
+          ],
+        },
+        {
+          heading: "3. Virtual In-Game Currency & Items",
+          paragraphs: [
+            "All virtual resources inside ByteRack Tycoon — including virtual cash, server tiers, Tech Tokens, upgrades, staff hires, and achievements — are simulated game progression elements only.",
+            "Virtual items have no real-world monetary value, cannot be traded or redeemed for fiat currency or external goods, and exist solely within your local game state.",
+          ],
+        },
+        {
+          heading: "4. Optional In-App Purchases & EU Consumer Rights",
+          paragraphs: [
+            "ByteRack Tycoon is free to download and play offline. It offers an optional one-time in-app purchase (Founder Starter Pack, product ID byterack_starter_pack), processed directly through Google Play Billing.",
+            "The exact price, currency, and applicable taxes (including VAT in EU Member States) are displayed inside the Google Play checkout sheet before you confirm payment.",
+            "For users located in the European Economic Area (EEA) and United Kingdom: Google Play acts as the merchant payment processor and handles receipts, purchase restoration, and refund requests in accordance with Google Play refund policies and applicable EU/UK consumer protection law.",
+          ],
+          links: [
+            {
+              label: "Google Play Terms of Service",
+              href: "https://play.google.com/about/play-terms/",
+              external: true,
+            },
+          ],
+        },
+        {
+          heading: "5. Offline Save Data & Updates",
+          paragraphs: [
+            "Gameplay progress is stored locally on your device via Android SharedPreferences (and optionally Android Auto Backup if enabled in your device settings). Uninstalling the game or clearing app data may permanently delete unsaved local progress.",
+            "We may release periodic gameplay updates, bug fixes, or compatibility patches via Google Play.",
+          ],
+        },
+        {
+          heading: "6. Intellectual Property & External Links",
+          paragraphs: [
+            "All artwork, sprite assets, UI designs, code, audio effects, and KDILGAMES Software Studios branding remain the intellectual property of KDILGAMES.",
+            "Optional community links inside the game (Website, Discord, TikTok, Instagram, X / Twitter) open third-party platforms governed by their respective terms.",
+          ],
+        },
+        {
+          heading: "7. Warranty, Liability & Contact",
+          paragraphs: [
+            "To the maximum extent permitted by applicable EU and Croatian law, ByteRack Tycoon is provided on an 'as is' and 'as available' basis without prejudice to mandatory statutory consumer rights that cannot be excluded by law.",
+            `For support, refund assistance referrals, or EU consumer inquiries regarding ByteRack Tycoon, contact KDILGAMES Software Studios at ${DEFAULT_OWNER_EMAIL}.`,
+          ],
+          links: [
+            {
+              label: `Email ${DEFAULT_OWNER_EMAIL}`,
+              href: `mailto:${DEFAULT_OWNER_EMAIL}`,
+              external: true,
+            },
+            {
+              label: "Join KDILGAMES Discord",
+              href: env.marketplace.discordUrl ?? "https://discord.gg/kdilgames",
+              external: true,
+            },
+          ],
+        },
+      ],
+    },
   },
 ];
 
@@ -250,6 +344,64 @@ export const STUDIO_GENERAL_PRIVACY: {
         {
           label: "Join KDILGAMES Discord",
           href: env.marketplace.discordUrl ?? "https://discord.gg/kdilgames",
+          external: true,
+        },
+      ],
+    },
+  ],
+};
+
+export const STUDIO_GENERAL_TERMS: {
+  effectiveDate: string;
+  lastUpdated: string;
+  version: string;
+  summary: string;
+  sections: StudioPrivacySection[];
+} = {
+  effectiveDate: "November 16, 2026",
+  lastUpdated: "November 16, 2026",
+  version: "1.0",
+  summary:
+    "General Terms of Service for standalone mobile apps and games published by KDILGAMES Software Studios (Croatia, EU), separate from KDILGAMES Digital Marketplace listings.",
+  sections: [
+    {
+      heading: "1. Applicability & Distinction from Marketplace",
+      paragraphs: [
+        "These Terms of Service apply to first-party mobile apps and games published under KDILGAMES Software Studios on Google Play and mobile app stores.",
+        "Digital assets, scripts, and creator storefronts purchased on the web marketplace are governed by the separate Marketplace Terms of Service.",
+      ],
+      links: [
+        {
+          label: "Marketplace Terms of Service",
+          href: "/legal/terms",
+        },
+      ],
+    },
+    {
+      heading: "2. Store Billing & EU Consumer Rights",
+      paragraphs: [
+        "Any optional in-app purchases offered in KDILGAMES Software Studios apps are processed by Google Play Billing with transparent pricing displayed before checkout and in compliance with EU consumer protection rules.",
+      ],
+    },
+    {
+      heading: "3. Per-App Terms of Service",
+      paragraphs: [
+        "Select any individual studio release below to read its dedicated Terms of Service:",
+      ],
+      links: STUDIO_APPS.map((app) => ({
+        label: `${app.name} Terms of Service`,
+        href: `/studios/${app.slug}/terms`,
+      })),
+    },
+    {
+      heading: "4. Contact KDILGAMES Software Studios",
+      paragraphs: [
+        `Operated in Croatia (EU). Contact ${DEFAULT_OWNER_EMAIL} or reach us via Discord for support and legal inquiries.`,
+      ],
+      links: [
+        {
+          label: `Email ${DEFAULT_OWNER_EMAIL}`,
+          href: `mailto:${DEFAULT_OWNER_EMAIL}`,
           external: true,
         },
       ],

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowRight, ExternalLink, ShieldCheck } from "lucide-react";
+import { ArrowRight, ExternalLink, FileText, ShieldCheck } from "lucide-react";
 
 import type { StudioPrivacySection } from "@/lib/studios/apps";
 
@@ -13,6 +13,9 @@ export function StudioPrivacyDocument({
   canonicalPath,
   dataSafety,
   sections,
+  badgeLabel = "Google Play & Store Privacy Policy",
+  routeLabel = "Policy route",
+  icon = "privacy",
 }: {
   title: string;
   subtitle: string;
@@ -23,14 +26,21 @@ export function StudioPrivacyDocument({
   canonicalPath: string;
   dataSafety?: { label: string; value: string }[];
   sections: StudioPrivacySection[];
+  badgeLabel?: string;
+  routeLabel?: string;
+  icon?: "privacy" | "terms";
 }) {
   return (
     <div className="space-y-6">
       <div className="surface p-6 sm:p-8">
         <div className="flex flex-wrap items-center gap-2">
           <span className="badge badge-accent">
-            <ShieldCheck className="size-3" aria-hidden />
-            Google Play &amp; Store Privacy Policy
+            {icon === "terms" ? (
+              <FileText className="size-3" aria-hidden />
+            ) : (
+              <ShieldCheck className="size-3" aria-hidden />
+            )}
+            {badgeLabel}
           </span>
           <span className="badge">Version {version}</span>
           {packageName ? <span className="badge font-mono">{packageName}</span> : null}
@@ -51,7 +61,7 @@ export function StudioPrivacyDocument({
             <dd className="mt-0.5 font-semibold text-ink">{lastUpdated}</dd>
           </div>
           <div>
-            <dt className="subtle font-medium uppercase tracking-[0.04em]">Policy route</dt>
+            <dt className="subtle font-medium uppercase tracking-[0.04em]">{routeLabel}</dt>
             <dd className="mt-0.5 truncate font-mono text-[12px] text-accent">{canonicalPath}</dd>
           </div>
         </dl>

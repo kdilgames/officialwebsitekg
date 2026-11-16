@@ -3,6 +3,7 @@ import Link from "next/link";
 import {
   ArrowRight,
   ExternalLink,
+  FileText,
   Gamepad2,
   Scale,
   ShieldCheck,
@@ -62,6 +63,13 @@ export function StudiosSidebar({ activePath }: { activePath: string }) {
           >
             Studios Privacy Policy
           </SidebarLink>
+          <SidebarLink
+            href="/studios/terms"
+            active={activePath === "/studios/terms"}
+            icon={<FileText className="size-3.5" aria-hidden />}
+          >
+            Studios Terms of Service
+          </SidebarLink>
         </nav>
 
         <div className="border-t border-line p-3">
@@ -72,12 +80,13 @@ export function StudiosSidebar({ activePath }: { activePath: string }) {
             {apps.map((app) => {
               const isAppPage = activePath === `/studios/${app.slug}`;
               const isAppPrivacy = activePath === `/studios/${app.slug}/privacy`;
+              const isAppTerms = activePath === `/studios/${app.slug}/terms`;
               return (
                 <div
                   key={app.slug}
                   className={cn(
                     "rounded-[10px] border p-2.5 transition-colors",
-                    isAppPage || isAppPrivacy
+                    isAppPage || isAppPrivacy || isAppTerms
                       ? "border-accent/40 bg-accent-quiet/50"
                       : "border-line bg-canvas/50 hover:border-line-strong",
                   )}
@@ -120,7 +129,19 @@ export function StudiosSidebar({ activePath }: { activePath: string }) {
                       )}
                     >
                       <ShieldCheck className="size-3" aria-hidden />
-                      Privacy Policy
+                      Privacy
+                    </Link>
+                    <Link
+                      href={`/studios/${app.slug}/terms`}
+                      className={cn(
+                        "inline-flex items-center gap-1 rounded-[7px] px-2 py-1 text-[11.5px] font-medium transition-colors",
+                        isAppTerms
+                          ? "bg-accent text-white"
+                          : "border border-line bg-surface text-ink-muted hover:text-ink",
+                      )}
+                    >
+                      <FileText className="size-3" aria-hidden />
+                      Terms
                     </Link>
                   </div>
                 </div>
