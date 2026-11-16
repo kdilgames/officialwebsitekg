@@ -2,10 +2,17 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, CheckCircle2, ExternalLink, FileText, ShieldCheck } from "lucide-react";
+import { ArrowLeft, CheckCircle2, ExternalLink, FileText, ShieldCheck, Trophy } from "lucide-react";
 
 import { StudiosSidebar } from "@/components/studios/studios-sidebar";
 import { STUDIO_APPS, getStudioAppBySlug } from "@/lib/studios/apps";
+import {
+  formatCompactCount,
+  formatCompactUsd,
+  getStudioLeaderboard,
+} from "@/lib/studios/leaderboard";
+
+export const dynamic = "force-dynamic";
 
 export function generateStaticParams() {
   return STUDIO_APPS.map((app) => ({ slug: app.slug }));
@@ -33,6 +40,9 @@ export default async function StudioAppPage({
   const { slug } = await params;
   const app = getStudioAppBySlug(slug);
   if (!app) notFound();
+
+  const leaderboard =
+    app.slug === "byterack-tycoon" ? await getStudioLeaderboard(app.slug, undefined, 25) : null;
 
   return (
     <div className="mx-auto max-w-[1280px] px-4 py-8 sm:px-6 sm:py-10">
@@ -131,6 +141,75 @@ export default async function StudioAppPage({
               </ul>
 
               <div className="divider my-6" />
+
+              {leaderboard ? (
+                <>
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div>
+                      <h2 className="flex items-center gap-2 text-[17px] font-semibold text-ink">
+                        <Trophy className="size-4 text-accent" aria-hidden />
+                        Global Studio Leaderboard
+                      </h2>
+                      <p className="muted mt-0.5 text-[13px]">
+                        Top hosting studios synced from ByteRack Tycoon (opt-in anonymous rankings).
+                      </p>
+                    </div>
+                    <span className="badge font-mono">
+                      {formatCompactCount(leaderboard.totalPlayers)}{" "}
+                      {leaderboard.totalPlayers === 1 ? "studio ranked" : "studios ranked"}
+                    </span>
+                  </div>
+
+                  {leaderboard.entries.length === 0 ? (
+                    <div className="mt-3 rounded-[10px] border border-dashed border-line bg-elevated/40 p-5 text-center text-[13.5px] text-ink-muted">
+                      No hosting studios have synced yet — be the first to claim #1 in{" "}
+                      <span className="font-semibold text-ink">ByteRack Tycoon v1.5.0</span>!
+                    </div>
+                  ) : (
+                    <div className="mt-3 overflow-x-auto rounded-[10px] border border-line">
+                      <table className="w-full border-collapse text-left text-[13px]">
+                        <thead className="border-b border-line bg-elevated/70 text-[11.5px] uppercase tracking-wider text-ink-muted">
+                          <tr>
+                            <th className="px-3.5 py-2.5 font-semibold">Rank</th>
+                            <th className="px-3.5 py-2.5 font-semibold">Studio</th>
+                            <th className="px-3.5 py-2.5 font-semibold">League / Facility</th>
+                            <th className="px-3.5 py-2.5 text-right font-semibold">Servers</th>
+                            <th className="px-3.5 py-2.5 text-right font-semibold">TT</th>
+                            <th className="px-3.5 py-2.5 text-right font-semibold">Lifetime Revenue</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-line">
+                          {leaderboard.entries.map((entry) => (
+                            <tr key={`${entry.rank}-${entry.companyName}-${entry.updatedAt}`} className="hover:bg-elevated/40">
+                              <td className="px-3.5 py-2.5 font-mono font-bold text-ink">
+                                #{entry.rank}
+                              </td>
+                              <td className="px-3.5 py-2.5 font-semibold text-ink">
+                                {entry.companyName}
+                              </td>
+                              <td className="px-3.5 py-2.5">
+                                <div className="text-ink">{entry.league}</div>
+                                <div className="subtle text-[11.5px]">{entry.facilityName}</div>
+                              </td>
+                              <td className="px-3.5 py-2.5 text-right font-mono text-ink-muted">
+                                {formatCompactCount(entry.activeServers)}
+                              </td>
+                              <td className="px-3.5 py-2.5 text-right font-mono text-ink-muted">
+                                {formatCompactCount(entry.techTokens)}
+                              </td>
+                              <td className="px-3.5 py-2.5 text-right font-mono font-semibold text-positive">
+                                {formatCompactUsd(entry.lifetimeEarnings)}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+
+                  <div className="divider my-6" />
+                </>
+              ) : null}
 
               <div className="flex flex-wrap items-center justify-between gap-4 rounded-[12px] border border-line bg-elevated/60 p-4 sm:p-5">
                 <div>

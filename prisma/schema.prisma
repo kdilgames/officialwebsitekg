@@ -946,3 +946,22 @@ model RateLimitBucket {
 
   @@index([expiresAt])
 }
+
+/// Public studio rankings for KDILGAMES Software Studios mobile games & apps.
+model StudioLeaderboardEntry {
+  id               String   @id @default(uuid()) @db.Uuid
+  appSlug          String
+  playerKey        String
+  companyName      String
+  lifetimeEarnings Float    @default(0)
+  techTokens       BigInt   @default(0)
+  facilityLevel    Int      @default(0)
+  activeServers    Int      @default(0)
+  contractsDone    Int      @default(0)
+  appVersion       String   @default("1.5.0")
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@unique([appSlug, playerKey])
+  @@index([appSlug, lifetimeEarnings(sort: Desc), techTokens(sort: Desc)])
+}

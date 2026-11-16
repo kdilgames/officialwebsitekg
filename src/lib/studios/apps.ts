@@ -81,57 +81,68 @@ export const STUDIO_APPS: StudioApp[] = [
     category: "Simulation · Idle Tycoon",
     platform: "Android · Google Play",
     packageName: "com.karlo.byterack",
-    version: "1.3.0",
+    version: "1.5.0",
     status: "RELEASE_CANDIDATE",
     statusLabel: "Google Play Ready",
     tagline:
-      "Build your hosting studio from a bedroom rack into an Alpine data vault — offline-first and ad-free.",
+      "Build your hosting empire from a bedroom rack into a 2,600-bay Arctic data warehouse — offline-first, ad-free, with optional Global Rankings.",
     description:
-      "Start in a small bedroom and grow your independent server hosting company into a full-scale data center. Manage thermals, recruit engineers, complete client contracts, and expand across 6 physical rooms with zero forced ads.",
+      "Start in a small bedroom and grow your independent server hosting company through a true 3D receding warehouse corridor scaling up to 2,600 server bays across 9 physical facilities. Manage thermals, recruit engineers, complete client contracts & live events, and compete on the Global Studio Leaderboard with zero forced ads.",
     iconPath: "/images/studios/byterack-tycoon-icon.png",
     bannerPath: "/images/studios/byterack-tycoon-banner.png",
     monetizationNote: "Free to play · Optional one-time Founder Starter Pack · Zero third-party ads",
     highlights: [
-      "6 expandable rooms: Small Bedroom, Home Garage, Brick Workshop, Metro Server Hall, Nordic Hydro Plant, and Alpine Summit Vault.",
-      "8 server hardware tiers with 2x production milestones, manual tap combos & 5x Critical Packets, thermal management, and Turbo 2.5x boost.",
+      "9 expanding 3D perspective server facilities scaling from a 16-bay Small Bedroom up to a 2,600-bay Arctic Deep Vault with live Warehouse Fill Bonuses.",
+      "10 server hardware tiers with 2x production milestones, manual tap combos & 5x Critical Packets, clickable 3D corridor hotspots, and Turbo 2.5x boost.",
       "Recruit Luka, Maya, Leo, and Elena to automate packet handling, auto-vent heat, boost contract payouts, and protect offline earnings.",
-      "Client Contracts, Supply Drops, 7-Day Daily Streak bonuses, permanent Tech Tree perks, and Light / Dark Studio themes.",
+      "Optional Global Studio Leaderboard & Studio Leagues, rotating Client Contracts, 3 Daily Missions, Supply Drops, Tech Tree mastery perks, and Light / Dark themes.",
     ],
     dataSafety: [
-      { label: "Personal Data Collected", value: "None (offline-first storage)" },
+      { label: "Personal Data Collected", value: "Optional anonymous leaderboard ID & studio name only" },
       { label: "Third-Party Ads / Trackers", value: "None" },
       { label: "Save Storage", value: "Local SharedPreferences & Android Auto Backup" },
-      { label: "Optional Billing & Updates", value: "Google Play Billing & In-App Updates" },
+      { label: "Optional Cloud & Billing", value: "Global Leaderboard (opt-out anytime), Play Billing & Updates" },
     ],
     privacyPolicy: {
       effectiveDate: "November 16, 2026",
       lastUpdated: "November 16, 2026",
-      version: "1.0",
+      version: "1.1",
       summary:
-        "ByteRack Tycoon is an offline-first mobile game developed by KDILGAMES Software Studios without third-party advertisements, behavioural analytics, or personal data collection.",
+        "ByteRack Tycoon is an offline-first mobile game developed by KDILGAMES Software Studios without third-party advertisements, behavioural analytics, or personal accounts. An optional anonymous Global Leaderboard syncs only your chosen studio name and simulated game scores, and can be disabled or deleted anytime inside the Ranks tab.",
       sections: [
         {
           heading: "1. Overview & Developer Identity",
           paragraphs: [
             'This Privacy Policy explains how KDILGAMES Software Studios ("we", "our", or "us") handles information in connection with the mobile application ByteRack Tycoon (package ID com.karlo.byterack).',
-            "ByteRack Tycoon is designed as an offline-first game that runs directly on your device without requiring an account, login, or personal profile.",
+            "ByteRack Tycoon runs offline-first directly on your device without requiring registration, email login, phone numbers, or personal profiles.",
           ],
         },
         {
           heading: "2. Data Stored Locally on Your Device",
           paragraphs: [
-            "All gameplay state — including your virtual cash, server racks, cooling upgrades, staff hires, achievements, daily streak, audio preference, and light/dark theme choice — is saved locally on your device using Android SharedPreferences.",
+            "All gameplay state — including your virtual cash, server racks, cooling upgrades, staff hires, achievements, daily streak, audio preference, light/dark theme choice, chosen in-game company name, and a locally generated random anonymous leaderboard ID — is saved on your device using Android SharedPreferences.",
             "If you have Android Auto Backup enabled in your Google or device settings, Android may back up your local save data to your personal Google Drive backup according to your system settings.",
-            "KDILGAMES Software Studios does not operate external player-tracking servers for ByteRack Tycoon and does not collect, read, sell, or share your personal data.",
           ],
           bullets: [
             "No third-party advertising SDKs or advertising-ID tracking.",
-            "No cross-app tracking or behavioural profiling.",
+            "No cross-app tracking, location access, or behavioural profiling.",
             "Uninstalling the app removes local device storage unless backed up by Android Auto Backup.",
           ],
         },
         {
-          heading: "3. Google Play Services (Purchases & In-App Updates)",
+          heading: "3. Optional Global Studio Leaderboard",
+          paragraphs: [
+            "Inside the Ranks tab, ByteRack Tycoon offers an optional Global Studio Leaderboard hosted on official KDILGAMES servers (kdilgames.com). Core single-player gameplay works completely offline even if you opt out.",
+            "When leaderboard sync is enabled, the game transmits only anonymous gameplay progression data so your studio can be ranked alongside other players.",
+          ],
+          bullets: [
+            "Data transmitted: random device-generated anonymous ID (UUID), your in-game studio name (editable anytime inside Office settings; never use real personal names if you prefer anonymity), facility level, lifetime virtual earnings, active server count, Tech Tokens, and expansion count.",
+            "Public visibility: your studio name and game stats (never your anonymous UUID or IP address) may appear on the public ByteRack Tycoon leaderboard inside the app and on kdilgames.com/studios/byterack-tycoon.",
+            "Control & deletion right: you can toggle leaderboard auto-sync off or permanently delete your leaderboard entry directly from the in-game Ranks tab at any time, or contact us to remove an entry.",
+          ],
+        },
+        {
+          heading: "4. Google Play Services (Purchases & In-App Updates)",
           paragraphs: [
             "ByteRack Tycoon integrates official Google Play services solely for optional functionality initiated by the player or device:",
           ],
@@ -148,28 +159,23 @@ export const STUDIO_APPS: StudioApp[] = [
           ],
         },
         {
-          heading: "4. External Community Links",
+          heading: "5. External Community Links",
           paragraphs: [
             "Inside the in-game Office and Settings panels, optional buttons link to KDILGAMES Software Studios' official website, Discord server, TikTok, Instagram, and X / Twitter pages.",
             "Tapping an external link opens your device browser or the corresponding app outside of ByteRack Tycoon. Once you leave the game, your interaction is governed by that platform's own privacy policy.",
           ],
         },
         {
-          heading: "5. Children's Privacy",
+          heading: "6. Children's Privacy & Policy Updates",
           paragraphs: [
-            "Because ByteRack Tycoon does not require registration or transmit personal data to our servers, we do not knowingly collect personal information from children under 13 (or the applicable age of digital consent in your country) or from any other users.",
+            "ByteRack Tycoon does not require email registration, real names, or personal data collection from children under 13 (or the applicable age of digital consent in your country).",
+            "If future versions add new online services, this Privacy Policy will be updated before those features go live and the revised date will appear at the top of this page.",
           ],
         },
         {
-          heading: "6. Changes to This Policy",
+          heading: "7. Contact & Data Deletion Requests",
           paragraphs: [
-            "If future versions of ByteRack Tycoon introduce optional online features such as cloud saves or leaderboards, this Privacy Policy will be updated before those features go live and the revised date will appear at the top of this page.",
-          ],
-        },
-        {
-          heading: "7. Contact Us",
-          paragraphs: [
-            `If you have any questions about privacy in ByteRack Tycoon, please contact KDILGAMES Software Studios at ${DEFAULT_OWNER_EMAIL} or via our official Discord server.`,
+            `If you have any questions about privacy in ByteRack Tycoon or wish to request removal of a leaderboard entry, please contact KDILGAMES Software Studios at ${DEFAULT_OWNER_EMAIL} or via our official Discord server.`,
           ],
           links: [
             {
