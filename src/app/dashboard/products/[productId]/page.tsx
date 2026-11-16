@@ -8,16 +8,23 @@ import {
   type AssetFile,
   type AssetImage,
 } from "@/components/dashboard/asset-manager";
+import { AnswerQuestionForm } from "@/components/marketplace/product-actions";
 import { ProductForm, VersionForm } from "@/components/forms/product-forms";
 import { Alert } from "@/components/ui/alert";
-import { StatusBadge } from "@/components/ui/badge";
+import { Badge, StatusBadge } from "@/components/ui/badge";
+import { BBCodeContent } from "@/components/ui/bbcode-content";
 import { Button, buttonClass } from "@/components/ui/button";
 import { Card, CardBody, CardHeader, StatCard } from "@/components/ui/card";
 import { requireSeller } from "@/lib/auth/session";
 import { bpsToPercent, formatBps, resolveCommissionRate } from "@/lib/commission";
 import { prisma } from "@/lib/db";
 import { env } from "@/lib/env";
+import {
+  answerProductQuestionAction,
+  hideProductQuestionAction,
+} from "@/lib/marketplace/actions";
 import { formatMoney, minorToDecimalString } from "@/lib/money";
+import { parseUpdateChangelog } from "@/lib/update-format";
 import {
   archiveProductAction,
   createVersionAction,
@@ -40,12 +47,16 @@ function jsonToText(value: unknown): string {
 
 export default async function ManageProductPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ productId: string }>;
+  searchParams: Promise<{ created?: string; submitted?: string }>;
 }) {
   const user = await requireSeller();
   const seller = user.sellerProfile;
-  const { productId } = await params;
+  const [{ productId }, query] = await Promise.all([params, searchParams]);
+  const justCreated = query.created === "1";
+  const justSubmitted = query.submitted === "1";
 
   const [product, categories, rules] = await Promise.all([
     getSellerProduct(seller.id, productId),
@@ -118,6 +129,19 @@ export default async function ManageProductPage({
         </div>
       </header>
 
+      {justCreated ? (
+        <Alert
+          tone="success"
+          title={justSubmitted ? "Listing created and submitted for review" : "Listing created"}
+        >
+          {justSubmitted
+            ? "Your files are attached and an administrator has been notified to review your product."
+            : activeFiles.length > 0
+              ? "Your listing and files are saved below. Submit it for review whenever you are ready to go live."
+              : "Your draft listing is saved. Upload your downloadable files and screenshots below before submitting for review."}
+        </Alert>
+      ) : null}
+
       {product.status === "PENDING_REVIEW" ? (
         <Alert tone="info" title="Waiting for review">
           A platform administrator approves or rejects listings. You cannot publish your own product.
@@ -151,7 +175,7 @@ export default async function ManageProductPage({
         />
         <StatCard
           label="You earn"
-          value={formatMoney(netPerSale, product.currency)}
+          value={unitPriceMinor === 0 ? "Free" : formatMoney(netPerSale, product.currency)}
           tone="positive"
           hint={`Per sale · commission ${formatBps(rate.rateBps)} (${keepPercent}% to you)`}
         />
@@ -182,6 +206,8 @@ export default async function ManageProductPage({
               currency: product.currency,
               licenseType: product.licenseType,
               licenseText: product.licenseText ?? "",
+              demoUrl: product.demoUrl ?? "",
+              videoUrl: product.videoUrl ?? "",
               version: product.version,
               tags: product.tags.join(", "),
               compatibility: jsonToText(product.compatibility),
@@ -232,32 +258,103 @@ export default async function ManageProductPage({
             <p className="muted text-[12.5px]">No versions recorded yet.</p>
           ) : (
             <ul className="space-y-2">
-              {product.versions.map((version: any) => (
-                <li
-                  key={version.id}
-                  className="surface-elevated flex flex-wrap items-start justify-between gap-2 p-3"
-                >
-                  <div className="min-w-0">
-                    <p className="flex items-center gap-2 text-[13px] font-medium">
-                      {version.version}
-                      {version.isLatest ? (
-                        <span className="badge badge-accent">latest</span>
+              {product.versions.map((version) => {
+                const parsed = parseUpdateChangelog(version.changelog);
+                return (
+                  <li
+                    key={version.id}
+                    className="surface-elevated flex flex-wrap items-start justify-between gap-2 p-3"
+                  >
+                    <div className="min-w-0 flex-1 space-y-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="font-mono text-[13px] font-medium">
+                          v{version.version}
+                        </span>
+                        {version.isLatest ? (
+                          <span className="badge badge-accent">latest</span>
+                        ) : null}
+                        {parsed.title ? (
+                          <span className="text-[13px] font-semibold text-ink">
+                            {parsed.title}
+                          </span>
+                        ) : null}
+                      </div>
+                      {parsed.body ? (
+                        <BBCodeContent value={parsed.body} className="text-[12.5px]" />
                       ) : null}
-                    </p>
-                    <p className="muted mt-1 whitespace-pre-wrap text-[12.5px]">
-                      {version.changelog}
-                    </p>
-                  </div>
-                  <span className="subtle shrink-0 text-[11.5px]">
-                    {version.releasedAt.toISOString().slice(0, 10)}
-                  </span>
-                </li>
-              ))}
+                    </div>
+                    <span className="subtle shrink-0 text-[11.5px]">
+                      {version.releasedAt.toISOString().slice(0, 10)}
+                    </span>
+                  </li>
+                );
+              })}
             </ul>
           )}
 
           <div className="divider" />
           <VersionForm action={createVersionAction} productId={product.id} />
+        </CardBody>
+      </Card>
+
+      <Card>
+        <CardHeader
+          title={`Questions & answers${product.questions.length > 0 ? ` (${product.questions.length})` : ""}`}
+          description="Prospective buyers ask pre-sale questions here. Official replies notify the asker and appear publicly."
+        />
+        <CardBody>
+          {product.questions.length === 0 ? (
+            <p className="muted text-[12.5px]">No buyer questions on this listing yet.</p>
+          ) : (
+            <ul className="space-y-3">
+              {product.questions.map((item) => (
+                <li key={item.id} className="surface-elevated space-y-2 p-3.5">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-[12.5px] font-semibold text-ink">
+                        {item.user.displayName}
+                      </span>
+                      <span className="subtle text-[11.5px]">@{item.user.username}</span>
+                      <span className="subtle text-[11.5px]">
+                        {item.createdAt.toISOString().slice(0, 10)}
+                      </span>
+                      {item.isHidden ? (
+                        <Badge tone="caution">Hidden</Badge>
+                      ) : item.answer ? (
+                        <Badge tone="positive">Answered</Badge>
+                      ) : (
+                        <Badge tone="caution">Unanswered</Badge>
+                      )}
+                    </div>
+
+                    <form action={hideProductQuestionAction}>
+                      <input type="hidden" name="questionId" value={item.id} />
+                      <Button type="submit" variant="ghost" size="sm">
+                        {item.isHidden ? "Unhide" : "Hide"}
+                      </Button>
+                    </form>
+                  </div>
+
+                  <p className="text-[13px] leading-relaxed text-ink">{item.question}</p>
+
+                  {item.answer ? (
+                    <div className="rounded-[8px] border border-line bg-surface p-3 text-[12.5px]">
+                      <p className="subtle text-[11px] font-semibold uppercase tracking-[0.04em]">
+                        Your reply
+                      </p>
+                      <p className="muted mt-1 whitespace-pre-wrap">{item.answer}</p>
+                    </div>
+                  ) : null}
+
+                  <AnswerQuestionForm
+                    action={answerProductQuestionAction}
+                    questionId={item.id}
+                    defaultAnswer={item.answer}
+                  />
+                </li>
+              ))}
+            </ul>
+          )}
         </CardBody>
       </Card>
 

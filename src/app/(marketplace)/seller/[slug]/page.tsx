@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { BadgeCheck, CalendarDays, Globe, Mail } from "lucide-react";
 
+import { BundleCard } from "@/components/marketplace/bundle-card";
 import { ProductGrid } from "@/components/marketplace/product-card";
 import { FollowButton } from "@/components/marketplace/product-actions";
 import { Alert, EmptyState } from "@/components/ui/alert";
@@ -12,7 +13,7 @@ import { Pagination } from "@/components/ui/table";
 import { toggleFollowAction } from "@/lib/marketplace/actions";
 import { getSessionUser } from "@/lib/auth/session";
 import { prisma } from "@/lib/db";
-import { browseProducts } from "@/lib/queries/products";
+import { browseProducts, listPublishedBundles } from "@/lib/queries/products";
 import { formatMoney } from "@/lib/money";
 
 export const dynamic = "force-dynamic";
@@ -32,6 +33,7 @@ async function loadSeller(slug: string) {
       tagline: true,
       about: true,
       logoUrl: true,
+      bannerUrl: true,
       country: true,
       websiteUrl: true,
       supportEmail: true,
@@ -58,8 +60,9 @@ export default async function SellerPage({ params, searchParams }: PageProps) {
 
   const page = Number.parseInt(query.page ?? "1", 10) || 1;
 
-  const [products, user, ratingAggregate, salesAggregate] = await Promise.all([
+  const [products, bundles, user, ratingAggregate, salesAggregate] = await Promise.all([
     browseProducts({ seller: slug, page, sort: "newest" }),
+    listPublishedBundles(6, seller.id),
     getSessionUser(),
     prisma.review.aggregate({
       where: { status: "PUBLISHED", product: { sellerId: seller.id } },
@@ -86,50 +89,64 @@ export default async function SellerPage({ params, searchParams }: PageProps) {
   const rating = ratingCount > 0 ? (ratingAggregate._sum.rating ?? 0) / ratingCount : null;
   const grossSalesMinor = salesAggregate._sum.priceMinor ?? 0;
   const salesCount = salesAggregate._count._all;
+  const coverImage = seller.bannerUrl ?? seller.logoUrl;
 
   return (
-    <div className="mx-auto max-w-[1400px] px-4 py-7">
+    <div className="mx-auto max-w-[1400px] px-4 py-8 sm:px-6">
       <Card className="overflow-hidden">
-        {seller.logoUrl ? (
+        {coverImage ? (
           // eslint-disable-next-line @next/next/no-img-element -- remote host configured in next.config.ts
-          <img src={seller.logoUrl} alt="" className="h-32 w-full object-cover sm:h-44" />
+          <img src={coverImage} alt="" className="h-36 w-full border-b border-line object-cover sm:h-48" />
         ) : (
-          <div className="h-20 w-full border-b border-line bg-elevated sm:h-28" />
+          <div className="h-24 w-full border-b border-line bg-elevated sm:h-32" />
         )}
-        <CardBody className="flex flex-wrap items-start justify-between gap-4">
-          <div className="min-w-0">
-            <div className="flex items-center gap-2">
-              <h1 className="text-[20px] font-semibold tracking-tight">{seller.storeName}</h1>
-              <BadgeCheck className="size-4 text-accent" aria-hidden />
-              <Badge tone="positive">approved seller</Badge>
-            </div>
-            {seller.tagline ? <p className="muted mt-1.5 text-[13px]">{seller.tagline}</p> : null}
-            <div className="subtle mt-2 flex flex-wrap items-center gap-3 text-[12px]">
-              <span className="flex items-center gap-1.5">
-                <CalendarDays className="size-3.5" aria-hidden />
-                Selling since {seller.createdAt.toISOString().slice(0, 7)}
-              </span>
-              {seller.country ? <span>Based in {seller.country}</span> : null}
-              {seller.websiteUrl ? (
-                <a
-                  href={seller.websiteUrl}
-                  rel="nofollow noopener noreferrer"
-                  target="_blank"
-                  className="flex items-center gap-1.5 hover:text-ink"
-                >
-                  <Globe className="size-3.5" aria-hidden />
-                  Website
-                </a>
+        <CardBody className="flex flex-wrap items-start justify-between gap-4 p-5 sm:p-6">
+          <div className="flex min-w-0 items-start gap-4">
+            <span className="flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-[12px] border border-line bg-elevated text-[18px] font-bold text-ink">
+              {seller.logoUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element -- remote host configured in next.config.ts
+                <img src={seller.logoUrl} alt="" className="size-full object-cover" />
+              ) : (
+                seller.storeName.slice(0, 1).toUpperCase()
+              )}
+            </span>
+
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <h1 className="text-[22px] font-bold tracking-tight text-ink">{seller.storeName}</h1>
+                <BadgeCheck className="size-4 text-accent" aria-hidden />
+                <Badge tone="positive">Verified seller</Badge>
+              </div>
+              {seller.tagline ? (
+                <p className="muted mt-1 text-[13.5px]">{seller.tagline}</p>
               ) : null}
-              {seller.supportEmail ? (
-                <a
-                  href={`mailto:${seller.supportEmail}`}
-                  className="flex items-center gap-1.5 hover:text-ink"
-                >
-                  <Mail className="size-3.5" aria-hidden />
-                  Support
-                </a>
-              ) : null}
+              <div className="subtle mt-2.5 flex flex-wrap items-center gap-4 text-[12.5px]">
+                <span className="flex items-center gap-1.5">
+                  <CalendarDays className="size-3.5" aria-hidden />
+                  Member since {seller.createdAt.toISOString().slice(0, 7)}
+                </span>
+                {seller.country ? <span>Based in {seller.country}</span> : null}
+                {seller.websiteUrl ? (
+                  <a
+                    href={seller.websiteUrl}
+                    rel="nofollow noopener noreferrer"
+                    target="_blank"
+                    className="flex items-center gap-1.5 hover:text-ink"
+                  >
+                    <Globe className="size-3.5" aria-hidden />
+                    Website
+                  </a>
+                ) : null}
+                {seller.supportEmail ? (
+                  <a
+                    href={`mailto:${seller.supportEmail}`}
+                    className="flex items-center gap-1.5 hover:text-ink"
+                  >
+                    <Mail className="size-3.5" aria-hidden />
+                    Support
+                  </a>
+                ) : null}
+              </div>
             </div>
           </div>
 
@@ -156,16 +173,27 @@ export default async function SellerPage({ params, searchParams }: PageProps) {
       </div>
 
       {seller.about ? (
-        <Card className="mt-4">
+        <Card className="mt-5">
           <CardHeader title="About this store" />
           <CardBody>
-            <p className="muted whitespace-pre-wrap text-[12.5px] leading-relaxed">{seller.about}</p>
+            <p className="muted whitespace-pre-wrap text-[13.5px] leading-relaxed">{seller.about}</p>
           </CardBody>
         </Card>
       ) : null}
 
-      <section className="mt-6">
-        <h2 className="mb-3 text-[15px] font-semibold">Products</h2>
+      {bundles.length > 0 ? (
+        <section className="mt-8">
+          <h2 className="mb-4 text-[18px] font-semibold tracking-tight">Creator bundles</h2>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {bundles.map((bundle) => (
+              <BundleCard key={bundle.id} bundle={bundle} />
+            ))}
+          </div>
+        </section>
+      ) : null}
+
+      <section className="mt-8">
+        <h2 className="mb-4 text-[18px] font-semibold tracking-tight">Products</h2>
         {products.items.length === 0 ? (
           <div className="surface">
             <EmptyState title="No published products yet" />
@@ -179,18 +207,18 @@ export default async function SellerPage({ params, searchParams }: PageProps) {
               buildHref={(next) =>
                 next > 1 ? `/seller/${slug}?page=${next}` : `/seller/${slug}`
               }
-              className="mt-5"
+              className="mt-6"
             />
           </>
         )}
       </section>
 
-      <Alert tone="info" className="mt-6">
-        Already bought from this seller?{" "}
-        <Link href="/account/orders" className="text-accent hover:underline">
+      <Alert tone="info" className="mt-8">
+        Already purchased from this creator?{" "}
+        <Link href="/account/orders" className="font-medium underline">
           Open your downloads
         </Link>{" "}
-        to get the latest version of every purchase.
+        to access the latest release of every item you own.
       </Alert>
     </div>
   );

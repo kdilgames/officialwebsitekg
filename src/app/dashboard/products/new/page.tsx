@@ -5,9 +5,9 @@ import { Alert } from "@/components/ui/alert";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { requireSeller } from "@/lib/auth/session";
 import { prisma } from "@/lib/db";
+import { env, isSupabaseConfigured } from "@/lib/env";
 import { createProductAction } from "@/lib/seller/actions";
 import { listActiveCategories } from "@/lib/seller/queries";
-import { slugify } from "@/lib/utils/slug";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "New product · Seller dashboard" };
@@ -34,7 +34,8 @@ export default async function NewProductPage() {
       <header>
         <h1 className="text-[18px] font-semibold tracking-tight">New product</h1>
         <p className="muted mt-1 text-[12.5px]">
-          Create the listing as a draft. You can attach files and images, then submit it for review.
+          Fill in your listing details, upload product files and screenshots straight from your PC, and
+          save or submit for review in one step.
         </p>
       </header>
 
@@ -55,18 +56,24 @@ export default async function NewProductPage() {
 
           <Card>
             <CardHeader
-              title="Listing details"
-              description="Prices are stored as exact minor units in the currency you choose."
+              title="Listing details & files"
+              description="Prices are stored as exact minor units in the currency you choose. Files are uploaded directly to private storage."
             />
             <CardBody>
               <ProductForm
                 action={createProductAction}
                 categories={categories}
                 submitLabel="Create draft"
+                enableInitialUploads
+                isSupabaseConfigured={isSupabaseConfigured}
+                maxFileBytes={env.uploads.maxFileBytes}
+                maxImageBytes={env.uploads.maxImageBytes}
+                maxImages={env.uploads.maxImagesPerProduct}
                 defaults={{
                   title: "",
                   slug: "",
-                  categoryId: categories[0]?.id ?? "",
+                  categoryId:
+                    categories.find((entry) => !entry.parentId)?.id ?? categories[0]?.id ?? "",
                   shortDescription: "",
                   description: "",
                   price: "",
@@ -74,6 +81,8 @@ export default async function NewProductPage() {
                   currency: "EUR",
                   licenseType: "STANDARD",
                   licenseText: "",
+                  demoUrl: "",
+                  videoUrl: "",
                   version: "1.0.0",
                   tags: "",
                   compatibility: "",
@@ -86,8 +95,9 @@ export default async function NewProductPage() {
       )}
 
       <p className="subtle text-[12px]">
-        Tip: the product URL is used in links such as{" "}
-        <span className="font-mono">/product/{slugify("your-product")}</span>.
+        Tip: the listing page link sets your public storefront address such as{" "}
+        <span className="font-mono">/product/your-product</span>, while buyers download the PC files
+        you upload privately after checkout.
       </p>
 
       <Link href="/dashboard/products" className="btn btn-ghost btn-sm">

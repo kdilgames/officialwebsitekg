@@ -1,16 +1,21 @@
 import Link from "next/link";
-import { BadgeCheck, Clock, ExternalLink, RefreshCw, ShieldCheck } from "lucide-react";
+import { BadgeCheck, Clock, ShieldCheck } from "lucide-react";
 
 import { ImageUploader } from "@/components/account/image-uploader";
+import { ConnectStripeControls } from "@/components/dashboard/connect-stripe-form";
 import { SellerApplicationForm } from "@/components/forms/account-forms";
 import { Alert } from "@/components/ui/alert";
-import { Button } from "@/components/ui/button";
 import { Card, CardBody, CardHeader, StatCard } from "@/components/ui/card";
 import { updateSellerProfileAction } from "@/lib/account/actions";
 import { requireSeller } from "@/lib/auth/session";
-import { env, isStripeConfigured } from "@/lib/env";
 import { formatBps } from "@/lib/commission";
 import { prisma } from "@/lib/db";
+import { env, isStripeConfigured } from "@/lib/env";
+import {
+  MissingStripeAccountError,
+  isSupportedConnectCountry,
+  retrieveConnectStatus,
+} from "@/lib/payments/connect";
 import {
   finalizeStoreLogoAction,
   refreshConnectStatusAction,
@@ -21,21 +26,27 @@ import {
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Settings · Seller dashboard" };
 
-const CONNECT_NOTICES: Record<string, { tone: "info" | "success" | "warning" | "error"; title: string; body: string }> = {
+type ConnectNotice = {
+  tone: "info" | "success" | "warning" | "error";
+  title: string;
+  body: string;
+};
+
+const CONNECT_NOTICES: Record<string, ConnectNotice> = {
   return: {
     tone: "info",
     title: "Welcome back from Stripe",
-    body: "Refresh the status below to confirm what Stripe has verified so far. Some checks continue in the background.",
+    body: "Click Refresh status below to confirm what Stripe has verified so far. Some checks continue in the background.",
   },
   refresh: {
     tone: "warning",
     title: "Stripe session expired",
-    body: "The onboarding link had expired, so nothing was submitted. Start the onboarding again.",
+    body: "The onboarding link had expired or was interrupted, so nothing was lost. Click Connect Stripe again to open a fresh link.",
   },
   country: {
     tone: "error",
     title: "Add your country first",
-    body: "Stripe needs a two-letter country for your account. Save it in the store profile below, then start onboarding again.",
+    body: "Stripe needs a two-letter country for your account. Save it in Store profile below, then start onboarding again.",
   },
   unavailable: {
     tone: "error",
@@ -58,13 +69,92 @@ export default async function DashboardSettingsPage({
   const seller = user.sellerProfile;
   const params = await searchParams;
   const connectKey = typeof params.connect === "string" ? params.connect : undefined;
-  const notice = connectKey ? CONNECT_NOTICES[connectKey] : undefined;
+  let notice: ConnectNotice | undefined = connectKey ? CONNECT_NOTICES[connectKey] : undefined;
+
+  let stripeAccountId = seller.stripeAccountId;
+  let stripeChargesEnabled = seller.stripeChargesEnabled;
+  let stripePayoutsEnabled = seller.stripePayoutsEnabled;
+  let stripeDetailsSubmitted = seller.stripeDetailsSubmitted;
+  let stripeOnboardedAt = seller.stripeOnboardedAt;
+
+  // When Stripe returns the seller from hosted onboarding, pull live account status immediately.
+  if (connectKey === "return" && stripeAccountId && isStripeConfigured) {
+    try {
+      const liveStatus = await retrieveConnectStatus(stripeAccountId);
+      const nextOnboardedAt = liveStatus.detailsSubmitted
+        ? (stripeOnboardedAt ?? new Date())
+        : null;
+
+      await prisma.sellerProfile.update({
+        where: { id: seller.id },
+        data: {
+          stripeChargesEnabled: liveStatus.chargesEnabled,
+          stripePayoutsEnabled: liveStatus.payoutsEnabled,
+          stripeDetailsSubmitted: liveStatus.detailsSubmitted,
+          stripeOnboardedAt: nextOnboardedAt,
+        },
+      });
+
+      stripeChargesEnabled = liveStatus.chargesEnabled;
+      stripePayoutsEnabled = liveStatus.payoutsEnabled;
+      stripeDetailsSubmitted = liveStatus.detailsSubmitted;
+      stripeOnboardedAt = nextOnboardedAt;
+
+      if (liveStatus.payoutsEnabled) {
+        notice = {
+          tone: "success",
+          title: "Stripe payout account connected",
+          body: "Stripe verified your payout details. Payouts and seller transfers are enabled.",
+        };
+      } else if (liveStatus.requirementsCurrentlyDue.length > 0) {
+        notice = {
+          tone: "warning",
+          title: "Stripe needs a few more details",
+          body: `Stripe still requires ${liveStatus.requirementsCurrentlyDue.length} detail${
+            liveStatus.requirementsCurrentlyDue.length === 1 ? "" : "s"
+          } before enabling payouts. Click Continue onboarding below to finish.`,
+        };
+      } else if (liveStatus.detailsSubmitted) {
+        notice = {
+          tone: "info",
+          title: "Details submitted to Stripe",
+          body: "Stripe received your onboarding details and is completing verification. Click Refresh status shortly to check for approval.",
+        };
+      }
+    } catch (error) {
+      if (error instanceof MissingStripeAccountError) {
+        await prisma.sellerProfile.update({
+          where: { id: seller.id },
+          data: {
+            stripeAccountId: null,
+            stripeChargesEnabled: false,
+            stripePayoutsEnabled: false,
+            stripeDetailsSubmitted: false,
+            stripeOnboardedAt: null,
+          },
+        });
+        stripeAccountId = null;
+        stripeChargesEnabled = false;
+        stripePayoutsEnabled = false;
+        stripeDetailsSubmitted = false;
+        stripeOnboardedAt = null;
+        notice = {
+          tone: "warning",
+          title: "Stripe account reference reset",
+          body: "The previous Stripe account ID was not found in the active Stripe mode and has been cleared. Click Connect Stripe to set up a fresh account.",
+        };
+      } else {
+        console.warn("[dashboard/settings] Could not auto-sync Stripe status on return:", error);
+      }
+    }
+  }
 
   const globalRule = await prisma.commissionRule.findFirst({
     where: { scope: "GLOBAL", isActive: true },
     select: { rateBps: true },
   });
   const commissionBps = seller.commissionBps ?? globalRule?.rateBps ?? env.marketplace.defaultCommissionBps;
+  const hasSupportedCountry = isSupportedConnectCountry(seller.country ?? user.country);
 
   return (
     <div className="space-y-5">
@@ -132,27 +222,27 @@ export default async function DashboardSettingsPage({
             <StatCard
               label="Payout status"
               value={
-                seller.stripePayoutsEnabled
+                stripePayoutsEnabled
                   ? "Enabled"
-                  : seller.stripeDetailsSubmitted
+                  : stripeDetailsSubmitted
                     ? "Verifying"
                     : "Not connected"
               }
               hint={
-                seller.stripePayoutsEnabled
+                stripePayoutsEnabled
                   ? "Stripe can send your earnings."
                   : "Complete onboarding to receive money."
               }
               icon={
-                seller.stripePayoutsEnabled ? (
+                stripePayoutsEnabled ? (
                   <BadgeCheck className="size-4 text-positive" aria-hidden />
-                ) : seller.stripeDetailsSubmitted ? (
+                ) : stripeDetailsSubmitted ? (
                   <Clock className="size-4 text-caution" aria-hidden />
                 ) : (
                   <ShieldCheck className="size-4 text-caution" aria-hidden />
                 )
               }
-              tone={seller.stripePayoutsEnabled ? "positive" : "caution"}
+              tone={stripePayoutsEnabled ? "positive" : "caution"}
             />
             <StatCard
               label="Commission"
@@ -168,36 +258,33 @@ export default async function DashboardSettingsPage({
                 <li>
                   Connected account:{" "}
                   <span className="font-mono text-[11.5px] text-ink">
-                    {seller.stripeAccountId ?? "not created"}
+                    {stripeAccountId ?? "not created"}
                   </span>
                 </li>
-                <li>Charges enabled: {seller.stripeChargesEnabled ? "yes" : "no"}</li>
-                <li>Payouts enabled: {seller.stripePayoutsEnabled ? "yes" : "no"}</li>
-                <li>Details submitted: {seller.stripeDetailsSubmitted ? "yes" : "no"}</li>
-                {seller.stripeOnboardedAt ? (
+                <li>Charges enabled: {stripeChargesEnabled ? "yes" : "no"}</li>
+                <li>Payouts enabled: {stripePayoutsEnabled ? "yes" : "no"}</li>
+                <li>Details submitted: {stripeDetailsSubmitted ? "yes" : "no"}</li>
+                {stripeOnboardedAt ? (
                   <li className="subtle">
-                    Onboarded {seller.stripeOnboardedAt.toISOString().slice(0, 10)}
+                    Onboarded {stripeOnboardedAt.toISOString().slice(0, 10)}
                   </li>
                 ) : null}
               </ul>
 
-              <div className="flex flex-wrap items-center gap-2">
-                <form action={startConnectOnboardingAction}>
-                  <Button type="submit" variant="primary" size="sm" disabled={!isStripeConfigured}>
-                    <ExternalLink className="size-3.5" aria-hidden />
-                    {seller.stripeAccountId ? "Continue onboarding" : "Connect Stripe"}
-                  </Button>
-                </form>
+              {!hasSupportedCountry && !stripeAccountId ? (
+                <Alert tone="warning" title="Country code needed first">
+                  Save a two-letter ISO country code (e.g.{" "}
+                  <span className="font-mono">HR</span> or <span className="font-mono">US</span>)
+                  in Store profile before connecting Stripe.
+                </Alert>
+              ) : null}
 
-                {seller.stripeAccountId ? (
-                  <form action={refreshConnectStatusAction}>
-                    <Button type="submit" variant="secondary" size="sm">
-                      <RefreshCw className="size-3.5" aria-hidden />
-                      Refresh status
-                    </Button>
-                  </form>
-                ) : null}
-              </div>
+              <ConnectStripeControls
+                startAction={startConnectOnboardingAction}
+                refreshAction={refreshConnectStatusAction}
+                hasAccount={Boolean(stripeAccountId)}
+                disabled={!isStripeConfigured}
+              />
 
               <p className="subtle text-[11.5px] leading-relaxed">
                 Identity documents and bank details are collected by Stripe on its own pages and never

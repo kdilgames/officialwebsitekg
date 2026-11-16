@@ -21,70 +21,11 @@ if (existsSync(envFile)) {
 }
 
 const { prisma } = await import("@/lib/db");
+const { seedDefaultCatalog } = await import("@/lib/catalog-seed");
 const { LEGAL_PAGES } = await import("@/lib/legal/content");
 
-/** The six top-level categories the marketplace is organised around. */
-const CATEGORIES = [
-  {
-    name: "Roblox",
-    slug: "roblox",
-    icon: "gamepad-2",
-    description: "Game systems, frameworks, UI kits and models for Roblox experiences.",
-  },
-  {
-    name: "Minecraft",
-    slug: "minecraft",
-    icon: "pickaxe",
-    description: "Plugins, server setups, resource packs and world assets for Minecraft.",
-  },
-  {
-    name: "Website templates",
-    slug: "website-templates",
-    icon: "layout-template",
-    description: "Front-end templates, themes and complete storefront builds.",
-  },
-  {
-    name: "Discord bots",
-    slug: "discord-bots",
-    icon: "bot",
-    description: "Bots and bot modules, with or without source code depending on the listing.",
-  },
-  {
-    name: "Software & dev tools",
-    slug: "software-dev-tools",
-    icon: "code",
-    description: "Applications, libraries, scripts and developer tooling.",
-  },
-  {
-    name: "Other digital products",
-    slug: "other-digital-products",
-    icon: "package",
-    description: "Digital goods that do not fit the categories above.",
-  },
-];
-
-async function seedCategories(): Promise<number> {
-  let created = 0;
-  for (const [index, category] of CATEGORIES.entries()) {
-    const existing = await prisma.category.findUnique({
-      where: { slug: category.slug },
-      select: { id: true },
-    });
-    if (existing) continue;
-
-    await prisma.category.create({
-      data: {
-        name: category.name,
-        slug: category.slug,
-        description: category.description,
-        icon: category.icon,
-        sortOrder: index * 10,
-        isActive: true,
-      },
-    });
-    created += 1;
-  }
-  return created;
+async function seedCategories() {
+  return seedDefaultCatalog(prisma);
 }
 
 async function seedLegalPages(): Promise<{ created: number; refreshed: number }> {
@@ -175,12 +116,14 @@ async function bootstrapAdmins(): Promise<string> {
   return results.join(", ");
 }
 
-const categoriesCreated = await seedCategories();
+const catalogSeed = await seedCategories();
 const legal = await seedLegalPages();
 const adminResult = await bootstrapAdmins();
 
 console.log("Seed complete.");
-console.log(`  categories created: ${categoriesCreated} (already present: ${CATEGORIES.length - categoriesCreated})`);
+console.log(
+  `  top categories created: ${catalogSeed.parentsCreated} (of ${catalogSeed.totalParents}), subcategories created: ${catalogSeed.subcategoriesCreated} (of ${catalogSeed.totalSubcategories})`,
+);
 console.log(
   `  legal pages created: ${legal.created}, refreshed from the shipped text: ${legal.refreshed} (of ${LEGAL_PAGES.length})`,
 );

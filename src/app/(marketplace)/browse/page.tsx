@@ -1,17 +1,22 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { SearchX } from "lucide-react";
+import { SearchX, X } from "lucide-react";
 
+import { getCompatibilityTagsForCategory } from "@/components/marketplace/category-filters";
+import { getCategoryIcon } from "@/components/marketplace/category-visuals";
 import { ProductGrid } from "@/components/marketplace/product-card";
 import { EmptyState } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Field, Input, Select } from "@/components/ui/form";
 import { Pagination } from "@/components/ui/table";
+import { buildCategoryTree } from "@/lib/catalog-hierarchy";
 import {
   browseProducts,
   categoryWithDescendants,
   listCategories,
+  PRICE_TIERS,
   SORT_OPTIONS,
+  type PriceTier,
   type ProductSort,
 } from "@/lib/queries/products";
 
@@ -25,6 +30,7 @@ type SearchParams = {
   seller?: string;
   tag?: string;
   license?: string;
+  price?: string;
   min?: string;
   max?: string;
   sort?: string;
@@ -57,22 +63,40 @@ export default async function BrowsePage({
 
   const sort = (SORT_OPTIONS.find((option) => option.value === params.sort)?.value ??
     "relevance") as ProductSort;
+  const priceTier = PRICE_TIERS.find(
+    (option) => option.value !== "" && option.value === params.price,
+  )?.value as PriceTier | undefined;
 
-  const result = await browseProducts({
-    q: params.q,
-    categoryIds: resolved?.ids,
-    seller: params.seller,
-    tag: params.tag,
-    license: params.license,
-    minPrice: toNumber(params.min),
-    maxPrice: toNumber(params.max),
-    sort,
-    page: Number.parseInt(params.page ?? "1", 10) || 1,
-  });
+  const [result, categories] = await Promise.all([
+    browseProducts({
+      q: params.q,
+      categoryIds: resolved?.ids,
+      seller: params.seller,
+      tag: params.tag,
+      license: params.license,
+      priceTier,
+      minPrice: toNumber(params.min),
+      maxPrice: toNumber(params.max),
+      sort,
+      page: Number.parseInt(params.page ?? "1", 10) || 1,
+    }),
+    listCategories(),
+  ]);
 
-  const categories = await listCategories();
+  const buildHref = (overrides: Partial<Record<keyof SearchParams, string | undefined>>) => {
+    const query = new URLSearchParams();
+    const merged: SearchParams = { ...params, ...overrides };
+    for (const [key, value] of Object.entries(merged)) {
+      if (!value) continue;
+      if (key === "page" && value === "1") continue;
+      if (key === "sort" && value === "relevance") continue;
+      query.set(key, value);
+    }
+    const suffix = query.toString();
+    return suffix ? `/browse?${suffix}` : "/browse";
+  };
 
-  const buildHref = (page: number) => {
+  const buildPageHref = (page: number) => {
     const query = new URLSearchParams();
     for (const [key, value] of Object.entries(params)) {
       if (value && key !== "page") query.set(key, value);
@@ -83,32 +107,186 @@ export default async function BrowsePage({
   };
 
   const activeCategory = resolved?.category;
+  const categoryTree = buildCategoryTree(categories);
+  const activeParentNode = categoryTree.find(
+    (node) =>
+      node.slug === categorySlug ||
+      node.children.some((child) => child.slug === categorySlug),
+  );
+  const compatibilityTags = getCompatibilityTagsForCategory(
+    activeCategory?.slug ?? categorySlug,
+    activeCategory?.parent?.slug,
+  );
+  const hasFilters = Boolean(
+    params.q ||
+      categorySlug ||
+      params.seller ||
+      params.tag ||
+      params.license ||
+      priceTier ||
+      params.min ||
+      params.max,
+  );
 
   return (
-    <div className="mx-auto max-w-[1400px] px-4 py-7">
-      <header className="mb-5">
-        <h1 className="text-[22px] font-semibold tracking-tight">
-          {activeCategory ? activeCategory.name : "Browse products"}
+    <div className="mx-auto max-w-[1400px] px-4 py-8 sm:px-6">
+      <header className="mb-6">
+        <h1 className="text-[26px] font-bold tracking-tight text-ink">
+          {activeCategory ? activeCategory.name : "Browse catalogue"}
         </h1>
-        <p className="muted mt-1 text-[13px]">
+        <p className="muted mt-1.5 max-w-2xl text-[14px]">
           {activeCategory?.description ??
-            "Filter by category, price and license. Results only ever come from published listings."}
+            "Find scripts, plugins, bots and templates by category, license type or price."}
         </p>
+
+        {categoryTree.length > 0 ? (
+          <div className="mt-4 flex flex-wrap gap-2">
+            <Link
+              href={buildHref({ category: undefined, tag: undefined, page: undefined })}
+              className={`badge transition-colors ${
+                !categorySlug
+                  ? "badge-accent"
+                  : "hover:border-line-strong hover:bg-surface hover:text-ink"
+              }`}
+            >
+              All categories
+            </Link>
+            {categoryTree.map((node) => {
+              const selected = activeParentNode?.slug === node.slug;
+              return (
+                <Link
+                  key={node.slug}
+                  href={buildHref({ category: node.slug, page: undefined })}
+                  className={`badge transition-colors ${
+                    selected
+                      ? "badge-accent"
+                      : "hover:border-line-strong hover:bg-surface hover:text-ink"
+                  }`}
+                >
+                  {node.name}
+                  {node.totalProducts > 0 ? (
+                    <span className="opacity-70 tabular-nums">{node.totalProducts}</span>
+                  ) : null}
+                </Link>
+              );
+            })}
+          </div>
+        ) : null}
+
+        {activeParentNode && activeParentNode.children.length > 0 ? (
+          <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
+            <span className="subtle text-[12px]">{activeParentNode.name}:</span>
+            <Link
+              href={buildHref({ category: activeParentNode.slug, page: undefined })}
+              className={`badge transition-colors ${
+                categorySlug === activeParentNode.slug
+                  ? "badge-accent"
+                  : "hover:border-line-strong hover:bg-surface hover:text-ink"
+              }`}
+            >
+              All {activeParentNode.name}
+            </Link>
+            {activeParentNode.children.map((child) => {
+              const SubIcon = getCategoryIcon(child.icon, child.slug);
+              return (
+                <Link
+                  key={child.slug}
+                  href={buildHref({ category: child.slug, page: undefined })}
+                  className={`badge transition-colors ${
+                    categorySlug === child.slug
+                      ? "badge-accent"
+                      : "hover:border-line-strong hover:bg-surface hover:text-ink"
+                  }`}
+                >
+                  <SubIcon className="size-3" aria-hidden />
+                  {child.name}
+                  {child.directProducts > 0 ? (
+                    <span className="opacity-70 tabular-nums">{child.directProducts}</span>
+                  ) : null}
+                </Link>
+              );
+            })}
+          </div>
+        ) : null}
+
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <span className="subtle text-[12px]">Price:</span>
+          {PRICE_TIERS.map((tier) => (
+            <Link
+              key={tier.value || "all"}
+              href={buildHref({ price: tier.value || undefined, page: undefined })}
+              className={`badge transition-colors ${
+                (priceTier ?? "") === tier.value
+                  ? tier.value === "free"
+                    ? "badge-positive"
+                    : "badge-accent"
+                  : "hover:border-line-strong hover:bg-surface hover:text-ink"
+              }`}
+            >
+              {tier.label}
+            </Link>
+          ))}
+        </div>
+
+        {compatibilityTags.length > 0 ? (
+          <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
+            <span className="subtle text-[12px]">Compatibility:</span>
+            {compatibilityTags.map((tag) => {
+              const selected = params.tag?.toLowerCase() === tag;
+              return (
+                <Link
+                  key={tag}
+                  href={buildHref({ tag: selected ? undefined : tag, page: undefined })}
+                  className={`badge transition-colors ${
+                    selected
+                      ? "badge-accent"
+                      : "hover:border-line-strong hover:bg-surface hover:text-ink"
+                  }`}
+                >
+                  {tag}
+                </Link>
+              );
+            })}
+          </div>
+        ) : null}
       </header>
 
-      <div className="grid gap-5 lg:grid-cols-[260px_minmax(0,1fr)]">
-        <aside className="lg:sticky lg:top-20 lg:self-start">
+      <div className="grid gap-6 lg:grid-cols-[268px_minmax(0,1fr)]">
+        <aside className="lg:sticky lg:top-24 lg:self-start">
           <form action="/browse" className="surface space-y-4 p-4">
             <Field label="Search" htmlFor="q">
-              <Input id="q" name="q" defaultValue={params.q ?? ""} placeholder="Keywords" />
+              <Input id="q" name="q" defaultValue={params.q ?? ""} placeholder="Keywords..." />
             </Field>
 
             <Field label="Category" htmlFor="category">
               <Select id="category" name="category" defaultValue={categorySlug ?? ""}>
                 <option value="">All categories</option>
-                {categories.map((category: any) => (
-                  <option key={category.slug} value={category.slug}>
-                    {category.name} ({category._count.products})
+                {categoryTree.map((node) =>
+                  node.children.length > 0 ? (
+                    <optgroup key={node.id} label={node.name}>
+                      <option value={node.slug}>
+                        All {node.name} ({node.totalProducts})
+                      </option>
+                      {node.children.map((child) => (
+                        <option key={child.id} value={child.slug}>
+                          {node.name} → {child.name} ({child.directProducts})
+                        </option>
+                      ))}
+                    </optgroup>
+                  ) : (
+                    <option key={node.id} value={node.slug}>
+                      {node.name} ({node.totalProducts})
+                    </option>
+                  ),
+                )}
+              </Select>
+            </Field>
+
+            <Field label="Price tier" htmlFor="price">
+              <Select id="price" name="price" defaultValue={priceTier ?? ""}>
+                {PRICE_TIERS.map((tier) => (
+                  <option key={tier.value || "all"} value={tier.value}>
+                    {tier.label}
                   </option>
                 ))}
               </Select>
@@ -124,7 +302,11 @@ export default async function BrowsePage({
               </Select>
             </Field>
 
-            <div className="grid grid-cols-2 gap-2">
+            <Field label="Tag" htmlFor="tag">
+              <Input id="tag" name="tag" defaultValue={params.tag ?? ""} placeholder="e.g. luau, paper" />
+            </Field>
+
+            <div className="grid grid-cols-2 gap-2.5">
               <Field label="Min price" htmlFor="min">
                 <Input id="min" name="min" type="number" min={0} step="0.5" defaultValue={params.min} />
               </Field>
@@ -143,25 +325,67 @@ export default async function BrowsePage({
               </Select>
             </Field>
 
-            <div className="flex gap-2">
+            <div className="flex gap-2 pt-1">
               <Button type="submit" variant="primary" className="flex-1">
                 Apply filters
               </Button>
-              <Link href="/browse" className="btn btn-secondary">
-                Reset
-              </Link>
+              {hasFilters ? (
+                <Link href="/browse" className="btn btn-secondary">
+                  Reset
+                </Link>
+              ) : null}
             </div>
           </form>
         </aside>
 
         <section>
-          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-            <p className="muted text-[12.5px] tabular-nums">
-              {result.total} {result.total === 1 ? "product" : "products"}
-              {params.q ? ` for “${params.q}”` : ""}
-            </p>
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="muted text-[13px] tabular-nums">
+                {result.total} {result.total === 1 ? "product" : "products"}
+                {params.q ? ` for “${params.q}”` : ""}
+              </p>
+
+              {params.q ? (
+                <Link
+                  href={buildHref({ q: undefined, page: undefined })}
+                  className="badge hover:border-line-strong hover:text-ink"
+                >
+                  Search: {params.q}
+                  <X className="size-3" aria-hidden />
+                </Link>
+              ) : null}
+              {priceTier ? (
+                <Link
+                  href={buildHref({ price: undefined, page: undefined })}
+                  className="badge hover:border-line-strong hover:text-ink"
+                >
+                  Price: {priceTier}
+                  <X className="size-3" aria-hidden />
+                </Link>
+              ) : null}
+              {params.tag ? (
+                <Link
+                  href={buildHref({ tag: undefined, page: undefined })}
+                  className="badge hover:border-line-strong hover:text-ink"
+                >
+                  Tag: {params.tag}
+                  <X className="size-3" aria-hidden />
+                </Link>
+              ) : null}
+              {params.license ? (
+                <Link
+                  href={buildHref({ license: undefined, page: undefined })}
+                  className="badge hover:border-line-strong hover:text-ink"
+                >
+                  {params.license.toLowerCase()} license
+                  <X className="size-3" aria-hidden />
+                </Link>
+              ) : null}
+            </div>
+
             {result.totalPages > 1 ? (
-              <p className="subtle text-[12px] tabular-nums">
+              <p className="subtle text-[12.5px] tabular-nums">
                 Page {result.page} of {result.totalPages}
               </p>
             ) : null}
@@ -172,10 +396,10 @@ export default async function BrowsePage({
               <EmptyState
                 icon={<SearchX className="size-5" />}
                 title="No products match these filters"
-                description="Try widening the price range, clearing the search term, or browsing another category."
+                description="Try widening the price range, clearing the search term, or switching to another category."
                 action={
                   <Link href="/browse" className="btn btn-secondary btn-sm">
-                    Clear filters
+                    Clear all filters
                   </Link>
                 }
               />
@@ -186,8 +410,8 @@ export default async function BrowsePage({
               <Pagination
                 page={result.page}
                 totalPages={result.totalPages}
-                buildHref={buildHref}
-                className="mt-5"
+                buildHref={buildPageHref}
+                className="mt-6"
               />
             </>
           )}

@@ -1,19 +1,22 @@
 import Link from "next/link";
+import { ExternalLink } from "lucide-react";
 
+import { BrandMark } from "@/components/layout/brand-mark";
 import { env } from "@/lib/env";
+import { getCommunityDiscordUrl } from "@/lib/queries/products";
 
 const COLUMNS = [
   {
     title: "Marketplace",
     links: [
       { href: "/browse", label: "All products" },
-      { href: "/browse?sort=newest", label: "Newest" },
+      { href: "/browse?price=free", label: "Free resources" },
       { href: "/browse?sort=best-selling", label: "Best selling" },
-      { href: "/sellers", label: "Sellers" },
+      { href: "/sellers", label: "Verified sellers" },
     ],
   },
   {
-    title: "Sell",
+    title: "Creators",
     links: [
       { href: "/account/seller", label: "Become a seller" },
       { href: "/dashboard", label: "Seller dashboard" },
@@ -25,48 +28,73 @@ const COLUMNS = [
     title: "Support",
     links: [
       { href: "/support", label: "Help centre" },
+      { href: "/support#verification", label: "File safety & review" },
       { href: "/support/new", label: "Contact support" },
-      { href: "/report", label: "Report a product" },
-      { href: "/legal/copyright", label: "Copyright complaints" },
+      { href: "/report", label: "Report a listing" },
+    ],
+  },
+  {
+    title: "Software Studios",
+    links: [
+      { href: "/studios", label: "All Apps & Games" },
+      { href: "/studios/byterack-tycoon", label: "ByteRack Tycoon" },
+      { href: "/studios/byterack-tycoon/privacy", label: "ByteRack Privacy Policy" },
+      { href: "/studios/byterack-tycoon/terms", label: "ByteRack Terms of Service" },
+      { href: "/studios/privacy", label: "Studios Privacy Policy" },
+      { href: "/studios/terms", label: "Studios Terms of Service" },
     ],
   },
   {
     title: "Legal",
     links: [
       { href: "/legal/terms", label: "Terms of Service" },
-      { href: "/legal/privacy", label: "Privacy Policy" },
+      { href: "/legal/privacy", label: "Marketplace Privacy Policy" },
       { href: "/legal/refunds", label: "Refund Policy" },
-      { href: "/legal/cookies", label: "Cookies" },
+      { href: "/legal/cookies", label: "Cookie Policy" },
     ],
   },
 ];
 
-export function SiteFooter() {
+export async function SiteFooter() {
+  const discordUrl = await getCommunityDiscordUrl();
+
   return (
     <footer className="border-t border-line bg-surface">
-      <div className="mx-auto max-w-[1400px] px-4 py-10">
-        <div className="grid gap-8 md:grid-cols-[minmax(0,1.4fr)_repeat(4,minmax(0,1fr))]">
+      <div className="mx-auto max-w-[1400px] px-4 py-12 sm:px-6">
+        <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-[minmax(0,1.4fr)_repeat(5,minmax(0,1fr))]">
           <div>
-            <p className="text-[14px] font-semibold tracking-tight">
-              {env.marketplace.platformName}
+            <Link href="/" className="inline-block rounded-[9px] py-0.5 pr-1">
+              <BrandMark />
+            </Link>
+            <p className="muted mt-3 max-w-xs text-[13px] leading-relaxed">
+              A curated digital marketplace for game developers and server owners — Roblox systems,
+              Minecraft plugins, Discord bots, web templates and developer tools.
             </p>
-            <p className="muted mt-2 max-w-xs text-[12.5px] leading-relaxed">
-              A marketplace for digital products built for game developers: Roblox systems,
-              Minecraft plugins, Discord bots, web templates and developer tooling.
-            </p>
+            <p className="subtle mt-3 text-[12px]">Operated in Croatia (EU) · Secure payments via Stripe</p>
+            {discordUrl ? (
+              <a
+                href={discordUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-3 inline-flex items-center gap-1.5 text-[12.5px] font-medium text-accent hover:underline"
+              >
+                Join Discord community
+                <ExternalLink className="size-3.5" aria-hidden />
+              </a>
+            ) : null}
           </div>
 
           {COLUMNS.map((column) => (
             <div key={column.title}>
-              <p className="subtle text-[11px] font-medium uppercase tracking-[0.06em]">
+              <p className="subtle text-[11px] font-semibold uppercase tracking-[0.06em]">
                 {column.title}
               </p>
-              <ul className="mt-2.5 space-y-1.5">
+              <ul className="mt-3 space-y-2">
                 {column.links.map((link) => (
                   <li key={link.href + link.label}>
                     <Link
                       href={link.href}
-                      className="text-[12.5px] text-ink-muted transition-colors hover:text-ink"
+                      className="text-[13px] text-ink-muted transition-colors hover:text-ink"
                     >
                       {link.label}
                     </Link>
@@ -77,16 +105,15 @@ export function SiteFooter() {
           ))}
         </div>
 
-        <div className="divider my-7" />
+        <div className="divider my-8" />
 
-        <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-4">
           <p className="subtle text-[12px]">
             © {new Date().getFullYear()} {env.marketplace.platformName}. All rights reserved.
           </p>
           <p className="subtle max-w-xl text-[12px] leading-relaxed">
-            Payments are processed by our payment provider. The platform is operated from Croatia
-            (EU); tax, consumer-protection and record-keeping obligations require review by a
-            qualified professional.
+            Payments and payouts are processed securely by Stripe. Card details never pass through{" "}
+            {env.marketplace.platformName} servers.
           </p>
         </div>
       </div>

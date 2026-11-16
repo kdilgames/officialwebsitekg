@@ -8,6 +8,7 @@ import { buttonClass } from "@/components/ui/button";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { requireUser } from "@/lib/auth/session";
 import { prisma } from "@/lib/db";
+import { withSchemaFallback } from "@/lib/db-compat";
 import { formatMoney } from "@/lib/money";
 import { requestRefundAction } from "@/lib/payments/actions";
 
@@ -28,49 +29,73 @@ function formatBytes(bytes: number): string {
   return `${value.toFixed(value >= 10 ? 0 : 1)} ${units[index]}`;
 }
 
-export default async function OrdersPage() {
-  const user = await requireUser("/account/orders");
+export default async function OrdersPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ claimed?: string }>;
+}) {
+  const [user, params] = await Promise.all([requireUser("/account/orders"), searchParams]);
+  const showClaimedBanner = params.claimed === "1";
 
-  const orders = await prisma.order.findMany({
-    where: { buyerId: user.id },
-    orderBy: { createdAt: "desc" },
-    take: ORDERS_SHOWN,
-    select: {
-      id: true,
-      orderNumber: true,
-      status: true,
-      currency: true,
-      totalMinor: true,
-      createdAt: true,
-      paidAt: true,
-      isTestMode: true,
-      receiptUrl: true,
-      refunds: {
-        orderBy: { createdAt: "desc" },
-        select: { id: true, amountMinor: true, status: true, adminNote: true, createdAt: true },
-      },
-      items: {
-        select: {
-          id: true,
-          titleSnapshot: true,
-          priceMinor: true,
-          status: true,
-          product: {
-            select: {
-              slug: true,
-              version: true,
-              // Only files that are active and cleared for delivery are offered.
-              files: {
-                where: { isActive: true, scanStatus: { in: ["CLEAN", "SKIPPED"] } },
-                orderBy: { createdAt: "desc" },
-                select: { id: true, fileName: true, sizeBytes: true },
-              },
+  const sharedOrderSelect = {
+    id: true,
+    orderNumber: true,
+    status: true,
+    currency: true,
+    subtotalMinor: true,
+    discountMinor: true,
+    totalMinor: true,
+    createdAt: true,
+    paidAt: true,
+    isTestMode: true,
+    receiptUrl: true,
+    refunds: {
+      orderBy: { createdAt: "desc" as const },
+      select: { id: true, amountMinor: true, status: true, adminNote: true, createdAt: true },
+    },
+    items: {
+      select: {
+        id: true,
+        titleSnapshot: true,
+        priceMinor: true,
+        status: true,
+        product: {
+          select: {
+            slug: true,
+            version: true,
+            // Only files that are active and cleared for delivery are offered.
+            files: {
+              where: { isActive: true, scanStatus: { in: ["CLEAN" as const, "SKIPPED" as const] } },
+              orderBy: { createdAt: "desc" as const },
+              select: { id: true, fileName: true, sizeBytes: true },
             },
           },
         },
       },
     },
-  });
+  };
+
+  const orders = await withSchemaFallback(
+    () =>
+      prisma.order.findMany({
+        where: { buyerId: user.id },
+        orderBy: { createdAt: "desc" },
+        take: ORDERS_SHOWN,
+        select: {
+          ...sharedOrderSelect,
+          couponCodeSnapshot: true,
+        },
+      }),
+    async () => {
+      const legacy = await prisma.order.findMany({
+        where: { buyerId: user.id },
+        orderBy: { createdAt: "desc" },
+        take: ORDERS_SHOWN,
+        select: sharedOrderSelect,
+      });
+      return legacy.map((row) => ({ ...row, couponCodeSnapshot: null as string | null }));
+    },
+  );
 
   if (orders.length === 0) {
     return (
@@ -98,6 +123,13 @@ export default async function OrdersPage() {
         </p>
       </header>
 
+      {showClaimedBanner ? (
+        <Alert tone="success" title="Your free download is ready">
+          Download links are unlocked below and remain available in your library whenever updates are
+          released.
+        </Alert>
+      ) : null}
+
       {orders.length === ORDERS_SHOWN ? (
         <Alert tone="info">
           Showing your {ORDERS_SHOWN} most recent orders. Contact support if you need an older
@@ -105,20 +137,28 @@ export default async function OrdersPage() {
         </Alert>
       ) : null}
 
-      {orders.map((order: any) => {
+      {orders.map((order) => {
         const unlocked = order.status === "PAID" || order.status === "PARTIALLY_REFUNDED";
         const latestRefund = order.refunds[0] ?? null;
         const refundInFlight =
           latestRefund !== null &&
           ["REQUESTED", "APPROVED", "PROCESSING"].includes(latestRefund.status);
+        const totalLabel =
+          order.totalMinor === 0 ? "Free" : formatMoney(order.totalMinor, order.currency);
 
         return (
           <Card key={order.id}>
             <CardHeader
               title={`Order ${order.orderNumber}`}
-              description={`${order.createdAt.toISOString().slice(0, 10)} · ${order.items.length} ${order.items.length === 1 ? "item" : "items"} · ${formatMoney(order.totalMinor, order.currency)}`}
+              description={`${order.createdAt.toISOString().slice(0, 10)} · ${order.items.length} ${order.items.length === 1 ? "item" : "items"} · ${totalLabel}`}
               actions={
-                <div className="flex items-center gap-1.5">
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {order.couponCodeSnapshot && order.discountMinor > 0 ? (
+                    <Badge tone="positive">
+                      {order.couponCodeSnapshot} (-
+                      {formatMoney(order.discountMinor, order.currency)})
+                    </Badge>
+                  ) : null}
                   {order.isTestMode ? <Badge tone="caution">Test mode</Badge> : null}
                   <StatusBadge status={order.status} />
                 </div>
@@ -126,7 +166,7 @@ export default async function OrdersPage() {
             />
 
             <ul className="divide-y divide-line">
-              {order.items.map((item: any) => (
+              {order.items.map((item) => (
                 <li key={item.id} className="flex flex-wrap items-center gap-3 px-4 py-3">
                   <div className="min-w-0 flex-1">
                     <Link
@@ -136,14 +176,17 @@ export default async function OrdersPage() {
                       {item.titleSnapshot}
                     </Link>
                     <p className="subtle mt-0.5 text-[11.5px]">
-                      v{item.product.version} · {formatMoney(item.priceMinor, order.currency)}
+                      v{item.product.version} ·{" "}
+                      {item.priceMinor === 0
+                        ? "Free"
+                        : formatMoney(item.priceMinor, order.currency)}
                     </p>
                   </div>
 
                   {unlocked ? (
                     item.product.files.length > 0 ? (
                       <div className="flex flex-wrap gap-1.5">
-                        {item.product.files.map((file: any) => (
+                        {item.product.files.map((file) => (
                           <a
                             key={file.id}
                             href={`/api/downloads/${file.id}`}
@@ -192,7 +235,7 @@ export default async function OrdersPage() {
                 </>
               ) : null}
 
-              {unlocked && !refundInFlight ? (
+              {unlocked && !refundInFlight && order.totalMinor > 0 ? (
                 <div className="w-full">
                   <div className="divider mb-3" />
                   <RefundRequestForm action={requestRefundAction} orderId={order.id} />

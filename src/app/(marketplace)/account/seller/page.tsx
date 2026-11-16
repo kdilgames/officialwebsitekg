@@ -1,5 +1,14 @@
 import Link from "next/link";
-import { BadgeCheck, Clock, LayoutDashboard, ShieldCheck, Store, XCircle } from "lucide-react";
+import {
+  BadgeCheck,
+  Clock,
+  ExternalLink,
+  LayoutDashboard,
+  MessageCircle,
+  ShieldCheck,
+  Store,
+  XCircle,
+} from "lucide-react";
 
 import { SellerApplicationForm } from "@/components/forms/account-forms";
 import { Alert } from "@/components/ui/alert";
@@ -11,6 +20,7 @@ import { requireUser } from "@/lib/auth/session";
 import { env } from "@/lib/env";
 import { bpsToPercent, formatBps } from "@/lib/commission";
 import { prisma } from "@/lib/db";
+import { getCommunityDiscordUrl } from "@/lib/queries/products";
 import { slugify } from "@/lib/utils/slug";
 
 export const dynamic = "force-dynamic";
@@ -22,10 +32,13 @@ export default async function SellerAccountPage() {
 
   // The advertised rate is the effective global commission: the highest-precedence
   // active rule that applies platform-wide, falling back to the configured default.
-  const globalRule = await prisma.commissionRule.findFirst({
-    where: { scope: "GLOBAL", isActive: true },
-    select: { rateBps: true },
-  });
+  const [globalRule, discordUrl] = await Promise.all([
+    prisma.commissionRule.findFirst({
+      where: { scope: "GLOBAL", isActive: true },
+      select: { rateBps: true },
+    }),
+    getCommunityDiscordUrl(),
+  ]);
   const commissionBps = globalRule?.rateBps ?? env.marketplace.defaultCommissionBps;
   const commission = formatBps(commissionBps);
   // What a seller keeps on a sale, ignoring per-category and per-product rules.
@@ -189,6 +202,31 @@ export default async function SellerAccountPage() {
           </CardBody>
         </Card>
       )}
+
+      {discordUrl ? (
+        <Card>
+          <CardBody className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-start gap-2.5">
+              <MessageCircle className="mt-0.5 size-4 shrink-0 text-accent" aria-hidden />
+              <div>
+                <p className="text-[13.5px] font-semibold text-ink">Creator Discord community</p>
+                <p className="muted text-[12.5px]">
+                  Connect with other creators, ask onboarding questions, and share release notes.
+                </p>
+              </div>
+            </div>
+            <a
+              href={discordUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={buttonClass("secondary", "sm")}
+            >
+              Join Discord
+              <ExternalLink className="size-3.5" aria-hidden />
+            </a>
+          </CardBody>
+        </Card>
+      ) : null}
 
       {profile?.status === "REJECTED" ? (
         <p className="flex items-center gap-1.5 text-[12px] text-ink-muted">

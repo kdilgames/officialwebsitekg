@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
-import { Heart, ShoppingCart, Star, UserPlus } from "lucide-react";
+import { Download, Heart, MessageSquarePlus, ShoppingCart, Star, UserPlus } from "lucide-react";
 
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -48,6 +48,46 @@ export function AddToCartButton({
         >
           <ShoppingCart className="size-4" aria-hidden />
           {pending ? "Adding…" : disabled ? (disabledReason ?? "Unavailable") : "Add to cart"}
+        </Button>
+      </form>
+      <Message state={state} />
+    </div>
+  );
+}
+
+export function FreeClaimButton({
+  action,
+  productId,
+  next,
+  disabled,
+  disabledReason,
+}: {
+  action: FormAction;
+  productId: string;
+  next: string;
+  disabled?: boolean;
+  disabledReason?: string;
+}) {
+  const [state, formAction, pending] = useActionState(action, idleState);
+
+  return (
+    <div>
+      <form action={formAction}>
+        <input type="hidden" name="productId" value={productId} />
+        <input type="hidden" name="next" value={next} />
+        <Button
+          type="submit"
+          variant="primary"
+          className="w-full"
+          disabled={pending || disabled}
+          title={disabled ? disabledReason : undefined}
+        >
+          <Download className="size-4" aria-hidden />
+          {pending
+            ? "Unlocking download…"
+            : disabled
+              ? (disabledReason ?? "Unavailable")
+              : "Get free download"}
         </Button>
       </form>
       <Message state={state} />
@@ -205,6 +245,72 @@ export function SellerReplyForm({ action, reviewId }: { action: FormAction; revi
         <Textarea name="reply" rows={3} required maxLength={2000} placeholder="Thanks for the feedback…" />
         <Button type="submit" variant="secondary" size="sm" disabled={pending}>
           {pending ? "Sending…" : "Publish reply"}
+        </Button>
+      </form>
+    </details>
+  );
+}
+
+export function AskQuestionForm({ action, productId }: { action: FormAction; productId: string }) {
+  const [state, formAction, pending] = useActionState(action, idleState);
+
+  return (
+    <form action={formAction} className="space-y-3">
+      <input type="hidden" name="productId" value={productId} />
+      <Message state={state} />
+      <Field
+        label="Ask a pre-sale question"
+        htmlFor="qa-question"
+        error={state.fieldErrors?.question}
+      >
+        <Textarea
+          id="qa-question"
+          name="question"
+          rows={3}
+          minLength={8}
+          maxLength={1000}
+          required
+          placeholder="Ask about compatibility, dependencies, included files, or license terms…"
+        />
+      </Field>
+      <Button type="submit" variant="secondary" size="sm" disabled={pending}>
+        <MessageSquarePlus className="size-3.5" aria-hidden />
+        {pending ? "Posting…" : "Post question"}
+      </Button>
+    </form>
+  );
+}
+
+export function AnswerQuestionForm({
+  action,
+  questionId,
+  defaultAnswer,
+}: {
+  action: FormAction;
+  questionId: string;
+  defaultAnswer?: string | null;
+}) {
+  const [state, formAction, pending] = useActionState(action, idleState);
+
+  return (
+    <details className="mt-2">
+      <summary className="cursor-pointer text-[12px] font-medium text-accent hover:underline">
+        {defaultAnswer ? "Edit answer" : "Answer question"}
+      </summary>
+      <form action={formAction} className="mt-2 space-y-2">
+        <input type="hidden" name="questionId" value={questionId} />
+        <Message state={state} />
+        <Textarea
+          name="answer"
+          rows={3}
+          minLength={3}
+          maxLength={2000}
+          defaultValue={defaultAnswer ?? ""}
+          required
+          placeholder="Write a helpful public answer for prospective buyers…"
+        />
+        <Button type="submit" variant="secondary" size="sm" disabled={pending}>
+          {pending ? "Saving…" : "Save answer"}
         </Button>
       </form>
     </details>

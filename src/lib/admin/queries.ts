@@ -1,5 +1,10 @@
+import { getConfiguredAdminEmails } from "@/lib/auth/admin-access";
+import { isOwnerEmail, normalizeEmail } from "@/lib/auth/admin-access-rules";
 import { prisma } from "@/lib/db";
+import { isMissingSchemaError, withSchemaFallback } from "@/lib/db-compat";
 import { sweepMaturedEarnings } from "@/lib/payments/payouts";
+import { getCommunityDiscordUrl } from "@/lib/queries/products";
+import { getSiteAnnouncementRaw } from "@/lib/settings";
 
 /**
  * Admin read layer.
@@ -965,3 +970,246 @@ export async function listAuditLogs(params: { action?: string; page?: number }) 
 }
 
 export type AuditLogRow = Awaited<ReturnType<typeof listAuditLogs>>["items"][number];
+
+// ---------------------------------------------------------------- coupons
+
+export async function listAdminCoupons() {
+  return withSchemaFallback(
+    () =>
+      prisma.coupon.findMany({
+        orderBy: [{ sellerId: "asc" }, { createdAt: "desc" }],
+        select: {
+          id: true,
+          code: true,
+          sellerId: true,
+          discountType: true,
+          percentOff: true,
+          amountOffMinor: true,
+          currency: true,
+          minSubtotalMinor: true,
+          maxRedemptions: true,
+          redemptionCount: true,
+          isActive: true,
+          expiresAt: true,
+          createdAt: true,
+          seller: { select: { storeName: true, slug: true } },
+        },
+      }),
+    [],
+  );
+}
+
+// ---------------------------------------------------------------- access & operations overview
+
+export type AdminAccessEntry = {
+  email: string;
+  sources: Array<"owner" | "env" | "allowlist" | "role">;
+  isOwner: boolean;
+  isEnvManaged: boolean;
+  isAllowlisted: boolean;
+  user: {
+    id: string;
+    username: string;
+    displayName: string;
+    email: string;
+    emailVerified: boolean;
+    role: "USER" | "SELLER" | "ADMIN";
+    status: "ACTIVE" | "SUSPENDED" | "DELETED";
+    lastLoginAt: Date | null;
+    createdAt: Date;
+  } | null;
+};
+
+export async function getAdminAccessOverview() {
+  const { ownerEmail, envAdminEmails, settingEmails, combined } = await getConfiguredAdminEmails();
+  const allConfiguredEmails = [...combined];
+
+  const matchingUsers = await prisma.user.findMany({
+    where: {
+      OR: [
+        { role: "ADMIN" },
+        ...allConfiguredEmails.map((email) => ({
+          email: { equals: email, mode: "insensitive" as const },
+        })),
+      ],
+    },
+    orderBy: { createdAt: "asc" },
+    select: {
+      id: true,
+      username: true,
+      displayName: true,
+      email: true,
+      emailVerified: true,
+      role: true,
+      status: true,
+      lastLoginAt: true,
+      createdAt: true,
+    },
+  });
+
+  const userByEmail = new Map<string, (typeof matchingUsers)[number]>();
+  for (const row of matchingUsers) {
+    const normalized = normalizeEmail(row.email);
+    if (normalized) userByEmail.set(normalized, row);
+  }
+
+  const allEmails = new Set<string>(allConfiguredEmails);
+  for (const row of matchingUsers) {
+    if (row.role === "ADMIN") {
+      const normalized = normalizeEmail(row.email);
+      if (normalized) allEmails.add(normalized);
+    }
+  }
+
+  const entries: AdminAccessEntry[] = [...allEmails]
+    .map((email) => {
+      const isOwner = isOwnerEmail(email, ownerEmail);
+      const isEnvManaged = envAdminEmails.includes(email);
+      const isAllowlisted = settingEmails.includes(email);
+      const user = userByEmail.get(email) ?? null;
+
+      const sources: AdminAccessEntry["sources"] = [];
+      if (isOwner) sources.push("owner");
+      if (isEnvManaged) sources.push("env");
+      if (isAllowlisted) sources.push("allowlist");
+      if (user?.role === "ADMIN" && sources.length === 0) sources.push("role");
+
+      return {
+        email,
+        sources,
+        isOwner,
+        isEnvManaged,
+        isAllowlisted,
+        user,
+      };
+    })
+    .sort((a, b) => {
+      if (a.isOwner !== b.isOwner) return a.isOwner ? -1 : 1;
+      const aActive = a.user?.role === "ADMIN" ? 1 : 0;
+      const bActive = b.user?.role === "ADMIN" ? 1 : 0;
+      if (aActive !== bActive) return bActive - aActive;
+      return a.email.localeCompare(b.email);
+    });
+
+  const ownerEntry = entries.find((entry) => entry.isOwner) ?? {
+    email: ownerEmail,
+    sources: ["owner" as const],
+    isOwner: true,
+    isEnvManaged: false,
+    isAllowlisted: false,
+    user: null,
+  };
+
+  const recentAccessEvents = await prisma.auditLog.findMany({
+    where: {
+      OR: [
+        { action: { startsWith: "admin." } },
+        { action: "auth.admin_auto_promoted" },
+        { action: "user.role_changed" },
+      ],
+    },
+    orderBy: { createdAt: "desc" },
+    take: 12,
+    select: {
+      id: true,
+      action: true,
+      actorRole: true,
+      after: true,
+      before: true,
+      ipAddress: true,
+      createdAt: true,
+      actor: { select: { username: true, displayName: true } },
+    },
+  });
+
+  return {
+    ownerEmail,
+    ownerEntry,
+    entries,
+    recentAccessEvents,
+  };
+}
+
+async function checkMarketplaceSchemaReady(): Promise<boolean> {
+  try {
+    await Promise.all([prisma.coupon.count(), prisma.productBundle.count()]);
+    return true;
+  } catch (error) {
+    if (isMissingSchemaError(error)) return false;
+    throw error;
+  }
+}
+
+export async function getAdminOverviewExtras() {
+  const { ownerEmail } = await getConfiguredAdminEmails();
+
+  const [
+    recentOrders,
+    recentAuditLogs,
+    ownerUser,
+    marketplaceSchemaReady,
+    unansweredQuestions,
+    discordUrl,
+    announcement,
+  ] = await Promise.all([
+    prisma.order.findMany({
+      orderBy: { createdAt: "desc" },
+      take: 6,
+      select: {
+        id: true,
+        orderNumber: true,
+        status: true,
+        currency: true,
+        totalMinor: true,
+        platformFeeMinor: true,
+        paidAt: true,
+        createdAt: true,
+        buyer: { select: { username: true, displayName: true, email: true } },
+      },
+    }),
+    prisma.auditLog.findMany({
+      orderBy: { createdAt: "desc" },
+      take: 8,
+      select: {
+        id: true,
+        action: true,
+        actorRole: true,
+        entityType: true,
+        createdAt: true,
+        actor: { select: { username: true, displayName: true } },
+      },
+    }),
+    prisma.user.findFirst({
+      where: { email: { equals: ownerEmail, mode: "insensitive" } },
+      select: {
+        id: true,
+        username: true,
+        displayName: true,
+        email: true,
+        emailVerified: true,
+        role: true,
+        status: true,
+        lastLoginAt: true,
+      },
+    }),
+    checkMarketplaceSchemaReady(),
+    withSchemaFallback(
+      () => prisma.productQuestion.count({ where: { isHidden: false, answer: null } }),
+      0,
+    ),
+    getCommunityDiscordUrl(),
+    getSiteAnnouncementRaw(),
+  ]);
+
+  return {
+    recentOrders,
+    recentAuditLogs,
+    ownerEmail,
+    ownerUser,
+    marketplaceSchemaReady,
+    unansweredQuestions,
+    discordUrl,
+    announcement,
+  };
+}
+

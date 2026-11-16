@@ -4,6 +4,8 @@ const LINKS = [
   { href: "/account", label: "Overview" },
   { href: "/account/orders", label: "Orders & downloads" },
   { href: "/account/wishlist", label: "Wishlist" },
+  { href: "/account/following", label: "Following" },
+  { href: "/account/notifications", label: "Notifications" },
   { href: "/account/seller", label: "Selling" },
   { href: "/support", label: "Support" },
 ];

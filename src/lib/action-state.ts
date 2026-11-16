@@ -7,6 +7,23 @@ export type ActionState = {
 
 export const idleState: ActionState = { status: "idle" };
 
+/** Action state for flows that redirect the browser to an external URL (e.g. Stripe Connect). */
+export type ConnectActionState = {
+  status: "idle" | "redirect" | "error";
+  url?: string;
+  message?: string;
+};
+
+export type CreateProductDraftResult =
+  | { ok: true; productId: string; versionId: string | null }
+  | { ok: false; state: ActionState };
+
+export type PublishProductUpdateResult =
+  | { ok: true; versionId: string }
+  | { ok: false; state: ActionState };
+
+export const idleConnectState: ConnectActionState = { status: "idle" };
+
 export function errorState(message: string, fieldErrors?: Record<string, string>): ActionState {
   return { status: "error", message, ...(fieldErrors ? { fieldErrors } : {}) };
 }
