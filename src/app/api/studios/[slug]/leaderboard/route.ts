@@ -4,14 +4,20 @@ import { prisma } from "@/lib/db";
 import { rateLimit } from "@/lib/rate-limit";
 import { getStudioAppBySlug } from "@/lib/studios/apps";
 import {
+  getCurrentSprintWeekKey,
   getStudioLeaderboard,
   isValidPlayerKey,
   leaderboardSubmissionSchema,
   sanitizeStudioName,
+  type LeaderboardMode,
 } from "@/lib/studios/leaderboard";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+function parseMode(raw: string | null): LeaderboardMode {
+  return raw === "weekly" ? "weekly" : "all";
+}
 
 export async function GET(
   request: Request,
@@ -24,10 +30,11 @@ export async function GET(
 
   const url = new URL(request.url);
   const playerKey = url.searchParams.get("playerKey");
+  const mode = parseMode(url.searchParams.get("mode"));
   const limitParam = Number.parseInt(url.searchParams.get("limit") ?? "50", 10);
   const limit = Number.isFinite(limitParam) ? limitParam : 50;
 
-  const snapshot = await getStudioLeaderboard(slug, playerKey, limit);
+  const snapshot = await getStudioLeaderboard(slug, playerKey, limit, mode);
   return NextResponse.json(snapshot, {
     headers: { "Cache-Control": "no-store" },
   });
@@ -68,6 +75,13 @@ export async function POST(
 
   const cleanName = sanitizeStudioName(data.companyName);
   const techTokensBigInt = BigInt(Math.max(0, Math.floor(data.techTokens)));
+  const currentWeek = getCurrentSprintWeekKey();
+  const sprintKey =
+    data.weeklySprintKey && /^w[0-9]{1,8}$/.test(data.weeklySprintKey)
+      ? data.weeklySprintKey
+      : currentWeek;
+  const url = new URL(request.url);
+  const mode = parseMode(url.searchParams.get("mode"));
 
   await prisma.studioLeaderboardEntry.upsert({
     where: {
@@ -85,7 +99,11 @@ export async function POST(
       facilityLevel: data.facilityLevel,
       activeServers: data.activeServers,
       contractsDone: data.contractsDone,
-      appVersion: data.appVersion ?? "1.5.0",
+      holdingRegions: data.holdingRegions,
+      megaProjectsDone: data.megaProjectsDone,
+      weeklySprintKey: sprintKey,
+      weeklySprintScore: data.weeklySprintScore,
+      appVersion: data.appVersion ?? "1.6.0",
     },
     update: {
       companyName: cleanName,
@@ -94,11 +112,15 @@ export async function POST(
       facilityLevel: data.facilityLevel,
       activeServers: data.activeServers,
       contractsDone: data.contractsDone,
-      appVersion: data.appVersion ?? "1.5.0",
+      holdingRegions: data.holdingRegions,
+      megaProjectsDone: data.megaProjectsDone,
+      weeklySprintKey: sprintKey,
+      weeklySprintScore: data.weeklySprintScore,
+      appVersion: data.appVersion ?? "1.6.0",
     },
   });
 
-  const snapshot = await getStudioLeaderboard(slug, data.playerKey, 50);
+  const snapshot = await getStudioLeaderboard(slug, data.playerKey, 50, mode);
   return NextResponse.json(snapshot, {
     headers: { "Cache-Control": "no-store" },
   });

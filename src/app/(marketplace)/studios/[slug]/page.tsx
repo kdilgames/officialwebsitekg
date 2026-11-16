@@ -6,6 +6,7 @@ import { ArrowLeft, CheckCircle2, ExternalLink, FileText, ShieldCheck, Trophy } 
 
 import { StudiosSidebar } from "@/components/studios/studios-sidebar";
 import { STUDIO_APPS, getStudioAppBySlug } from "@/lib/studios/apps";
+import type { PublicLeaderboardEntry } from "@/lib/studios/leaderboard";
 import {
   formatCompactCount,
   formatCompactUsd,
@@ -41,8 +42,13 @@ export default async function StudioAppPage({
   const app = getStudioAppBySlug(slug);
   if (!app) notFound();
 
-  const leaderboard =
-    app.slug === "byterack-tycoon" ? await getStudioLeaderboard(app.slug, undefined, 25) : null;
+  const [allTimeBoard, weeklyBoard] =
+    app.slug === "byterack-tycoon"
+      ? await Promise.all([
+          getStudioLeaderboard(app.slug, undefined, 25, "all"),
+          getStudioLeaderboard(app.slug, undefined, 10, "weekly"),
+        ])
+      : [null, null];
 
   return (
     <div className="mx-auto max-w-[1280px] px-4 py-8 sm:px-6 sm:py-10">
@@ -142,70 +148,31 @@ export default async function StudioAppPage({
 
               <div className="divider my-6" />
 
-              {leaderboard ? (
+              {allTimeBoard ? (
                 <>
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <div>
-                      <h2 className="flex items-center gap-2 text-[17px] font-semibold text-ink">
-                        <Trophy className="size-4 text-accent" aria-hidden />
-                        Global Studio Leaderboard
-                      </h2>
-                      <p className="muted mt-0.5 text-[13px]">
-                        Top hosting studios synced from ByteRack Tycoon (opt-in anonymous rankings).
-                      </p>
-                    </div>
-                    <span className="badge font-mono">
-                      {formatCompactCount(leaderboard.totalPlayers)}{" "}
-                      {leaderboard.totalPlayers === 1 ? "studio ranked" : "studios ranked"}
-                    </span>
-                  </div>
+                  <LeaderboardSection
+                    title="Global Studio Leaderboard"
+                    subtitle="Top hosting studios synced from ByteRack Tycoon (opt-in anonymous rankings)."
+                    badgeText={`${formatCompactCount(allTimeBoard.totalPlayers)} ${allTimeBoard.totalPlayers === 1 ? "studio ranked" : "studios ranked"}`}
+                    emptyText="No hosting studios have synced yet — be the first to claim #1 in ByteRack Tycoon v1.6.0!"
+                    entries={allTimeBoard.entries}
+                    metricHeader="Lifetime Revenue"
+                    formatMetric={(entry) => formatCompactUsd(entry.lifetimeEarnings)}
+                  />
 
-                  {leaderboard.entries.length === 0 ? (
-                    <div className="mt-3 rounded-[10px] border border-dashed border-line bg-elevated/40 p-5 text-center text-[13.5px] text-ink-muted">
-                      No hosting studios have synced yet — be the first to claim #1 in{" "}
-                      <span className="font-semibold text-ink">ByteRack Tycoon v1.5.0</span>!
+                  {weeklyBoard ? (
+                    <div className="mt-6">
+                      <LeaderboardSection
+                        title={`Weekly Sprint Challenge (${weeklyBoard.weekKey.toUpperCase()})`}
+                        subtitle="Fresh 7-day competitive sprint where veteran holdings and new studios race side by side."
+                        badgeText={`${formatCompactCount(weeklyBoard.totalPlayers)} in sprint`}
+                        emptyText="No sprint scores recorded this week yet — tap Sync Score inside Ranks to enter!"
+                        entries={weeklyBoard.entries}
+                        metricHeader="Sprint Score"
+                        formatMetric={(entry) => formatCompactUsd(entry.weeklySprintScore)}
+                      />
                     </div>
-                  ) : (
-                    <div className="mt-3 overflow-x-auto rounded-[10px] border border-line">
-                      <table className="w-full border-collapse text-left text-[13px]">
-                        <thead className="border-b border-line bg-elevated/70 text-[11.5px] uppercase tracking-wider text-ink-muted">
-                          <tr>
-                            <th className="px-3.5 py-2.5 font-semibold">Rank</th>
-                            <th className="px-3.5 py-2.5 font-semibold">Studio</th>
-                            <th className="px-3.5 py-2.5 font-semibold">League / Facility</th>
-                            <th className="px-3.5 py-2.5 text-right font-semibold">Servers</th>
-                            <th className="px-3.5 py-2.5 text-right font-semibold">TT</th>
-                            <th className="px-3.5 py-2.5 text-right font-semibold">Lifetime Revenue</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-line">
-                          {leaderboard.entries.map((entry) => (
-                            <tr key={`${entry.rank}-${entry.companyName}-${entry.updatedAt}`} className="hover:bg-elevated/40">
-                              <td className="px-3.5 py-2.5 font-mono font-bold text-ink">
-                                #{entry.rank}
-                              </td>
-                              <td className="px-3.5 py-2.5 font-semibold text-ink">
-                                {entry.companyName}
-                              </td>
-                              <td className="px-3.5 py-2.5">
-                                <div className="text-ink">{entry.league}</div>
-                                <div className="subtle text-[11.5px]">{entry.facilityName}</div>
-                              </td>
-                              <td className="px-3.5 py-2.5 text-right font-mono text-ink-muted">
-                                {formatCompactCount(entry.activeServers)}
-                              </td>
-                              <td className="px-3.5 py-2.5 text-right font-mono text-ink-muted">
-                                {formatCompactCount(entry.techTokens)}
-                              </td>
-                              <td className="px-3.5 py-2.5 text-right font-mono font-semibold text-positive">
-                                {formatCompactUsd(entry.lifetimeEarnings)}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
+                  ) : null}
 
                   <div className="divider my-6" />
                 </>
@@ -235,6 +202,83 @@ export default async function StudioAppPage({
           </article>
         </div>
       </div>
+    </div>
+  );
+}
+
+function LeaderboardSection({
+  title,
+  subtitle,
+  badgeText,
+  emptyText,
+  entries,
+  metricHeader,
+  formatMetric,
+}: {
+  title: string;
+  subtitle: string;
+  badgeText: string;
+  emptyText: string;
+  entries: PublicLeaderboardEntry[];
+  metricHeader: string;
+  formatMetric: (entry: PublicLeaderboardEntry) => string;
+}) {
+  return (
+    <div>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <h2 className="flex items-center gap-2 text-[17px] font-semibold text-ink">
+            <Trophy className="size-4 text-accent" aria-hidden />
+            {title}
+          </h2>
+          <p className="muted mt-0.5 text-[13px]">{subtitle}</p>
+        </div>
+        <span className="badge font-mono">{badgeText}</span>
+      </div>
+
+      {entries.length === 0 ? (
+        <div className="mt-3 rounded-[10px] border border-dashed border-line bg-elevated/40 p-5 text-center text-[13.5px] text-ink-muted">
+          {emptyText}
+        </div>
+      ) : (
+        <div className="mt-3 overflow-x-auto rounded-[10px] border border-line">
+          <table className="w-full border-collapse text-left text-[13px]">
+            <thead className="border-b border-line bg-elevated/70 text-[11.5px] uppercase tracking-wider text-ink-muted">
+              <tr>
+                <th className="px-3.5 py-2.5 font-semibold">Rank</th>
+                <th className="px-3.5 py-2.5 font-semibold">Studio</th>
+                <th className="px-3.5 py-2.5 font-semibold">League / Holding</th>
+                <th className="px-3.5 py-2.5 text-right font-semibold">Servers</th>
+                <th className="px-3.5 py-2.5 text-right font-semibold">TT</th>
+                <th className="px-3.5 py-2.5 text-right font-semibold">{metricHeader}</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-line">
+              {entries.map((entry) => (
+                <tr key={`${entry.rank}-${entry.companyName}-${entry.updatedAt}`} className="hover:bg-elevated/40">
+                  <td className="px-3.5 py-2.5 font-mono font-bold text-ink">#{entry.rank}</td>
+                  <td className="px-3.5 py-2.5 font-semibold text-ink">{entry.companyName}</td>
+                  <td className="px-3.5 py-2.5">
+                    <div className="text-ink">{entry.league}</div>
+                    <div className="subtle text-[11.5px]">
+                      {entry.facilityName} · {entry.holdingRegions}R / {entry.megaProjectsDone}MP
+                    </div>
+                  </td>
+                  <td className="px-3.5 py-2.5 text-right font-mono text-ink-muted">
+                    {formatCompactCount(entry.activeServers)}
+                  </td>
+                  <td className="px-3.5 py-2.5 text-right font-mono text-ink-muted">
+                    {formatCompactCount(entry.techTokens)}
+                  </td>
+                  <td className="px-3.5 py-2.5 text-right font-mono font-semibold text-positive">
+                    {formatMetric(entry)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }

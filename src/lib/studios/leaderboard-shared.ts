@@ -12,6 +12,8 @@ export const STUDIO_FACILITY_NAMES = [
   "Arctic Deep Vault",
 ] as const;
 
+export type LeaderboardMode = "all" | "weekly";
+
 export const leaderboardSubmissionSchema = z.object({
   playerKey: z
     .string()
@@ -23,6 +25,10 @@ export const leaderboardSubmissionSchema = z.object({
   facilityLevel: z.number().int().min(0).max(STUDIO_FACILITY_NAMES.length - 1),
   activeServers: z.number().int().min(0).max(200_000),
   contractsDone: z.number().int().min(0).max(100_000),
+  holdingRegions: z.number().int().min(1).max(10_000).optional().default(1),
+  megaProjectsDone: z.number().int().min(0).max(5_000).optional().default(0),
+  weeklySprintKey: z.string().trim().max(24).optional().default(""),
+  weeklySprintScore: z.number().finite().min(0).max(1e120).optional().default(0),
   appVersion: z.string().trim().max(16).optional(),
 });
 
@@ -38,16 +44,27 @@ export type PublicLeaderboardEntry = {
   league: string;
   activeServers: number;
   contractsDone: number;
+  holdingRegions: number;
+  megaProjectsDone: number;
+  weeklySprintScore: number;
   isMe: boolean;
   updatedAt: string;
 };
 
 export type StudioLeaderboardSnapshot = {
   appSlug: string;
+  mode: LeaderboardMode;
+  weekKey: string;
   totalPlayers: number;
   entries: PublicLeaderboardEntry[];
   me: PublicLeaderboardEntry | null;
 };
+
+export function getCurrentSprintWeekKey(nowEpochMs: number = Date.now()): string {
+  const safeMs = Number.isFinite(nowEpochMs) && nowEpochMs > 0 ? nowEpochMs : 0;
+  const weekNum = Math.floor(safeMs / 604_800_000);
+  return `w${weekNum}`;
+}
 
 export function sanitizeStudioName(raw: string): string {
   const cleaned = raw
@@ -67,7 +84,13 @@ export function getFacilityDisplayName(level: number): string {
   return STUDIO_FACILITY_NAMES[clamped] ?? "Small Bedroom";
 }
 
-export function getStudioLeague(facilityLevel: number, lifetimeEarnings: number): string {
+export function getStudioLeague(
+  facilityLevel: number,
+  lifetimeEarnings: number,
+  holdingRegions = 1,
+): string {
+  if (holdingRegions >= 3) return "Orbital Holding";
+  if (holdingRegions >= 2) return "Holding Magnate";
   if (facilityLevel >= 8 || lifetimeEarnings >= 1e18) return "Arctic Sovereign";
   if (facilityLevel >= 6 || lifetimeEarnings >= 1e12) return "Oceanic Titan";
   if (facilityLevel >= 4 || lifetimeEarnings >= 1e8) return "Cloud Architect";
