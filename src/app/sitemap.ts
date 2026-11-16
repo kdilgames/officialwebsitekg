@@ -3,6 +3,7 @@ import type { MetadataRoute } from "next";
 import { prisma } from "@/lib/db";
 import { withSchemaFallback } from "@/lib/db-compat";
 import { LEGAL_PAGES } from "@/lib/legal/content";
+import { STUDIO_APPS } from "@/lib/studios/apps";
 import { getRequestOrigin } from "@/lib/utils/origin";
 
 export const dynamic = "force-dynamic";
@@ -15,6 +16,23 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${origin}/`, lastModified: now, changeFrequency: "daily", priority: 1 },
     { url: `${origin}/browse`, lastModified: now, changeFrequency: "hourly", priority: 0.9 },
     { url: `${origin}/sellers`, lastModified: now, changeFrequency: "daily", priority: 0.7 },
+    { url: `${origin}/studios`, lastModified: now, changeFrequency: "weekly", priority: 0.7 },
+    { url: `${origin}/studios/privacy`, lastModified: now, changeFrequency: "monthly", priority: 0.4 },
+    { url: `${origin}/privacy`, lastModified: now, changeFrequency: "monthly", priority: 0.4 },
+    ...STUDIO_APPS.flatMap((app) => [
+      {
+        url: `${origin}/studios/${app.slug}`,
+        lastModified: now,
+        changeFrequency: "weekly" as const,
+        priority: 0.65,
+      },
+      {
+        url: `${origin}/studios/${app.slug}/privacy`,
+        lastModified: now,
+        changeFrequency: "monthly" as const,
+        priority: 0.45,
+      },
+    ]),
     { url: `${origin}/support`, lastModified: now, changeFrequency: "weekly", priority: 0.5 },
     { url: `${origin}/report`, lastModified: now, changeFrequency: "monthly", priority: 0.3 },
   ];

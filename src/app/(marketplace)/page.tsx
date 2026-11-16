@@ -16,6 +16,7 @@ import { BrandMark } from "@/components/layout/brand-mark";
 import { BundleCard } from "@/components/marketplace/bundle-card";
 import { getCategoryVisual } from "@/components/marketplace/category-visuals";
 import { ProductGrid, type ProductCardData } from "@/components/marketplace/product-card";
+import { StudiosHomepageSection } from "@/components/studios/studios-homepage-section";
 import { buildCategoryTree } from "@/lib/catalog-hierarchy";
 import { formatMoney } from "@/lib/money";
 import {
@@ -470,6 +471,8 @@ export default async function HomePage({
           </Link>
         </div>
       </section>
+
+      <StudiosHomepageSection />
     </div>
   );
 }

@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import {
   Bell,
+  Gamepad2,
   Heart,
   LayoutDashboard,
   LogIn,
@@ -70,6 +71,14 @@ export async function SiteHeader() {
               {link.label}
             </Link>
           ))}
+          <span className="mx-1.5 h-4 w-px bg-line" aria-hidden />
+          <Link
+            href="/studios"
+            className="btn btn-ghost btn-sm text-accent hover:bg-accent-quiet/60 hover:text-accent-ink"
+          >
+            <Gamepad2 className="size-3.5" aria-hidden />
+            Software Studios
+          </Link>
         </nav>
 
         <form action="/browse" className="relative ml-auto hidden w-full max-w-xs sm:block lg:max-w-sm">
@@ -238,6 +247,14 @@ export async function SiteHeader() {
                 {link.label}
               </Link>
             ))}
+            <span className="mx-0.5 h-3.5 w-px shrink-0 bg-line" aria-hidden />
+            <Link
+              href="/studios"
+              className="btn btn-ghost btn-sm shrink-0 text-accent"
+            >
+              <Gamepad2 className="size-3.5" aria-hidden />
+              Software Studios
+            </Link>
           </nav>
           <form action="/browse" className="relative w-40 shrink-0 sm:hidden">
             <Search

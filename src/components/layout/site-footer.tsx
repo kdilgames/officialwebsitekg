@@ -34,10 +34,19 @@ const COLUMNS = [
     ],
   },
   {
+    title: "Software Studios",
+    links: [
+      { href: "/studios", label: "All Apps & Games" },
+      { href: "/studios/byterack-tycoon", label: "ByteRack Tycoon" },
+      { href: "/studios/byterack-tycoon/privacy", label: "ByteRack Privacy Policy" },
+      { href: "/studios/privacy", label: "Studios Privacy Policy" },
+    ],
+  },
+  {
     title: "Legal",
     links: [
       { href: "/legal/terms", label: "Terms of Service" },
-      { href: "/legal/privacy", label: "Privacy Policy" },
+      { href: "/legal/privacy", label: "Marketplace Privacy Policy" },
       { href: "/legal/refunds", label: "Refund Policy" },
       { href: "/legal/cookies", label: "Cookie Policy" },
     ],
@@ -50,7 +59,7 @@ export async function SiteFooter() {
   return (
     <footer className="border-t border-line bg-surface">
       <div className="mx-auto max-w-[1400px] px-4 py-12 sm:px-6">
-        <div className="grid gap-10 md:grid-cols-[minmax(0,1.5fr)_repeat(4,minmax(0,1fr))]">
+        <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-[minmax(0,1.4fr)_repeat(5,minmax(0,1fr))]">
           <div>
             <Link href="/" className="inline-block rounded-[9px] py-0.5 pr-1">
               <BrandMark />
