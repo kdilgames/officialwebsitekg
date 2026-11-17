@@ -27,7 +27,7 @@ describe("KDILGAMES Software Studios catalog", () => {
   it("includes ByteRack Tycoon with matching Android package ID and Play privacy/terms coverage", () => {
     const byteRack = getStudioAppBySlug("byterack-tycoon");
     expect(byteRack).toBeDefined();
-    expect(byteRack?.packageName).toBe("com.karlo.byterack");
+    expect(byteRack?.packageName).toBe("com.kdilgames.ByteRackTycoon");
     expect(byteRack?.privacyPolicy.summary.toLowerCase()).toContain("offline-first");
     expect(byteRack?.termsOfService.sections.length).toBeGreaterThan(0);
     expect(STUDIO_GENERAL_PRIVACY.sections.length).toBeGreaterThan(0);

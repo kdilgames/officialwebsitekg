@@ -80,7 +80,7 @@ export const STUDIO_APPS: StudioApp[] = [
     kind: "Game",
     category: "Simulation · Idle Tycoon",
     platform: "Android · Google Play",
-    packageName: "com.karlo.byterack",
+    packageName: "com.kdilgames.ByteRackTycoon",
     version: "1.6.0",
     status: "RELEASE_CANDIDATE",
     statusLabel: "Google Play Ready",
@@ -113,7 +113,7 @@ export const STUDIO_APPS: StudioApp[] = [
         {
           heading: "1. Overview & Developer Identity",
           paragraphs: [
-            'This Privacy Policy explains how KDILGAMES Software Studios ("we", "our", or "us") handles information in connection with the mobile application ByteRack Tycoon (package ID com.karlo.byterack).',
+            'This Privacy Policy explains how KDILGAMES Software Studios ("we", "our", or "us") handles information in connection with the mobile application ByteRack Tycoon (package ID com.kdilgames.ByteRackTycoon).',
             "ByteRack Tycoon runs offline-first directly on your device without requiring registration, email login, phone numbers, or personal profiles.",
           ],
         },
@@ -197,12 +197,12 @@ export const STUDIO_APPS: StudioApp[] = [
       lastUpdated: "November 16, 2026",
       version: "1.0",
       summary:
-        "Terms of Service for ByteRack Tycoon (com.karlo.byterack), published by KDILGAMES Software Studios (Croatia, EU) for Google Play users and EU Digital Services Act compliance.",
+        "Terms of Service for ByteRack Tycoon (com.kdilgames.ByteRackTycoon), published by KDILGAMES Software Studios (Croatia, EU) for Google Play users and EU Digital Services Act compliance.",
       sections: [
         {
           heading: "1. Scope & Publisher Information",
           paragraphs: [
-            'These Terms of Service govern your download, installation, and use of the mobile game ByteRack Tycoon (package ID com.karlo.byterack), developed and published by KDILGAMES Software Studios ("we", "our", or "us"), operated in Croatia (EU).',
+            'These Terms of Service govern your download, installation, and use of the mobile game ByteRack Tycoon (package ID com.kdilgames.ByteRackTycoon), developed and published by KDILGAMES Software Studios ("we", "our", or "us"), operated in Croatia (EU).',
             "By downloading or playing ByteRack Tycoon through Google Play, you also remain subject to the Google Play Terms of Service.",
           ],
           links: [
