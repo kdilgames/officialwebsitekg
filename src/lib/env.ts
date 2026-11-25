@@ -141,6 +141,12 @@ export const env = {
     secretKey: optional(process.env.TURNSTILE_SECRET_KEY),
   },
 
+  email: {
+    resendApiKey: optional(process.env.RESEND_API_KEY),
+    from: optional(process.env.EMAIL_FROM) ?? "KDILGAMES <noreply@kdilgames.com>",
+    supportEmail: optional(process.env.SUPPORT_EMAIL) ?? optional(process.env.ADMIN_OWNER_EMAIL) ?? DEFAULT_OWNER_EMAIL,
+  },
+
   uploads: {
     maxFileBytes: 512 * 1024 * 1024,
     maxImageBytes: 8 * 1024 * 1024,
@@ -168,6 +174,7 @@ export const isSentryConfigured = Boolean(env.sentry.dsn);
 export const isTurnstileConfigured = Boolean(
   env.turnstile.siteKey && env.turnstile.secretKey,
 );
+export const isEmailConfigured = Boolean(env.email.resendApiKey);
 
 /**
  * Throws a descriptive error when a required configuration block is missing.

@@ -13,6 +13,8 @@ import {
 import { getRequestContext, notify, recordAudit } from "@/lib/audit";
 import { requireUser } from "@/lib/auth/session";
 import { prisma } from "@/lib/db";
+import { sendTicketReplyEmail } from "@/lib/email/notifications";
+import { env } from "@/lib/env";
 import { rateLimit } from "@/lib/rate-limit";
 import { verifyTurnstileFromFormData } from "@/lib/turnstile";
 import { ticketReplySchema, ticketSchema } from "@/lib/validation";
@@ -116,7 +118,7 @@ export async function replyToTicketAction(
 
   const ticket = await prisma.supportTicket.findFirst({
     where: { id: parsed.data.ticketId, userId: user.id },
-    select: { id: true, status: true, assignedToId: true, ticketNumber: true },
+    select: { id: true, status: true, assignedToId: true, ticketNumber: true, subject: true },
   });
   if (!ticket) return errorState("Ticket not found.");
   if (ticket.status === "CLOSED") {
@@ -141,6 +143,15 @@ export async function replyToTicketAction(
       href: "/admin/tickets",
     });
   }
+
+  await sendTicketReplyEmail({
+    recipientEmail: env.email.supportEmail,
+    ticketNumber: ticket.ticketNumber,
+    subject: ticket.subject,
+    authorLabel: `@${user.username}`,
+    replyBody: parsed.data.body,
+    hrefPath: "/admin/tickets",
+  });
 
   revalidatePath(`/support/${ticket.ticketNumber}`);
   return successState("Reply sent. Platform staff have been notified.");

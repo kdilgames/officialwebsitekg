@@ -20,6 +20,7 @@ import { encodeUpdateChangelog, formatVersionNotificationBody } from "@/lib/upda
 import { notify, recordAudit } from "@/lib/audit";
 import { getSessionUser, type SessionUser } from "@/lib/auth/session";
 import { prisma } from "@/lib/db";
+import { sendProductUpdateEmails } from "@/lib/email/notifications";
 import { env, isScannerConfigured } from "@/lib/env";
 import { triggerFileScan } from "@/lib/scanner";
 import { formatMoney, minorUnitFactor } from "@/lib/money";
@@ -640,17 +641,25 @@ export async function createVersionAction(
     (id) => id !== user.id,
   );
   if (buyerIds.length > 0) {
+    const updateBody = formatVersionNotificationBody(encodedChangelog, version);
     await prisma.notification.createMany({
       data: buyerIds.map((buyerId) => ({
         userId: buyerId,
         type: "ORDER",
         title: `Update: ${product.title} v${version}`,
-        body: formatVersionNotificationBody(encodedChangelog, version),
+        body: updateBody,
         href:
           product.status === "PUBLISHED"
             ? `/product/${product.slug}?tab=updates`
             : "/account/orders",
       })),
+    });
+    await sendProductUpdateEmails({
+      buyerIds,
+      productTitle: product.title,
+      productSlug: product.slug,
+      version,
+      summary: updateBody,
     });
   }
 
@@ -776,17 +785,25 @@ export async function publishProductUpdateFromPageAction(input: {
     (id) => id !== user.id,
   );
   if (buyerIds.length > 0) {
+    const updateBody = formatVersionNotificationBody(encodedChangelog, version);
     await prisma.notification.createMany({
       data: buyerIds.map((buyerId) => ({
         userId: buyerId,
         type: "ORDER",
         title: `Update: ${product.title} v${version}`,
-        body: formatVersionNotificationBody(encodedChangelog, version),
+        body: updateBody,
         href:
           product.status === "PUBLISHED"
             ? `/product/${product.slug}?tab=updates`
             : "/account/orders",
       })),
+    });
+    await sendProductUpdateEmails({
+      buyerIds,
+      productTitle: product.title,
+      productSlug: product.slug,
+      version,
+      summary: updateBody,
     });
   }
 

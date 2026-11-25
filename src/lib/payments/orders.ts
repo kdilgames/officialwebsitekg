@@ -11,6 +11,7 @@ import {
   STRIPE_MIN_CHARGE_MINOR,
 } from "@/lib/payments/pricing";
 import { isStripeTaxNotConfiguredError } from "@/lib/payments/tax";
+import { sendOrderReceiptEmail } from "@/lib/email/notifications";
 
 export class CheckoutError extends Error {}
 
@@ -617,6 +618,8 @@ export async function claimFreeOrderFromCart(params: {
     });
   }
 
+  await sendOrderReceiptEmail(orderId);
+
   return { orderId, couponCode: preview.coupon?.code ?? null };
 }
 
@@ -741,6 +744,8 @@ export async function claimFreeSingleProduct(params: {
     body: `A buyer claimed “${product.title}”.`,
     href: "/dashboard/orders",
   });
+
+  await sendOrderReceiptEmail(orderId);
 
   return { orderId, productSlug: product.slug, productTitle: product.title };
 }
@@ -1044,6 +1049,8 @@ export async function markOrderPaid(params: {
       href: "/dashboard/orders",
     });
   }
+
+  await sendOrderReceiptEmail(order.id);
 
   return { alreadyPaid: false };
 }

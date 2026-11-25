@@ -24,6 +24,7 @@ import { getSessionUser, type SessionUser } from "@/lib/auth/session";
 import { seedDefaultCatalog } from "@/lib/catalog-seed";
 import { clampBps, percentToBps } from "@/lib/commission";
 import { prisma } from "@/lib/db";
+import { sendProductApprovedEmail, sendTicketReplyEmail } from "@/lib/email/notifications";
 import { env } from "@/lib/env";
 import { minorUnitFactor } from "@/lib/money";
 import {
@@ -379,6 +380,13 @@ export async function approveProductAction(formData: FormData): Promise<void> {
     title: "Your product is live",
     body: `“${product.title}” was approved and is now on the storefront.`,
     href: `/product/${product.slug}`,
+  });
+
+  await sendProductApprovedEmail({
+    sellerUserId: product.seller.userId,
+    storeName: product.seller.storeName,
+    productTitle: product.title,
+    productSlug: product.slug,
   });
 
   if (isFirstPublish) {
@@ -1109,7 +1117,14 @@ export async function replyTicketAction(
 
   const ticket = await prisma.supportTicket.findUnique({
     where: { id: ticketId },
-    select: { id: true, status: true, userId: true, ticketNumber: true, subject: true },
+    select: {
+      id: true,
+      status: true,
+      userId: true,
+      ticketNumber: true,
+      subject: true,
+      user: { select: { email: true } },
+    },
   });
   if (!ticket) return errorState("Ticket not found.");
 
@@ -1140,6 +1155,17 @@ export async function replyTicketAction(
     body: body.slice(0, 160),
     href: `/support/${ticket.ticketNumber}`,
   });
+
+  if (ticket.user?.email) {
+    await sendTicketReplyEmail({
+      recipientEmail: ticket.user.email,
+      ticketNumber: ticket.ticketNumber,
+      subject: ticket.subject,
+      authorLabel: "KDILGAMES Support",
+      replyBody: body,
+      hrefPath: `/support/${ticket.ticketNumber}`,
+    });
+  }
 
   revalidateAdmin("/admin/tickets");
   return successState("Reply sent.");
