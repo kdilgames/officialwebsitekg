@@ -125,6 +125,21 @@ export const env = {
     virusTotalApiKey: optional(process.env.VIRUSTOTAL_API_KEY),
   },
 
+  sentry: {
+    dsn: optional(process.env.SENTRY_DSN) ?? optional(process.env.NEXT_PUBLIC_SENTRY_DSN),
+    publicDsn: optional(process.env.NEXT_PUBLIC_SENTRY_DSN),
+    environment:
+      optional(process.env.SENTRY_ENVIRONMENT) ??
+      optional(process.env.VERCEL_ENV) ??
+      process.env.NODE_ENV ??
+      "development",
+  },
+
+  turnstile: {
+    siteKey: optional(process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY),
+    secretKey: optional(process.env.TURNSTILE_SECRET_KEY),
+  },
+
   uploads: {
     maxFileBytes: 512 * 1024 * 1024,
     maxImageBytes: 8 * 1024 * 1024,
@@ -148,6 +163,10 @@ export const isSupabaseAdminConfigured = Boolean(
 );
 export const isStripeConfigured = Boolean(env.stripe.secretKey);
 export const isScannerConfigured = Boolean(env.malwareScanner.virusTotalApiKey);
+export const isSentryConfigured = Boolean(env.sentry.dsn);
+export const isTurnstileConfigured = Boolean(
+  env.turnstile.siteKey && env.turnstile.secretKey,
+);
 
 /**
  * Throws a descriptive error when a required configuration block is missing.

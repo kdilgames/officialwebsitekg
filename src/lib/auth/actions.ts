@@ -8,6 +8,7 @@ import { isConfiguredStaffEmail, syncAuthenticatedUser } from "@/lib/auth/admin-
 import { prisma } from "@/lib/db";
 import { isSupabaseConfigured } from "@/lib/env";
 import { rateLimit } from "@/lib/rate-limit";
+import { verifyTurnstileFromFormData } from "@/lib/turnstile";
 import { getRequestContext, recordAudit } from "@/lib/audit";
 import { getRequestOrigin } from "@/lib/utils/origin";
 import {
@@ -52,6 +53,11 @@ export async function signUpAction(
   const data = parsed.data;
 
   const context = await getRequestContext();
+  const turnstile = await verifyTurnstileFromFormData(formData, context.ipAddress);
+  if (!turnstile.ok) {
+    return errorState(turnstile.message ?? "Verification failed. Please try again.");
+  }
+
   const limit = await rateLimit(
     `signup:${context.ipAddress ?? "unknown"}`,
     5,
@@ -133,6 +139,11 @@ export async function signInAction(
   }
 
   const context = await getRequestContext();
+  const turnstile = await verifyTurnstileFromFormData(formData, context.ipAddress);
+  if (!turnstile.ok) {
+    return errorState(turnstile.message ?? "Verification failed. Please try again.");
+  }
+
   const limit = await rateLimit(`signin:${context.ipAddress ?? "unknown"}:${parsed.data.email}`, 10, 15 * 60);
   if (!limit.ok) {
     return errorState("Too many sign-in attempts. Wait a few minutes and try again.");
@@ -180,6 +191,11 @@ export async function sendMagicLinkAction(
   }
 
   const context = await getRequestContext();
+  const turnstile = await verifyTurnstileFromFormData(formData, context.ipAddress);
+  if (!turnstile.ok) {
+    return errorState(turnstile.message ?? "Verification failed. Please try again.");
+  }
+
   const [ipLimit, emailLimit] = await Promise.all([
     rateLimit(`magiclink-ip:${context.ipAddress ?? "unknown"}`, 8, 15 * 60),
     rateLimit(`magiclink-email:${parsed.data.email}`, 4, 15 * 60),
@@ -240,6 +256,11 @@ export async function requestPasswordResetAction(
   }
 
   const context = await getRequestContext();
+  const turnstile = await verifyTurnstileFromFormData(formData, context.ipAddress);
+  if (!turnstile.ok) {
+    return errorState(turnstile.message ?? "Verification failed. Please try again.");
+  }
+
   const limit = await rateLimit(`pwreset:${context.ipAddress ?? "unknown"}`, 5, 60 * 60);
   if (!limit.ok) {
     return errorState("Too many reset requests. Try again later.");

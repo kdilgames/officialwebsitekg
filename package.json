@@ -22,12 +22,13 @@
   "dependencies": {
     "@prisma/adapter-pg": "^7.10.1",
     "@prisma/client": "^7.10.1",
+    "@sentry/nextjs": "^11.18.0",
     "@supabase/ssr": "^0.12.7",
     "@supabase/supabase-js": "^2.118.0",
     "clsx": "^2.1.1",
     "fflate": "^0.8.3",
     "lucide-react": "^1.58.0",
-    "next": "^16.4.6",
+    "next": "16.4.6",
     "react": "19.3.1",
     "react-dom": "19.3.1",
     "stripe": "^23.0.0",
@@ -40,11 +41,16 @@
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "eslint": "^9.39.0",
-    "eslint-config-next": "^16.4.6",
+    "eslint-config-next": "16.4.6",
     "prisma": "^7.10.1",
     "tailwindcss": "^4.3.3",
     "tsx": "^4.23.15",
     "typescript": "^5.9.3",
     "vitest": "^5.0.5"
+  },
+  "overrides": {
+    "@prisma/config": {
+      "effect": "^3.22.5"
+    }
   }
 }

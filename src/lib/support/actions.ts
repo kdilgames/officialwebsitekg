@@ -10,10 +10,11 @@ import {
   toFieldErrors,
   type ActionState,
 } from "@/lib/action-state";
-import { notify, recordAudit } from "@/lib/audit";
+import { getRequestContext, notify, recordAudit } from "@/lib/audit";
 import { requireUser } from "@/lib/auth/session";
 import { prisma } from "@/lib/db";
 import { rateLimit } from "@/lib/rate-limit";
+import { verifyTurnstileFromFormData } from "@/lib/turnstile";
 import { ticketReplySchema, ticketSchema } from "@/lib/validation";
 
 /** Ticket numbers are human-readable references; the id remains the real key. */
@@ -39,6 +40,12 @@ export async function createTicketAction(
     return errorState("Please correct the highlighted fields.", toFieldErrors(parsed.error.issues));
   }
   const { subject, body, priority, orderId } = parsed.data;
+
+  const context = await getRequestContext();
+  const turnstile = await verifyTurnstileFromFormData(formData, context.ipAddress);
+  if (!turnstile.ok) {
+    return errorState(turnstile.message ?? "Verification failed. Please try again.");
+  }
 
   const limit = await rateLimit(`ticket:${user.id}`, 6, 60 * 60);
   if (!limit.ok) {

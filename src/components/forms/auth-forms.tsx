@@ -4,6 +4,7 @@ import { useActionState, useState } from "react";
 import Link from "next/link";
 import { KeyRound, Mail } from "lucide-react";
 
+import { TurnstileWidget } from "@/components/forms/turnstile-widget";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Field, Input } from "@/components/ui/form";
@@ -99,6 +100,8 @@ export function LoginForm({
             />
           </Field>
 
+          <TurnstileWidget action="login" />
+
           <div className="flex items-center justify-between pt-1">
             <Link href="/forgot-password" className="text-[12.5px] text-ink-muted hover:text-ink">
               Forgot password?
@@ -128,6 +131,8 @@ export function LoginForm({
               placeholder="you@studio.com"
             />
           </Field>
+
+          <TurnstileWidget action="magic_link" />
 
           <Button type="submit" variant="primary" className="w-full" disabled={linkPending}>
             {linkPending ? "Sending link…" : "Send sign-in link"}
@@ -235,6 +240,8 @@ export function RegisterForm({ action }: { action: AuthAction }) {
         </label>
       </fieldset>
 
+      <TurnstileWidget action="register" />
+
       <Button type="submit" variant="primary" className="w-full" disabled={pending}>
         {pending ? "Creating account…" : "Create account"}
       </Button>
@@ -258,6 +265,7 @@ export function ForgotPasswordForm({ action }: { action: AuthAction }) {
       <Field label="Email" htmlFor="email" error={state.fieldErrors?.email}>
         <Input id="email" name="email" type="email" autoComplete="email" required />
       </Field>
+      <TurnstileWidget action="forgot_password" />
       <Button type="submit" variant="primary" className="w-full" disabled={pending}>
         {pending ? "Sending…" : "Send reset link"}
       </Button>

@@ -3,6 +3,7 @@
 import { useActionState } from "react";
 import { Download, Heart, MessageSquarePlus, ShoppingCart, Star, UserPlus } from "lucide-react";
 
+import { TurnstileWidget } from "@/components/forms/turnstile-widget";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Field, Input, Textarea } from "@/components/ui/form";
@@ -222,6 +223,8 @@ export function ReportForm({
         <Field label="Details (optional)" htmlFor="details" error={state.fieldErrors?.details}>
           <Textarea id="details" name="details" rows={3} maxLength={2000} />
         </Field>
+
+        <TurnstileWidget action="report" />
 
         <Button type="submit" variant="danger" size="sm" disabled={pending}>
           {pending ? "Submitting…" : "Submit report"}

@@ -8,6 +8,7 @@ import { getSessionUser } from "@/lib/auth/session";
 import { prisma } from "@/lib/db";
 import { previewCart } from "@/lib/payments/orders";
 import { rateLimit } from "@/lib/rate-limit";
+import { verifyTurnstileFromFormData } from "@/lib/turnstile";
 import {
   errorState,
   formToObject,
@@ -549,6 +550,11 @@ export async function reportContentAction(
   }
 
   const context = await getRequestContext();
+  const turnstile = await verifyTurnstileFromFormData(formData, context.ipAddress);
+  if (!turnstile.ok) {
+    return errorState(turnstile.message ?? "Verification failed. Please try again.");
+  }
+
   const limit = await rateLimit(`report:${user?.id ?? context.ipAddress ?? "anon"}`, 10, 60 * 60);
   if (!limit.ok) return errorState("Too many reports filed. Try again later.");
 

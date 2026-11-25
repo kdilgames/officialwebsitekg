@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import type { Prisma } from "@prisma/client";
 
 import { prisma } from "@/lib/db";
+import { extractClientIp } from "@/lib/rate-limit";
 
 export type RequestContext = {
   ipAddress: string | null;
@@ -12,10 +13,8 @@ export type RequestContext = {
 /** Request metadata for audit trails. Never used for authorisation. */
 export async function getRequestContext(): Promise<RequestContext> {
   const headerList = await headers();
-  const forwarded = headerList.get("x-forwarded-for");
-  const ip = forwarded?.split(",")[0]?.trim() ?? headerList.get("x-real-ip");
   return {
-    ipAddress: ip && ip.length > 0 ? ip.slice(0, 64) : null,
+    ipAddress: extractClientIp(headerList),
     userAgent: headerList.get("user-agent")?.slice(0, 512) ?? null,
   };
 }
