@@ -84,6 +84,9 @@ export default async function OrdersPage({
         select: {
           ...sharedOrderSelect,
           couponCodeSnapshot: true,
+          taxMinor: true,
+          billingCountry: true,
+          customerTaxId: true,
         },
       }),
     async () => {
@@ -93,7 +96,13 @@ export default async function OrdersPage({
         take: ORDERS_SHOWN,
         select: sharedOrderSelect,
       });
-      return legacy.map((row) => ({ ...row, couponCodeSnapshot: null as string | null }));
+      return legacy.map((row) => ({
+        ...row,
+        couponCodeSnapshot: null as string | null,
+        taxMinor: 0,
+        billingCountry: null as string | null,
+        customerTaxId: null as string | null,
+      }));
     },
   );
 
@@ -145,12 +154,18 @@ export default async function OrdersPage({
           ["REQUESTED", "APPROVED", "PROCESSING"].includes(latestRefund.status);
         const totalLabel =
           order.totalMinor === 0 ? "Free" : formatMoney(order.totalMinor, order.currency);
+        const taxNote =
+          order.taxMinor > 0
+            ? ` (incl. ${formatMoney(order.taxMinor, order.currency)} VAT${order.billingCountry ? ` · ${order.billingCountry}` : ""})`
+            : order.customerTaxId
+              ? ` · VAT ID ${order.customerTaxId}`
+              : "";
 
         return (
           <Card key={order.id}>
             <CardHeader
               title={`Order ${order.orderNumber}`}
-              description={`${order.createdAt.toISOString().slice(0, 10)} · ${order.items.length} ${order.items.length === 1 ? "item" : "items"} · ${totalLabel}`}
+              description={`${order.createdAt.toISOString().slice(0, 10)} · ${order.items.length} ${order.items.length === 1 ? "item" : "items"} · ${totalLabel}${taxNote}`}
               actions={
                 <div className="flex flex-wrap items-center gap-1.5">
                   {order.couponCodeSnapshot && order.discountMinor > 0 ? (
@@ -158,6 +173,9 @@ export default async function OrdersPage({
                       {order.couponCodeSnapshot} (-
                       {formatMoney(order.discountMinor, order.currency)})
                     </Badge>
+                  ) : null}
+                  {order.customerTaxId ? (
+                    <Badge tone="neutral">VAT {order.customerTaxId}</Badge>
                   ) : null}
                   {order.isTestMode ? <Badge tone="caution">Test mode</Badge> : null}
                   <StatusBadge status={order.status} />

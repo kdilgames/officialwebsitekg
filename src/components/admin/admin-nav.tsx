@@ -39,6 +39,7 @@ const SECTIONS: Array<{ title: string; items: NavItem[] }> = [
     title: "Trust",
     items: [
       { href: "/admin/reports", label: "Reports", count: "reports" },
+      { href: "/admin/dmca", label: "DMCA notices", count: "dmca" },
       { href: "/admin/tickets", label: "Support", count: "tickets" },
     ],
   },

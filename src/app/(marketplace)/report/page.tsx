@@ -149,10 +149,15 @@ export default async function ReportPage({
             A formal copyright notice has to contain more than a report does — identification of
             the work and of the infringing listing, a good-faith statement and your signature.
           </p>
-          <Link href="/legal/copyright" className={buttonClass("secondary", "sm")}>
-            <Copyright className="size-3.5" aria-hidden />
-            Read what a notice must contain
-          </Link>
+          <div className="flex flex-wrap gap-2">
+            <Link href="/dmca" className={buttonClass("primary", "sm")}>
+              <Copyright className="size-3.5" aria-hidden />
+              File a DMCA takedown notice
+            </Link>
+            <Link href="/legal/copyright" className={buttonClass("secondary", "sm")}>
+              Read copyright policy
+            </Link>
+          </div>
         </CardBody>
       </Card>
     </div>

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ExternalLink } from "lucide-react";
 
 import { BrandMark } from "@/components/layout/brand-mark";
+import { CookiePreferencesButton } from "@/components/layout/cookie-banner";
 import { env } from "@/lib/env";
 import { getCommunityDiscordUrl } from "@/lib/queries/products";
 
@@ -51,6 +52,7 @@ const COLUMNS = [
       { href: "/legal/privacy", label: "Marketplace Privacy Policy" },
       { href: "/legal/refunds", label: "Refund Policy" },
       { href: "/legal/cookies", label: "Cookie Policy" },
+      { href: "/dmca", label: "DMCA & Copyright" },
     ],
   },
 ];
@@ -100,6 +102,11 @@ export async function SiteFooter() {
                     </Link>
                   </li>
                 ))}
+                {column.title === "Legal" ? (
+                  <li>
+                    <CookiePreferencesButton />
+                  </li>
+                ) : null}
               </ul>
             </div>
           ))}

@@ -352,6 +352,7 @@ model Product {
   wishlisted  WishlistItem[]
   cartItems   CartItem[]
   downloads   DownloadRecord[]
+  dmcaNotices DmcaNotice[]
 
   @@index([status, publishedAt])
   @@index([categoryId, status])
@@ -484,9 +485,12 @@ model Order {
   currency                String      @default("EUR") @db.Char(3)
   subtotalMinor           Int
   discountMinor           Int         @default(0)
+  taxMinor                Int         @default(0)
   totalMinor              Int
   platformFeeMinor        Int         @default(0)
   sellerNetMinor          Int         @default(0)
+  billingCountry          String?     @db.Char(2)
+  customerTaxId           String?
   couponId                String?     @db.Uuid
   couponCodeSnapshot      String?
   stripeCheckoutSessionId String?     @unique
@@ -969,4 +973,40 @@ model StudioLeaderboardEntry {
   @@unique([appSlug, playerKey])
   @@index([appSlug, lifetimeEarnings(sort: Desc), techTokens(sort: Desc)])
   @@index([appSlug, weeklySprintKey, weeklySprintScore(sort: Desc)])
+}
+
+enum DmcaStatus {
+  RECEIVED
+  UNDER_REVIEW
+  REMOVED
+  DISMISSED
+  COUNTER_NOTICED
+}
+
+/// Copyright / DMCA & EU DSA takedown notices submitted against marketplace listings.
+model DmcaNotice {
+  id                 String     @id @default(uuid()) @db.Uuid
+  noticeNumber       String     @unique
+  claimantName       String
+  claimantEmail      String
+  claimantCompany    String?
+  productId          String?    @db.Uuid
+  productUrl         String
+  originalWorkUrl    String
+  description        String
+  goodFaithStatement Boolean    @default(true)
+  accuracyStatement  Boolean    @default(true)
+  signature          String
+  status             DmcaStatus @default(RECEIVED)
+  adminNotes         String?
+  reviewedById       String?    @db.Uuid
+  resolvedAt         DateTime?
+  ipAddress          String?
+  createdAt          DateTime   @default(now())
+  updatedAt          DateTime   @updatedAt
+
+  product Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+
+  @@index([status, createdAt])
+  @@index([productId])
 }

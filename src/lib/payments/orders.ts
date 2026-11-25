@@ -10,6 +10,7 @@ import {
   evaluateCouponForLines,
   STRIPE_MIN_CHARGE_MINOR,
 } from "@/lib/payments/pricing";
+import { isStripeTaxNotConfiguredError } from "@/lib/payments/tax";
 
 export class CheckoutError extends Error {}
 
@@ -797,8 +798,8 @@ export async function createCheckoutSession(params: {
     throw new CheckoutError("Order total is below Stripe's minimum card charge.");
   }
 
-  const session = await params.stripe.checkout.sessions.create({
-    mode: "payment",
+  const baseSessionPayload = {
+    mode: "payment" as const,
     // The platform is the merchant of record for the charge; sellers are paid
     // out through Transfers once their earnings clear the hold period.
     customer_email: order.buyer.email,
@@ -811,23 +812,53 @@ export async function createCheckoutSession(params: {
     payment_intent_data: {
       metadata: { orderId: order.id, orderNumber: order.orderNumber },
     },
-    ...(env.stripe.automaticTax
-      ? {
-          automatic_tax: { enabled: true },
-          tax_id_collection: { enabled: true },
-        }
-      : {}),
     line_items: order.items.map((item) => ({
       quantity: 1,
       price_data: {
         currency: order.currency.toLowerCase(),
         unit_amount: item.priceMinor,
-        product_data: { name: item.titleSnapshot },
+        ...(env.stripe.automaticTax ? { tax_behavior: "exclusive" as const } : {}),
+        product_data: {
+          name: item.titleSnapshot,
+          ...(env.stripe.automaticTax ? { tax_code: env.stripe.taxCode } : {}),
+        },
       },
     })),
     success_url: params.successUrl,
     cancel_url: params.cancelUrl,
-  });
+  };
+
+  let session: import("stripe").default.Checkout.Session;
+  if (env.stripe.automaticTax) {
+    try {
+      session = await params.stripe.checkout.sessions.create({
+        ...baseSessionPayload,
+        automatic_tax: { enabled: true },
+        tax_id_collection: { enabled: true },
+        billing_address_collection: "required",
+      });
+    } catch (error) {
+      if (!isStripeTaxNotConfiguredError(error)) {
+        throw error;
+      }
+      console.warn(
+        "[stripe-tax] Automatic tax is enabled in env but not activated on the Stripe account; falling back to standard Checkout.",
+      );
+      session = await params.stripe.checkout.sessions.create({
+        ...baseSessionPayload,
+        line_items: order.items.map((item) => ({
+          quantity: 1,
+          price_data: {
+            currency: order.currency.toLowerCase(),
+            unit_amount: item.priceMinor,
+            product_data: { name: item.titleSnapshot },
+          },
+        })),
+      });
+    }
+  } else {
+    session = await params.stripe.checkout.sessions.create(baseSessionPayload);
+  }
 
   await prisma.$transaction([
     prisma.order.update({
@@ -852,6 +883,9 @@ export async function markOrderPaid(params: {
   paymentIntentId: string | null;
   receiptUrl: string | null;
   isTestMode: boolean;
+  taxMinor?: number;
+  billingCountry?: string | null;
+  customerTaxId?: string | null;
 }): Promise<{ alreadyPaid: boolean }> {
   const baseOrderSelect = {
     id: true,
@@ -967,6 +1001,23 @@ export async function markOrderPaid(params: {
 
   if (!transitioned) {
     return { alreadyPaid: true };
+  }
+
+  const taxMinor = params.taxMinor ?? 0;
+  if (taxMinor > 0 || params.billingCountry || params.customerTaxId) {
+    await withSchemaFallback(
+      () =>
+        prisma.order.update({
+          where: { id: order.id },
+          data: {
+            taxMinor,
+            billingCountry: params.billingCountry ?? null,
+            customerTaxId: params.customerTaxId ?? null,
+            ...(taxMinor > 0 ? { totalMinor: { increment: taxMinor } } : {}),
+          },
+        }),
+      null,
+    );
   }
 
   await Promise.all([

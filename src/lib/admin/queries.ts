@@ -62,6 +62,7 @@ export type AdminOverview = {
     sellerApplications: number;
     productReviews: number;
     reports: number;
+    dmca: number;
     tickets: number;
     refunds: number;
     disputes: number;
@@ -206,6 +207,10 @@ export async function getAdminOverview(): Promise<AdminOverview> {
       sellerApplications: applications,
       productReviews: productQueue,
       reports,
+      dmca: await withSchemaFallback(
+        () => prisma.dmcaNotice.count({ where: { status: { in: ["RECEIVED", "UNDER_REVIEW"] } } }),
+        0,
+      ),
       tickets,
       refunds,
       disputes,
@@ -228,6 +233,7 @@ export async function getAdminQueueCounts(): Promise<AdminQueueCounts> {
     sellerApplications,
     productReviews,
     reports,
+    dmca,
     tickets,
     refunds,
     disputes,
@@ -236,13 +242,17 @@ export async function getAdminQueueCounts(): Promise<AdminQueueCounts> {
     prisma.sellerProfile.count({ where: { status: "PENDING" } }),
     prisma.product.count({ where: { status: "PENDING_REVIEW" } }),
     prisma.report.count({ where: { status: { in: ["OPEN", "UNDER_REVIEW"] } } }),
+    withSchemaFallback(
+      () => prisma.dmcaNotice.count({ where: { status: { in: ["RECEIVED", "UNDER_REVIEW"] } } }),
+      0,
+    ),
     prisma.supportTicket.count({ where: { status: { in: ["OPEN", "PENDING"] } } }),
     prisma.refund.count({ where: { status: { in: ["REQUESTED", "APPROVED"] } } }),
     prisma.dispute.count({ where: { status: { in: ["NEEDS_RESPONSE", "UNDER_REVIEW"] } } }),
     prisma.payout.count({ where: { status: "PENDING" } }),
   ]);
 
-  return { sellerApplications, productReviews, reports, tickets, refunds, disputes, payouts };
+  return { sellerApplications, productReviews, reports, dmca, tickets, refunds, disputes, payouts };
 }
 
 // ---------------------------------------------------------------- sellers

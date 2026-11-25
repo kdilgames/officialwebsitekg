@@ -110,6 +110,7 @@ export const env = {
     publishableKey: optional(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY),
     webhookSecret: optional(process.env.STRIPE_WEBHOOK_SECRET),
     automaticTax: optional(process.env.STRIPE_AUTOMATIC_TAX) === "true",
+    taxCode: optional(process.env.STRIPE_TAX_CODE) ?? "txcd_10000000",
   },
 
   marketplace: {
