@@ -16,11 +16,24 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${origin}/`, lastModified: now, changeFrequency: "daily", priority: 1 },
     { url: `${origin}/browse`, lastModified: now, changeFrequency: "hourly", priority: 0.9 },
     { url: `${origin}/sellers`, lastModified: now, changeFrequency: "daily", priority: 0.7 },
+    { url: `${origin}/games`, lastModified: now, changeFrequency: "weekly", priority: 0.8 },
+    { url: `${origin}/press`, lastModified: now, changeFrequency: "monthly", priority: 0.5 },
+    { url: `${origin}/dmca`, lastModified: now, changeFrequency: "monthly", priority: 0.3 },
     { url: `${origin}/studios`, lastModified: now, changeFrequency: "weekly", priority: 0.7 },
     { url: `${origin}/studios/privacy`, lastModified: now, changeFrequency: "monthly", priority: 0.4 },
     { url: `${origin}/studios/terms`, lastModified: now, changeFrequency: "monthly", priority: 0.4 },
     { url: `${origin}/privacy`, lastModified: now, changeFrequency: "monthly", priority: 0.4 },
     ...STUDIO_APPS.flatMap((app) => [
+      ...(app.kind === "Game"
+        ? [
+            {
+              url: `${origin}/games/${app.slug}`,
+              lastModified: now,
+              changeFrequency: "weekly" as const,
+              priority: 0.75,
+            },
+          ]
+        : []),
       {
         url: `${origin}/studios/${app.slug}`,
         lastModified: now,

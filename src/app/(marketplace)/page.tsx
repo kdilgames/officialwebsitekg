@@ -12,13 +12,16 @@ import {
   Store,
 } from "lucide-react";
 
+import { OurGamesSection } from "@/components/games/our-games-section";
 import { BrandMark } from "@/components/layout/brand-mark";
+import { NewsletterSection } from "@/components/marketing/newsletter-section";
 import { BundleCard } from "@/components/marketplace/bundle-card";
 import { getCategoryVisual } from "@/components/marketplace/category-visuals";
 import { ProductGrid, type ProductCardData } from "@/components/marketplace/product-card";
 import { StudiosHomepageSection } from "@/components/studios/studios-homepage-section";
 import { buildCategoryTree } from "@/lib/catalog-hierarchy";
 import { formatMoney } from "@/lib/money";
+import { subscribeNewsletterAction } from "@/lib/newsletter/actions";
 import {
   browseProducts,
   listCategories,
@@ -472,7 +475,11 @@ export default async function HomePage({
         </div>
       </section>
 
+      <OurGamesSection />
+
       <StudiosHomepageSection />
+
+      <NewsletterSection action={subscribeNewsletterAction} source="homepage" />
     </div>
   );
 }

@@ -37,10 +37,10 @@ const COLUMNS = [
   {
     title: "Software Studios",
     links: [
-      { href: "/studios", label: "All Apps & Games" },
-      { href: "/studios/byterack-tycoon", label: "ByteRack Tycoon" },
-      { href: "/studios/byterack-tycoon/privacy", label: "ByteRack Privacy Policy" },
-      { href: "/studios/byterack-tycoon/terms", label: "ByteRack Terms of Service" },
+      { href: "/games", label: "Our Games" },
+      { href: "/games/byterack-tycoon", label: "ByteRack Tycoon" },
+      { href: "/press", label: "Press Kit" },
+      { href: "/studios", label: "All Apps & Studios" },
       { href: "/studios/privacy", label: "Studios Privacy Policy" },
       { href: "/studios/terms", label: "Studios Terms of Service" },
     ],

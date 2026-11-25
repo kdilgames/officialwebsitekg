@@ -30,6 +30,9 @@ export type StudioApp = {
   iconPath: string;
   bannerPath?: string;
   playStoreUrl?: string;
+  appStoreUrl?: string;
+  releaseYear?: string;
+  genres?: string[];
   monetizationNote: string;
   highlights: string[];
   dataSafety: {
@@ -68,10 +71,12 @@ export const STUDIO_CONTACT_EMAIL = DEFAULT_OWNER_EMAIL;
 /**
  * Registry of official applications and games released by KDILGAMES Software Studios.
  *
- * Adding a new app or game here automatically creates:
- *  - Its card in the KDILGAMES Software Studios showcase & sidebar navigation
- *  - Its dedicated product page at `/studios/<slug>`
- *  - Its dedicated Google Play-ready privacy policy page at `/studios/<slug>/privacy`
+ * Adding a new game here automatically creates:
+ *  - Its card in the homepage "Our Games" & Software Studios sections
+ *  - Its dedicated game showcase page at `/games/<slug>` and `/studios/<slug>`
+ *  - App Store / Google Play badges whenever `appStoreUrl` / `playStoreUrl` is set
+ *  - Its entry in the Press Kit at `/press`
+ *  - Its Google Play-ready privacy policy (`/studios/<slug>/privacy`) and terms
  */
 export const STUDIO_APPS: StudioApp[] = [
   {
@@ -82,6 +87,8 @@ export const STUDIO_APPS: StudioApp[] = [
     platform: "Android · Google Play",
     packageName: "com.kdilgames.ByteRackTycoon",
     version: "1.6.0",
+    releaseYear: "2026",
+    genres: ["Simulation", "Idle Tycoon", "Strategy"],
     status: "RELEASE_CANDIDATE",
     statusLabel: "Google Play Ready",
     tagline:
@@ -90,6 +97,8 @@ export const STUDIO_APPS: StudioApp[] = [
       "Grow your independent server hosting company through a 3D receding warehouse corridor scaling up to 2,600 bays across 9 facilities — then ascend across Global Holding Regions. Manage active Client SLA contracts, Eco/Balanced/Overdrive power modes, Sparking Rack & DDoS Wave crises in 3D, Mega-Projects, and compete on All-Time & Weekly Sprint Leaderboards with zero forced ads.",
     iconPath: "/images/studios/byterack-tycoon-icon.png",
     bannerPath: "/images/studios/byterack-tycoon-banner.png",
+    playStoreUrl: process.env.NEXT_PUBLIC_BYTERACK_PLAY_STORE_URL?.trim() || undefined,
+    appStoreUrl: process.env.NEXT_PUBLIC_BYTERACK_APP_STORE_URL?.trim() || undefined,
     monetizationNote: "Free to play · Optional one-time Founder Starter Pack · Zero third-party ads",
     highlights: [
       "3 Client SLA Hosting Slots + 3 Company Specializations + Eco / Balanced / Overdrive power modes with interactive breaker-trip risk & reward.",
@@ -421,4 +430,12 @@ export function listStudioApps(): StudioApp[] {
 
 export function getStudioAppBySlug(slug: string): StudioApp | undefined {
   return STUDIO_APPS.find((app) => app.slug === slug);
+}
+
+export function listStudioGames(): StudioApp[] {
+  return STUDIO_APPS.filter((app) => app.kind === "Game");
+}
+
+export function getStudioGameBySlug(slug: string): StudioApp | undefined {
+  return STUDIO_APPS.find((app) => app.kind === "Game" && app.slug === slug);
 }
