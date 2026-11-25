@@ -4,39 +4,41 @@ import { ArrowRight, Gamepad2, Newspaper, Smartphone } from "lucide-react";
 
 import { StoreBadges } from "@/components/games/store-badges";
 import { Badge } from "@/components/ui/badge";
+import { getDictionary } from "@/lib/i18n/dictionaries";
+import { getServerLocale } from "@/lib/i18n/server";
 import { listStudioGames } from "@/lib/studios/apps";
 
-export function OurGamesSection() {
+export async function OurGamesSection() {
   const games = listStudioGames();
   if (games.length === 0) return null;
+
+  const locale = await getServerLocale();
+  const dict = getDictionary(locale);
 
   return (
     <section className="mt-12" aria-labelledby="our-games-heading">
       <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
         <div>
           <p className="text-[11.5px] font-semibold uppercase tracking-[0.07em] text-accent">
-            Original Titles
+            {dict.ourGames.eyebrow}
           </p>
           <h2
             id="our-games-heading"
             className="mt-0.5 flex items-center gap-2 text-[20px] font-semibold tracking-tight text-ink"
           >
             <Gamepad2 className="size-5 text-accent" aria-hidden />
-            Our Games
+            {dict.ourGames.heading}
           </h2>
-          <p className="muted mt-0.5 text-[13px]">
-            Games developed in-house by KDILGAMES Software Studios — built offline-first with zero
-            forced ads.
-          </p>
+          <p className="muted mt-0.5 text-[13px]">{dict.ourGames.subtitle}</p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
           <Link href="/press" className="btn btn-secondary btn-sm">
             <Newspaper className="size-3.5" aria-hidden />
-            Press kit
+            {dict.ourGames.pressKit}
           </Link>
           <Link href="/games" className="btn btn-ghost btn-sm text-ink-muted hover:text-ink">
-            All games
+            {dict.ourGames.allGames}
             <ArrowRight className="size-3.5" aria-hidden />
           </Link>
         </div>
@@ -109,7 +111,7 @@ export function OurGamesSection() {
                 href={`/games/${game.slug}`}
                 className="inline-flex items-center gap-1 text-[12.5px] font-semibold text-accent hover:underline"
               >
-                Explore game
+                {dict.ourGames.exploreGame}
                 <ArrowRight className="size-3.5" aria-hidden />
               </Link>
             </div>

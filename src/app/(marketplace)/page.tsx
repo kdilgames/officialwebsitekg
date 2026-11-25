@@ -20,6 +20,7 @@ import { getCategoryVisual } from "@/components/marketplace/category-visuals";
 import { ProductGrid, type ProductCardData } from "@/components/marketplace/product-card";
 import { StudiosHomepageSection } from "@/components/studios/studios-homepage-section";
 import { buildCategoryTree } from "@/lib/catalog-hierarchy";
+import { getServerLocale } from "@/lib/i18n/server";
 import { formatMoney } from "@/lib/money";
 import { subscribeNewsletterAction } from "@/lib/newsletter/actions";
 import {
@@ -479,7 +480,11 @@ export default async function HomePage({
 
       <StudiosHomepageSection />
 
-      <NewsletterSection action={subscribeNewsletterAction} source="homepage" />
+      <NewsletterSection
+        action={subscribeNewsletterAction}
+        source="homepage"
+        locale={await getServerLocale()}
+      />
     </div>
   );
 }

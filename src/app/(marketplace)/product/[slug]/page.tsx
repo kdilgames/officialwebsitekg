@@ -64,6 +64,7 @@ import { env, isSupabaseConfigured } from "@/lib/env";
 import { formatMoney } from "@/lib/money";
 import { normalizeProductTab } from "@/lib/product-tabs";
 import { PRODUCT_CARD_SELECT } from "@/lib/queries/products";
+import { buildProductJsonLd, serializeJsonLd } from "@/lib/seo/json-ld";
 import { parseUpdateChangelog } from "@/lib/update-format";
 import { formatBytes } from "@/lib/upload-rules";
 import { safeHttpUrl } from "@/lib/utils/media";
@@ -741,8 +742,33 @@ export default async function ProductPage({ params, searchParams }: PageProps) {
     </Card>
   );
 
+  const productJsonLd = buildProductJsonLd({
+    siteUrl: env.siteUrl,
+    slug: product.slug,
+    title: product.title,
+    shortDescription: product.shortDescription,
+    imageUrls: [
+      ...(product.thumbnailUrl ? [product.thumbnailUrl] : []),
+      ...product.images.map((img) => img.url),
+    ],
+    categoryName: product.category.name,
+    sellerName: product.seller.storeName,
+    sellerSlug: product.seller.slug,
+    priceMinor: product.priceMinor,
+    salePriceMinor: product.salePriceMinor,
+    saleEndsAt: product.saleEndsAt,
+    currency: product.currency,
+    version: product.version,
+    ratingSum: product.ratingSum,
+    ratingCount: product.ratingCount,
+  });
+
   return (
     <div className="mx-auto max-w-[1400px] px-4 py-8 sm:px-6">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: serializeJsonLd(productJsonLd) }}
+      />
       <nav
         className="subtle mb-4 flex flex-wrap items-center gap-1.5 text-[12.5px]"
         aria-label="Breadcrumb"

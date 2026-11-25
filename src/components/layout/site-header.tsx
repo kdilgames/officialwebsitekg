@@ -15,23 +15,28 @@ import {
 } from "lucide-react";
 
 import { BrandMark } from "@/components/layout/brand-mark";
+import { LanguageSwitcher } from "@/components/layout/language-switcher";
 import { NotificationsBell } from "@/components/layout/notifications-bell";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
 import { getSessionUser, isAdmin, isOwner, isSeller } from "@/lib/auth/session";
 import { signOutAction } from "@/lib/auth/actions";
 import { prisma } from "@/lib/db";
 import { withSchemaFallback } from "@/lib/db-compat";
-
-const NAV_LINKS = [
-  { href: "/browse", label: "Browse" },
-  { href: "/browse?sort=newest", label: "Newest" },
-  { href: "/browse?sort=best-selling", label: "Best selling" },
-  { href: "/sellers", label: "Sellers" },
-  { href: "/support", label: "Help" },
-];
+import { getDictionary } from "@/lib/i18n/dictionaries";
+import { getServerLocale } from "@/lib/i18n/server";
 
 export async function SiteHeader() {
-  const user = await getSessionUser();
+  const [user, locale] = await Promise.all([getSessionUser(), getServerLocale()]);
+  const dict = getDictionary(locale);
+
+  const navLinks = [
+    { href: "/browse", label: dict.nav.browse },
+    { href: "/browse?sort=best-selling", label: dict.nav.bestSelling },
+    { href: "/sellers", label: dict.nav.sellers },
+    { href: "/games", label: dict.nav.games },
+    { href: "/blog", label: dict.nav.blog },
+    { href: "/support", label: dict.nav.help },
+  ];
 
   const [itemCount, bundleCount, recentNotifications, unreadNotifications] = user
     ? await Promise.all([
@@ -62,7 +67,7 @@ export async function SiteHeader() {
         </Link>
 
         <nav className="ml-1 hidden items-center gap-0.5 lg:flex" aria-label="Main navigation">
-          {NAV_LINKS.map((link) => (
+          {navLinks.map((link) => (
             <Link
               key={link.href}
               href={link.href}
@@ -77,7 +82,7 @@ export async function SiteHeader() {
             className="btn btn-ghost btn-sm text-accent hover:bg-accent-quiet/60 hover:text-accent-ink"
           >
             <Gamepad2 className="size-3.5" aria-hidden />
-            Software Studios
+            {dict.nav.studios}
           </Link>
         </nav>
 
@@ -89,13 +94,14 @@ export async function SiteHeader() {
           <input
             type="search"
             name="q"
-            placeholder="Quick search..."
+            placeholder={dict.nav.searchPlaceholder}
             aria-label="Search the marketplace"
             className="input h-9 bg-elevated/70 pl-9 focus:bg-surface"
           />
         </form>
 
         <div className="ml-auto flex items-center gap-1 sm:ml-0 sm:gap-1.5">
+          <LanguageSwitcher currentLocale={locale} />
           <ThemeToggle />
 
           {userIsAdmin ? (
@@ -129,10 +135,10 @@ export async function SiteHeader() {
           <Link
             href="/cart"
             className="btn btn-ghost btn-sm relative px-2 sm:px-2.5"
-            aria-label={`Cart${cartCount > 0 ? `, ${cartCount} items` : ""}`}
+            aria-label={`${dict.nav.cart}${cartCount > 0 ? `, ${cartCount} items` : ""}`}
           >
             <ShoppingCart className="size-4" aria-hidden />
-            <span className="hidden xl:inline">Cart</span>
+            <span className="hidden xl:inline">{dict.nav.cart}</span>
             {cartCount > 0 ? (
               <span className="flex size-4 items-center justify-center rounded-full bg-accent-fill text-[10px] font-semibold text-white">
                 {cartCount > 9 ? "9+" : cartCount}
@@ -238,7 +244,7 @@ export async function SiteHeader() {
       <div className="border-t border-line bg-canvas/70 lg:hidden">
         <div className="mx-auto flex max-w-[1400px] items-center gap-2 px-4 py-2 sm:px-6">
           <nav className="flex flex-1 items-center gap-1 overflow-x-auto" aria-label="Mobile navigation">
-            {NAV_LINKS.map((link) => (
+            {navLinks.map((link) => (
               <Link
                 key={link.href}
                 href={link.href}

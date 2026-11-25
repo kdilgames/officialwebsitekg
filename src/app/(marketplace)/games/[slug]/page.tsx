@@ -17,6 +17,8 @@ import { StoreBadges } from "@/components/games/store-badges";
 import { Badge } from "@/components/ui/badge";
 import { buttonClass } from "@/components/ui/button";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
+import { env } from "@/lib/env";
+import { buildGameJsonLd, serializeJsonLd } from "@/lib/seo/json-ld";
 import {
   getStudioGameBySlug,
   listStudioGames,
@@ -42,7 +44,6 @@ export async function generateMetadata({
     openGraph: {
       title: game.name,
       description: game.tagline,
-      images: game.bannerPath ? [{ url: game.bannerPath, alt: game.name }] : undefined,
     },
   };
 }
@@ -56,8 +57,23 @@ export default async function GameDetailPage({
   const game = getStudioGameBySlug(slug);
   if (!game) notFound();
 
+  const gameJsonLd = buildGameJsonLd({
+    siteUrl: env.siteUrl,
+    slug: game.slug,
+    name: game.name,
+    description: game.description,
+    imageUrl: game.bannerPath ?? game.iconPath,
+    platform: game.platform,
+    genres: game.genres,
+    version: game.version,
+  });
+
   return (
     <div className="mx-auto max-w-[1100px] space-y-6 px-4 py-8 sm:px-6">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: serializeJsonLd(gameJsonLd) }}
+      />
       <Link
         href="/games"
         className="inline-flex items-center gap-1.5 text-[12.5px] text-ink-muted hover:text-ink"

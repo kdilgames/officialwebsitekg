@@ -4,61 +4,69 @@ import { ExternalLink } from "lucide-react";
 import { BrandMark } from "@/components/layout/brand-mark";
 import { CookiePreferencesButton } from "@/components/layout/cookie-banner";
 import { env } from "@/lib/env";
+import { getDictionary } from "@/lib/i18n/dictionaries";
+import { getServerLocale } from "@/lib/i18n/server";
 import { getCommunityDiscordUrl } from "@/lib/queries/products";
 
-const COLUMNS = [
-  {
-    title: "Marketplace",
-    links: [
-      { href: "/browse", label: "All products" },
-      { href: "/browse?price=free", label: "Free resources" },
-      { href: "/browse?sort=best-selling", label: "Best selling" },
-      { href: "/sellers", label: "Verified sellers" },
-    ],
-  },
-  {
-    title: "Creators",
-    links: [
-      { href: "/account/seller", label: "Become a seller" },
-      { href: "/dashboard", label: "Seller dashboard" },
-      { href: "/legal/seller-agreement", label: "Seller agreement" },
-      { href: "/legal/fees", label: "Fees & commissions" },
-    ],
-  },
-  {
-    title: "Support",
-    links: [
-      { href: "/support", label: "Help centre" },
-      { href: "/support#verification", label: "File safety & review" },
-      { href: "/support/new", label: "Contact support" },
-      { href: "/report", label: "Report a listing" },
-    ],
-  },
-  {
-    title: "Software Studios",
-    links: [
-      { href: "/games", label: "Our Games" },
-      { href: "/games/byterack-tycoon", label: "ByteRack Tycoon" },
-      { href: "/press", label: "Press Kit" },
-      { href: "/studios", label: "All Apps & Studios" },
-      { href: "/studios/privacy", label: "Studios Privacy Policy" },
-      { href: "/studios/terms", label: "Studios Terms of Service" },
-    ],
-  },
-  {
-    title: "Legal",
-    links: [
-      { href: "/legal/terms", label: "Terms of Service" },
-      { href: "/legal/privacy", label: "Marketplace Privacy Policy" },
-      { href: "/legal/refunds", label: "Refund Policy" },
-      { href: "/legal/cookies", label: "Cookie Policy" },
-      { href: "/dmca", label: "DMCA & Copyright" },
-    ],
-  },
-];
-
 export async function SiteFooter() {
-  const discordUrl = await getCommunityDiscordUrl();
+  const [discordUrl, locale] = await Promise.all([getCommunityDiscordUrl(), getServerLocale()]);
+  const dict = getDictionary(locale);
+
+  const columns = [
+    {
+      id: "marketplace",
+      title: dict.footer.marketplace,
+      links: [
+        { href: "/browse", label: "All products" },
+        { href: "/browse?price=free", label: "Free resources" },
+        { href: "/browse?sort=best-selling", label: "Best selling" },
+        { href: "/sellers", label: "Verified sellers" },
+      ],
+    },
+    {
+      id: "creators",
+      title: dict.footer.creators,
+      links: [
+        { href: "/account/seller", label: "Become a seller" },
+        { href: "/dashboard", label: "Seller dashboard" },
+        { href: "/legal/seller-agreement", label: "Seller agreement" },
+        { href: "/legal/fees", label: "Fees & commissions" },
+      ],
+    },
+    {
+      id: "support",
+      title: dict.footer.support,
+      links: [
+        { href: "/support", label: "Help centre" },
+        { href: "/support#verification", label: "File safety & review" },
+        { href: "/support/new", label: "Contact support" },
+        { href: "/report", label: "Report a listing" },
+      ],
+    },
+    {
+      id: "studios",
+      title: dict.footer.studios,
+      links: [
+        { href: "/games", label: dict.ourGames.heading },
+        { href: "/games/byterack-tycoon", label: "ByteRack Tycoon" },
+        { href: "/press", label: dict.ourGames.pressKit },
+        { href: "/blog", label: dict.nav.blog },
+        { href: "/studios", label: "All Apps & Studios" },
+        { href: "/studios/privacy", label: "Studios Privacy Policy" },
+      ],
+    },
+    {
+      id: "legal",
+      title: dict.footer.legal,
+      links: [
+        { href: "/legal/terms", label: "Terms of Service" },
+        { href: "/legal/privacy", label: "Marketplace Privacy Policy" },
+        { href: "/legal/refunds", label: "Refund Policy" },
+        { href: "/legal/cookies", label: "Cookie Policy" },
+        { href: "/dmca", label: "DMCA & Copyright" },
+      ],
+    },
+  ];
 
   return (
     <footer className="border-t border-line bg-surface">
@@ -68,11 +76,8 @@ export async function SiteFooter() {
             <Link href="/" className="inline-block rounded-[9px] py-0.5 pr-1">
               <BrandMark />
             </Link>
-            <p className="muted mt-3 max-w-xs text-[13px] leading-relaxed">
-              A curated digital marketplace for game developers and server owners — Roblox systems,
-              Minecraft plugins, Discord bots, web templates and developer tools.
-            </p>
-            <p className="subtle mt-3 text-[12px]">Operated in Croatia (EU) · Secure payments via Stripe</p>
+            <p className="muted mt-3 max-w-xs text-[13px] leading-relaxed">{dict.footer.tagline}</p>
+            <p className="subtle mt-3 text-[12px]">{dict.footer.operatedIn}</p>
             {discordUrl ? (
               <a
                 href={discordUrl}
@@ -86,8 +91,8 @@ export async function SiteFooter() {
             ) : null}
           </div>
 
-          {COLUMNS.map((column) => (
-            <div key={column.title}>
+          {columns.map((column) => (
+            <div key={column.id}>
               <p className="subtle text-[11px] font-semibold uppercase tracking-[0.06em]">
                 {column.title}
               </p>
@@ -102,7 +107,7 @@ export async function SiteFooter() {
                     </Link>
                   </li>
                 ))}
-                {column.title === "Legal" ? (
+                {column.id === "legal" ? (
                   <li>
                     <CookiePreferencesButton />
                   </li>
@@ -116,7 +121,7 @@ export async function SiteFooter() {
 
         <div className="flex flex-wrap items-center justify-between gap-4">
           <p className="subtle text-[12px]">
-            © {new Date().getFullYear()} {env.marketplace.platformName}. All rights reserved.
+            © {new Date().getFullYear()} {env.marketplace.platformName}. {dict.footer.rightsReserved}
           </p>
           <p className="subtle max-w-xl text-[12px] leading-relaxed">
             Payments and payouts are processed securely by Stripe. Card details never pass through{" "}

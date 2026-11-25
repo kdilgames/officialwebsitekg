@@ -8,6 +8,7 @@ import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/form";
 import { idleState, type ActionState } from "@/lib/action-state";
+import { getDictionary } from "@/lib/i18n/dictionaries";
 
 type FormAction = (state: ActionState, formData: FormData) => Promise<ActionState>;
 
@@ -21,6 +22,7 @@ export function NewsletterSection({
   locale?: "en" | "hr";
 }) {
   const [state, formAction, pending] = useActionState(action, idleState);
+  const dict = getDictionary(locale).newsletter;
 
   return (
     <section
@@ -31,15 +33,12 @@ export function NewsletterSection({
         <div>
           <p className="inline-flex items-center gap-1.5 text-[11.5px] font-semibold uppercase tracking-[0.07em] text-accent">
             <Sparkles className="size-3.5" aria-hidden />
-            Studio Dispatch
+            {dict.eyebrow}
           </p>
           <h2 id="newsletter-heading" className="mt-1 text-[20px] font-semibold tracking-tight text-ink">
-            Get game launches, devlogs &amp; creator drops
+            {dict.heading}
           </h2>
-          <p className="muted mt-1.5 max-w-xl text-[13.5px] leading-relaxed">
-            Occasional updates on ByteRack Tycoon, upcoming KDILGAMES titles, and standout free
-            resources. Zero spam — one-click GDPR unsubscribe in every email.
-          </p>
+          <p className="muted mt-1.5 max-w-xl text-[13.5px] leading-relaxed">{dict.subtitle}</p>
         </div>
 
         <form action={formAction} className="space-y-2.5">
@@ -56,19 +55,17 @@ export function NewsletterSection({
               type="email"
               required
               autoComplete="email"
-              placeholder="you@studio.com"
+              placeholder={dict.placeholder}
               aria-label="Email address"
               className="flex-1"
             />
             <Button type="submit" variant="primary" disabled={pending}>
               <Mail className="size-4" aria-hidden />
-              {pending ? "Subscribing…" : "Subscribe"}
+              {pending ? dict.submitting : dict.submit}
             </Button>
           </div>
           <TurnstileWidget action="newsletter" />
-          <p className="subtle text-[11.5px]">
-            By subscribing you agree to receive studio updates per our Privacy Policy.
-          </p>
+          <p className="subtle text-[11.5px]">{dict.consentNote}</p>
         </form>
       </div>
     </section>

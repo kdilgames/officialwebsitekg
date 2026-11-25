@@ -1,5 +1,6 @@
 import type { MetadataRoute } from "next";
 
+import { BLOG_POSTS } from "@/lib/blog/posts";
 import { prisma } from "@/lib/db";
 import { withSchemaFallback } from "@/lib/db-compat";
 import { LEGAL_PAGES } from "@/lib/legal/content";
@@ -17,6 +18,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${origin}/browse`, lastModified: now, changeFrequency: "hourly", priority: 0.9 },
     { url: `${origin}/sellers`, lastModified: now, changeFrequency: "daily", priority: 0.7 },
     { url: `${origin}/games`, lastModified: now, changeFrequency: "weekly", priority: 0.8 },
+    { url: `${origin}/blog`, lastModified: now, changeFrequency: "weekly", priority: 0.75 },
+    ...BLOG_POSTS.map((post) => ({
+      url: `${origin}/blog/${post.slug}`,
+      lastModified: new Date(post.publishedAt),
+      changeFrequency: "monthly" as const,
+      priority: 0.7,
+    })),
     { url: `${origin}/press`, lastModified: now, changeFrequency: "monthly", priority: 0.5 },
     { url: `${origin}/dmca`, lastModified: now, changeFrequency: "monthly", priority: 0.3 },
     { url: `${origin}/studios`, lastModified: now, changeFrequency: "weekly", priority: 0.7 },

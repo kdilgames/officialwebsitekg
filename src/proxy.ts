@@ -7,16 +7,28 @@ import {
   normalizeAffiliateCode,
 } from "@/lib/affiliate/rules";
 import { env, isSupabaseConfigured } from "@/lib/env";
+import {
+  LOCALE_COOKIE_NAME,
+  parseLocale,
+  resolveLocaleFromAcceptLanguage,
+} from "@/lib/i18n/config";
 
 /**
  * Refreshes the Supabase session cookie on every request so Server Components
- * always see a valid token, captures affiliate referral codes, and adds
- * baseline security headers.
+ * always see a valid token, captures affiliate referral codes, negotiates
+ * HR/EN locale without altering URLs, and adds baseline security headers.
  *
  * `proxy` is the Next.js 16 name for the middleware convention.
  */
 export async function proxy(request: NextRequest) {
-  let response = NextResponse.next({ request });
+  const cookieLocale = parseLocale(request.cookies.get(LOCALE_COOKIE_NAME)?.value);
+  const resolvedLocale =
+    cookieLocale ?? resolveLocaleFromAcceptLanguage(request.headers.get("accept-language"));
+
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set("x-kdil-locale", resolvedLocale);
+
+  let response = NextResponse.next({ request: { headers: requestHeaders } });
 
   if (isSupabaseConfigured) {
     const supabase = createServerClient(env.supabase.url as string, env.supabase.anonKey as string, {
@@ -28,7 +40,7 @@ export async function proxy(request: NextRequest) {
           for (const { name, value } of cookiesToSet) {
             request.cookies.set(name, value);
           }
-          response = NextResponse.next({ request });
+          response = NextResponse.next({ request: { headers: requestHeaders } });
           for (const { name, value, options } of cookiesToSet) {
             response.cookies.set(name, value, options);
           }
