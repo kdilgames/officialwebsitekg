@@ -88,7 +88,9 @@ export default async function DashboardProductsPage() {
                         <StatusBadge status={product.status} />
                       </td>
                       <td className="whitespace-nowrap tabular-nums">
-                        {product.salePriceMinor ? (
+                        {product.salePriceMinor === 0 || (product.salePriceMinor === null && product.priceMinor === 0) ? (
+                          <span className="font-medium text-positive">Free</span>
+                        ) : product.salePriceMinor ? (
                           <>
                             <span className="text-accent">
                               {formatMoney(product.salePriceMinor, product.currency)}

@@ -9,6 +9,7 @@ import {
   Percent,
   Receipt,
   ShieldAlert,
+  ShieldCheck,
   Store,
 } from "lucide-react";
 
@@ -97,16 +98,16 @@ export default async function SupportPage() {
     : [];
 
   return (
-    <div className="mx-auto max-w-[1100px] space-y-5 px-4 py-6">
+    <div className="mx-auto max-w-[1140px] space-y-6 px-4 py-8 sm:px-6">
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="flex items-center gap-2 text-[18px] font-semibold tracking-tight">
-            <LifeBuoy className="size-4 text-accent" aria-hidden />
+          <h1 className="flex items-center gap-2 text-[24px] font-bold tracking-tight">
+            <LifeBuoy className="size-5 text-accent" aria-hidden />
             Help centre
           </h1>
-          <p className="muted mt-1 max-w-2xl text-[12.5px] leading-relaxed">
-            Policies, refund requests and reporting. Support tickets are answered by platform staff
-            — sellers cannot see the tickets you file about them.
+          <p className="muted mt-1.5 max-w-2xl text-[13.5px] leading-relaxed">
+            Policies, refund requests and reporting. Support tickets are handled confidentially by
+            platform staff.
           </p>
         </div>
         <Link href="/support/new" className={buttonClass("primary", "sm")}>
@@ -114,15 +115,47 @@ export default async function SupportPage() {
         </Link>
       </header>
 
-      <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <section className="grid gap-3.5 sm:grid-cols-2 lg:grid-cols-4">
         {TOPICS.map((topic) => (
-          <Link key={topic.href} href={topic.href} className="surface p-3.5 transition-colors hover:border-line-strong">
+          <Link key={topic.href} href={topic.href} className="surface card-interactive p-4">
             <topic.icon className="size-4 text-accent" aria-hidden />
-            <p className="mt-2 text-[13px] font-medium">{topic.title}</p>
-            <p className="muted mt-1 text-[11.5px] leading-relaxed">{topic.description}</p>
+            <p className="mt-2.5 text-[14px] font-semibold text-ink">{topic.title}</p>
+            <p className="muted mt-1 text-[12.5px] leading-relaxed">{topic.description}</p>
           </Link>
         ))}
       </section>
+
+      <Card id="verification">
+        <CardHeader
+          title="File safety & store verification"
+          description="How deliverables and creator accounts are checked before download access is granted."
+        />
+        <CardBody className="grid gap-4 text-[13px] leading-relaxed text-ink-muted sm:grid-cols-2">
+          <div className="surface-elevated p-4">
+            <p className="flex items-center gap-2 font-semibold text-ink">
+              <ShieldCheck className="size-4 text-positive" aria-hidden />
+              Creator vetting & manual review
+            </p>
+            <p className="mt-1.5">
+              Only stores manually reviewed and approved by KDILGAMES staff can publish products.
+              Submissions are inspected against asset provenance and compatibility guidelines before
+              appearing on the storefront.
+            </p>
+          </div>
+          <div className="surface-elevated p-4">
+            <p className="flex items-center gap-2 font-semibold text-ink">
+              <ShieldAlert className="size-4 text-accent" aria-hidden />
+              Extension blocking & scan telemetry
+            </p>
+            <p className="mt-1.5">
+              Raw executable binaries and high-risk script installers are rejected by our upload
+              extension policy. When an automated VirusTotal scanner is configured on the deployment,
+              clean verdicts appear directly on the product page; otherwise listings display manual
+              review status honestly without fabricated scan claims.
+            </p>
+          </div>
+        </CardBody>
+      </Card>
 
       <Card>
         <CardHeader

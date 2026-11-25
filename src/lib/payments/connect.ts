@@ -1,5 +1,14 @@
 import { getStripe } from "@/lib/stripe";
 import { env } from "@/lib/env";
+import {
+  ConnectError,
+  MissingStripeAccountError,
+  formatStripeConnectError,
+  isCapabilitiesRetryError,
+  isMissingStripeAccountError,
+} from "@/lib/payments/connect-errors";
+
+export { ConnectError, MissingStripeAccountError };
 
 /**
  * Stripe Connect helpers.
@@ -14,7 +23,6 @@ import { env } from "@/lib/env";
  * Nothing in this file fabricates a result: every value comes from Stripe, and
  * when no secret key is provisioned the caller receives an explicit error.
  */
-export class ConnectError extends Error {}
 
 function connectStripe() {
   const stripe = getStripe();
@@ -29,7 +37,7 @@ function connectStripe() {
 /** Stripe requires a supported two-letter country for a connected account. */
 export function isSupportedConnectCountry(country: string | null | undefined): boolean {
   if (!country) return false;
-  return /^[A-Z]{2}$/.test(country.toUpperCase());
+  return /^[A-Z]{2}$/.test(country.trim().toUpperCase());
 }
 
 export type ConnectAccountStatus = {
@@ -47,47 +55,98 @@ export async function createConnectAccount(params: {
   storeName: string;
 }): Promise<string> {
   const stripe = connectStripe();
+  const country = params.country.trim().toUpperCase();
+  const businessName = params.storeName.trim() || "KDILGAMES Seller";
 
-  const account = await stripe.accounts.create({
-    type: "express",
-    country: params.country.toUpperCase(),
+  const basePayload = {
+    type: "express" as const,
+    country,
     email: params.email,
-    business_type: "individual",
-    capabilities: { transfers: { requested: true } },
-    business_profile: { name: params.storeName },
+    business_type: "individual" as const,
+    business_profile: { name: businessName },
     metadata: { sellerId: params.sellerId },
-  });
+  };
 
-  return account.id;
+  try {
+    const account = await stripe.accounts.create({
+      ...basePayload,
+      capabilities: { transfers: { requested: true } },
+    });
+    return account.id;
+  } catch (error) {
+    if (isCapabilitiesRetryError(error)) {
+      try {
+        const account = await stripe.accounts.create({
+          ...basePayload,
+          capabilities: {
+            card_payments: { requested: true },
+            transfers: { requested: true },
+          },
+        });
+        return account.id;
+      } catch (retryError) {
+        console.error("[stripe-connect] createConnectAccount retry failed:", retryError);
+        throw new ConnectError(formatStripeConnectError(retryError, country));
+      }
+    }
+
+    console.error("[stripe-connect] createConnectAccount failed:", error);
+    throw new ConnectError(formatStripeConnectError(error, country));
+  }
 }
 
 /** Returns a single-use onboarding link that expires quickly. */
-export async function createOnboardingLink(accountId: string): Promise<string> {
+export async function createOnboardingLink(
+  accountId: string,
+  origin?: string,
+): Promise<string> {
   const stripe = connectStripe();
+  const baseUrl = origin ?? env.siteUrl;
 
-  const link = await stripe.accountLinks.create({
-    account: accountId,
-    // Stripe requires both URLs; the dashboard page re-checks the account state
-    // when the seller comes back, so neither URL is trusted for authorisation.
-    refresh_url: `${env.siteUrl}/dashboard/settings?connect=refresh`,
-    return_url: `${env.siteUrl}/dashboard/settings?connect=return`,
-    type: "account_onboarding",
-  });
+  try {
+    const link = await stripe.accountLinks.create({
+      account: accountId,
+      // Stripe requires both URLs; the dashboard page re-checks the account state
+      // when the seller comes back, so neither URL is trusted for authorisation.
+      refresh_url: `${baseUrl}/dashboard/settings?connect=refresh`,
+      return_url: `${baseUrl}/dashboard/settings?connect=return`,
+      type: "account_onboarding",
+    });
 
-  return link.url;
+    return link.url;
+  } catch (error) {
+    console.error("[stripe-connect] createOnboardingLink failed:", error);
+    if (isMissingStripeAccountError(error)) {
+      throw new MissingStripeAccountError(
+        "The previously saved Stripe account ID no longer exists in the active Stripe mode.",
+      );
+    }
+    throw new ConnectError(formatStripeConnectError(error));
+  }
 }
 
 /** Reads the live account state directly from Stripe, never from the browser. */
 export async function retrieveConnectStatus(accountId: string): Promise<ConnectAccountStatus> {
   const stripe = connectStripe();
-  const account = await stripe.accounts.retrieve(accountId);
 
-  return {
-    chargesEnabled: Boolean(account.charges_enabled),
-    payoutsEnabled: Boolean(account.payouts_enabled),
-    detailsSubmitted: Boolean(account.details_submitted),
-    requirementsCurrentlyDue: account.requirements?.currently_due ?? [],
-  };
+  try {
+    const account = await stripe.accounts.retrieve(accountId);
+
+    return {
+      chargesEnabled: Boolean(account.charges_enabled),
+      payoutsEnabled: Boolean(account.payouts_enabled),
+      detailsSubmitted: Boolean(account.details_submitted),
+      requirementsCurrentlyDue: account.requirements?.currently_due ?? [],
+    };
+  } catch (error) {
+    console.error("[stripe-connect] retrieveConnectStatus failed:", error);
+    if (isMissingStripeAccountError(error)) {
+      throw new MissingStripeAccountError(
+        "This Stripe connected account could not be found in the active Stripe mode.",
+      );
+    }
+    throw new ConnectError(formatStripeConnectError(error));
+  }
 }
 
 /**
@@ -105,16 +164,21 @@ export async function createSellerTransfer(params: {
 }): Promise<{ transferId: string }> {
   const stripe = connectStripe();
 
-  const transfer = await stripe.transfers.create(
-    {
-      amount: params.amountMinor,
-      currency: params.currency.toLowerCase(),
-      destination: params.accountId,
-      transfer_group: params.transferGroup,
-      metadata: { payoutId: params.payoutId },
-    },
-    { idempotencyKey: `payout:${params.payoutId}` },
-  );
+  try {
+    const transfer = await stripe.transfers.create(
+      {
+        amount: params.amountMinor,
+        currency: params.currency.toLowerCase(),
+        destination: params.accountId,
+        transfer_group: params.transferGroup,
+        metadata: { payoutId: params.payoutId },
+      },
+      { idempotencyKey: `payout:${params.payoutId}` },
+    );
 
-  return { transferId: transfer.id };
+    return { transferId: transfer.id };
+  } catch (error) {
+    console.error("[stripe-connect] createSellerTransfer failed:", error);
+    throw new ConnectError(formatStripeConnectError(error));
+  }
 }

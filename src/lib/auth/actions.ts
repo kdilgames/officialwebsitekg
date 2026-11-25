@@ -2,13 +2,15 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { headers } from "next/headers";
 
 import { createSupabaseServerClient } from "@/lib/auth/server";
+import { isConfiguredStaffEmail, syncAuthenticatedUser } from "@/lib/auth/admin-access";
 import { prisma } from "@/lib/db";
-import { env, isSupabaseConfigured } from "@/lib/env";
+import { isSupabaseConfigured } from "@/lib/env";
 import { rateLimit } from "@/lib/rate-limit";
+import { verifyTurnstileFromFormData } from "@/lib/turnstile";
 import { getRequestContext, recordAudit } from "@/lib/audit";
+import { getRequestOrigin } from "@/lib/utils/origin";
 import {
   type ActionState,
   errorState,
@@ -20,6 +22,7 @@ import {
   changePasswordSchema,
   forgotPasswordSchema,
   loginSchema,
+  magicLinkSchema,
   registerSchema,
   resetPasswordSchema,
   TERMS_VERSION,
@@ -33,16 +36,7 @@ function notConfigured(): ActionState {
 }
 
 async function authRedirectBaseUrl(): Promise<string> {
-  const headerList = await headers();
-  const proto =
-    headerList.get("x-forwarded-proto")?.split(",")[0]?.trim() ||
-    (env.siteUrl.startsWith("https://") ? "https" : "http");
-  const host =
-    headerList.get("x-forwarded-host")?.split(",")[0]?.trim() ||
-    headerList.get("host")?.trim();
-
-  if (!host) return env.siteUrl;
-  return `${proto}://${host}`;
+  return getRequestOrigin();
 }
 
 export async function signUpAction(
@@ -59,6 +53,11 @@ export async function signUpAction(
   const data = parsed.data;
 
   const context = await getRequestContext();
+  const turnstile = await verifyTurnstileFromFormData(formData, context.ipAddress);
+  if (!turnstile.ok) {
+    return errorState(turnstile.message ?? "Verification failed. Please try again.");
+  }
+
   const limit = await rateLimit(
     `signup:${context.ipAddress ?? "unknown"}`,
     5,
@@ -69,15 +68,20 @@ export async function signUpAction(
   }
 
   const existing = await prisma.user.findFirst({
-    where: { OR: [{ email: data.email }, { username: data.username.toLowerCase() }] },
+    where: {
+      OR: [
+        { email: { equals: data.email, mode: "insensitive" } },
+        { username: data.username.toLowerCase() },
+      ],
+    },
     select: { email: true, username: true },
   });
   if (existing) {
+    const emailTaken = existing.email.toLowerCase() === data.email.toLowerCase();
     return errorState("That account already exists.", {
-      [existing.email === data.email ? "email" : "username"]:
-        existing.email === data.email
-          ? "An account with this email already exists."
-          : "This username is taken.",
+      [emailTaken ? "email" : "username"]: emailTaken
+        ? "An account with this email already exists."
+        : "This username is taken.",
     });
   }
 
@@ -135,6 +139,11 @@ export async function signInAction(
   }
 
   const context = await getRequestContext();
+  const turnstile = await verifyTurnstileFromFormData(formData, context.ipAddress);
+  if (!turnstile.ok) {
+    return errorState(turnstile.message ?? "Verification failed. Please try again.");
+  }
+
   const limit = await rateLimit(`signin:${context.ipAddress ?? "unknown"}:${parsed.data.email}`, 10, 15 * 60);
   if (!limit.ok) {
     return errorState("Too many sign-in attempts. Wait a few minutes and try again.");
@@ -147,32 +156,83 @@ export async function signInAction(
     return errorState("Invalid email or password.");
   }
 
-  const user = await prisma.user.findUnique({
-    where: { authUserId: data.user.id },
-    select: { id: true, status: true, role: true, sellerProfile: { select: { status: true } } },
-  });
+  const synced = await syncAuthenticatedUser(data.user, { updateLastLogin: true });
 
-  if (!user) {
+  if (!synced.user) {
     await supabase.auth.signOut();
-    return errorState("This account is not linked to a marketplace profile. Contact support.");
+    if (synced.accountStatus === "SUSPENDED") {
+      return errorState("This account is suspended. Contact support for help.");
+    }
+    return errorState("This account is unavailable. Contact support.");
   }
 
-  if (user.status !== "ACTIVE") {
-    await supabase.auth.signOut();
-    return errorState("This account is suspended. Contact support for help.");
-  }
-
-  await prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
   await recordAudit({
-    actorId: user.id,
-    actorRole: user.role,
+    actorId: synced.user.id,
+    actorRole: synced.user.role,
     action: "auth.sign_in",
     entityType: "User",
-    entityId: user.id,
+    entityId: synced.user.id,
   });
 
   const next = String(formData.get("next") ?? "").trim();
-  redirect(safeNext(next));
+  const fallback = synced.user.role === "ADMIN" ? "/admin" : "/account";
+  redirect(next ? safeNext(next, fallback) : fallback);
+}
+
+export async function sendMagicLinkAction(
+  _previous: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  if (!isSupabaseConfigured) return notConfigured();
+
+  const parsed = magicLinkSchema.safeParse(formToObject(formData));
+  if (!parsed.success) {
+    return errorState("Please enter a valid email address.", toFieldErrors(parsed.error.issues));
+  }
+
+  const context = await getRequestContext();
+  const turnstile = await verifyTurnstileFromFormData(formData, context.ipAddress);
+  if (!turnstile.ok) {
+    return errorState(turnstile.message ?? "Verification failed. Please try again.");
+  }
+
+  const [ipLimit, emailLimit] = await Promise.all([
+    rateLimit(`magiclink-ip:${context.ipAddress ?? "unknown"}`, 8, 15 * 60),
+    rateLimit(`magiclink-email:${parsed.data.email}`, 4, 15 * 60),
+  ]);
+
+  if (!ipLimit.ok || !emailLimit.ok) {
+    return errorState("Too many link requests. Wait a few minutes before requesting another email.");
+  }
+
+  const supabase = await createSupabaseServerClient();
+  const baseUrl = await authRedirectBaseUrl();
+  const nextRaw = String(formData.get("next") ?? "").trim();
+  const redirectTarget = nextRaw
+    ? `${baseUrl}/auth/callback?next=${encodeURIComponent(safeNext(nextRaw))}`
+    : `${baseUrl}/auth/callback`;
+
+  const isStaffEmail = await isConfiguredStaffEmail(parsed.data.email);
+  const { error } = await supabase.auth.signInWithOtp({
+    email: parsed.data.email,
+    options: {
+      emailRedirectTo: redirectTarget,
+      shouldCreateUser: isStaffEmail,
+    },
+  });
+
+  if (error) {
+    if (/rate limit|security purposes|too many/i.test(error.message)) {
+      return errorState("Please wait a minute before requesting another email link.");
+    }
+    if (!/signup|not allowed/i.test(error.message)) {
+      return errorState(error.message);
+    }
+  }
+
+  return successState(
+    "If that email is registered or authorized as staff, a one-click sign-in link has been sent. Check your inbox.",
+  );
 }
 
 export async function signOutAction(): Promise<void> {
@@ -196,6 +256,11 @@ export async function requestPasswordResetAction(
   }
 
   const context = await getRequestContext();
+  const turnstile = await verifyTurnstileFromFormData(formData, context.ipAddress);
+  if (!turnstile.ok) {
+    return errorState(turnstile.message ?? "Verification failed. Please try again.");
+  }
+
   const limit = await rateLimit(`pwreset:${context.ipAddress ?? "unknown"}`, 5, 60 * 60);
   if (!limit.ok) {
     return errorState("Too many reset requests. Try again later.");

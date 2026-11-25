@@ -20,6 +20,7 @@ import {
   requestProductImageUpload,
   setThumbnailAction,
 } from "@/lib/seller/actions";
+import { formatBytes, safeArchiveBaseName } from "@/lib/upload-rules";
 
 export type AssetFile = {
   id: string;
@@ -44,27 +45,6 @@ export type AssetVersion = { id: string; version: string; isLatest: boolean };
 
 /** Suggested screenshot size; the storefront crops to this 2:1 frame. */
 const RECOMMENDED_IMAGE = { width: 1024, height: 512 };
-
-function formatBytes(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  const units = ["KB", "MB", "GB"];
-  let value = bytes / 1024;
-  let index = 0;
-  while (value >= 1024 && index < units.length - 1) {
-    value /= 1024;
-    index += 1;
-  }
-  return `${value.toFixed(value < 10 ? 1 : 0)} ${units[index]}`;
-}
-
-/** Makes a file name safe to use as the archive's name, matching the server rule. */
-function safeBaseName(raw: string): string {
-  const cleaned = raw
-    .replace(/[^A-Za-z0-9._-]/g, "_")
-    .replace(/^\.+/, "")
-    .slice(0, 60);
-  return cleaned.length > 0 ? cleaned : "product-files";
-}
 
 /** Reads an image's pixel dimensions from the browser before uploading. */
 async function readImageSize(file: File): Promise<{ width: number; height: number } | null> {
@@ -203,7 +183,7 @@ export function ProductFilesPanel({
     }
 
     const root = picked.find((file) => file.webkitRelativePath)?.webkitRelativePath.split("/")[0];
-    const name = `${safeBaseName(root ?? productName)}.zip`;
+    const name = `${safeArchiveBaseName(root ?? productName)}.zip`;
     const archiveFile = new File([archive], name, { type: "application/zip" });
 
     await uploadToTicket(archiveFile, `${picked.length} files as ${name}`);

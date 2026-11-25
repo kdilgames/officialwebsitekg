@@ -3,6 +3,7 @@
 import { useActionState } from "react";
 import Link from "next/link";
 
+import { TurnstileWidget } from "@/components/forms/turnstile-widget";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Field, Input, Select, Textarea } from "@/components/ui/form";
@@ -81,6 +82,8 @@ export function NewTicketForm({
       >
         <Textarea id="body" name="body" rows={7} maxLength={4000} required />
       </Field>
+
+      <TurnstileWidget action="support_ticket" />
 
       <div className="flex items-center justify-between gap-3 pt-1">
         <Link href="/support" className="text-[12.5px] text-ink-muted hover:text-ink">

@@ -22,6 +22,7 @@ const SECTIONS: Array<{ title: string; items: NavItem[] }> = [
       { href: "/admin/products", label: "Products", count: "productReviews" },
       { href: "/admin/categories", label: "Categories" },
       { href: "/admin/commissions", label: "Commissions" },
+      { href: "/admin/coupons", label: "Coupons" },
       { href: "/admin/reviews", label: "Reviews" },
     ],
   },
@@ -38,12 +39,14 @@ const SECTIONS: Array<{ title: string; items: NavItem[] }> = [
     title: "Trust",
     items: [
       { href: "/admin/reports", label: "Reports", count: "reports" },
+      { href: "/admin/dmca", label: "DMCA notices", count: "dmca" },
       { href: "/admin/tickets", label: "Support", count: "tickets" },
     ],
   },
   {
     title: "Platform",
     items: [
+      { href: "/admin/access", label: "Access & Emails" },
       { href: "/admin/users", label: "Users" },
       { href: "/admin/settings", label: "Settings" },
       { href: "/admin/audit", label: "Audit log" },

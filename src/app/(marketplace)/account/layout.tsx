@@ -3,7 +3,13 @@ import Link from "next/link";
 const LINKS = [
   { href: "/account", label: "Overview" },
   { href: "/account/orders", label: "Orders & downloads" },
+  { href: "/account/messages", label: "Messages" },
   { href: "/account/wishlist", label: "Wishlist" },
+  { href: "/account/following", label: "Following" },
+  { href: "/account/notifications", label: "Notifications" },
+  { href: "/account/affiliate", label: "Affiliate" },
+  { href: "/account/security", label: "Security & 2FA" },
+  { href: "/account/privacy", label: "Privacy & GDPR" },
   { href: "/account/seller", label: "Selling" },
   { href: "/support", label: "Support" },
 ];

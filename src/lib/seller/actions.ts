@@ -12,21 +12,30 @@ import {
   successState,
   toFieldErrors,
   type ActionState,
+  type ConnectActionState,
+  type CreateProductDraftResult,
+  type PublishProductUpdateResult,
 } from "@/lib/action-state";
+import { encodeUpdateChangelog, formatVersionNotificationBody } from "@/lib/update-format";
 import { notify, recordAudit } from "@/lib/audit";
 import { getSessionUser, type SessionUser } from "@/lib/auth/session";
 import { prisma } from "@/lib/db";
+import { withSchemaFallback } from "@/lib/db-compat";
+import { sendProductUpdateEmails } from "@/lib/email/notifications";
 import { env, isScannerConfigured } from "@/lib/env";
 import { triggerFileScan } from "@/lib/scanner";
 import { formatMoney, minorUnitFactor } from "@/lib/money";
 import { rateLimit } from "@/lib/rate-limit";
 import {
   ConnectError,
+  MissingStripeAccountError,
   createConnectAccount,
   createOnboardingLink,
   isSupportedConnectCountry,
   retrieveConnectStatus,
 } from "@/lib/payments/connect";
+import { formatStripeConnectError } from "@/lib/payments/connect-errors";
+import { getRequestOrigin } from "@/lib/utils/origin";
 import { requestSellerPayout } from "@/lib/payments/payouts";
 import {
   AVATARS_BUCKET,
@@ -45,7 +54,12 @@ import {
   type StorageBucket,
   type UploadTicket,
 } from "@/lib/storage";
-import { productSchema } from "@/lib/validation";
+import {
+  ALLOWED_FILE_EXTENSIONS,
+  ALLOWED_IMAGE_EXTENSIONS,
+  extensionOfFileName,
+} from "@/lib/upload-rules";
+import { bundleSchema, couponSchema, productSchema } from "@/lib/validation";
 import { bpsToPercent, formatBps, resolveCommissionRate } from "@/lib/commission";
 
 type SellerGate =
@@ -69,25 +83,6 @@ async function gate(): Promise<SellerGate> {
   }
   return { ok: true, user, seller: user.sellerProfile };
 }
-
-/**
- * Extensions accepted for product files.
- *
- * Executables and shell scripts are deliberately excluded: this deployment has
- * no malware scanner, so it cannot vouch for them. Everything else a digital
- * product realistically ships as (archives, engine packages, assets, documents)
- * is allowed.
- */
-const ALLOWED_FILE_EXTENSIONS = new Set([
-  "zip", "rar", "7z", "tar", "gz", "tgz", "jar", "unitypackage",
-  "rbxm", "rbxmx", "rbxl", "rbxlx", "lua", "luau", "js", "json", "txt", "md", "pdf",
-  "png", "jpg", "jpeg", "webp", "gif", "svg", "blend", "fbx", "obj", "gltf", "glb",
-  "uasset", "pak", "yml", "yaml", "toml", "cfg", "ini", "csv", "xlsx", "docx", "pptx",
-  "mp3", "wav", "ogg", "mp4", "webm", "ttf", "otf", "woff", "woff2",
-  "sk", "sb3", "mcpack", "mcaddon", "mcworld", "schem", "mcstructure", "dat", "db",
-]);
-
-const ALLOWED_IMAGE_EXTENSIONS = new Set(["png", "jpg", "jpeg", "webp", "gif", "avif"]);
 
 const MIME_BY_EXTENSION: Record<string, string> = {
   zip: "application/zip",
@@ -113,8 +108,7 @@ const MIME_BY_EXTENSION: Record<string, string> = {
 };
 
 function extensionOf(fileName: string): string {
-  const parts = sanitizeFileName(fileName).split(".");
-  return parts.length > 1 ? (parts.pop() ?? "").toLowerCase() : "";
+  return extensionOfFileName(fileName);
 }
 
 /** The MIME type is derived from the extension, never taken from the browser. */
@@ -169,30 +163,121 @@ function parseProduct(formData: FormData) {
   };
 }
 
-export async function createProductAction(
-  _previous: ActionState,
+export async function saveProductDraftForUploadAction(
   formData: FormData,
-): Promise<ActionState> {
+  existingProductId?: string,
+): Promise<CreateProductDraftResult> {
   const access = await gate();
-  if (!access.ok) return access.error;
+  if (!access.ok) return { ok: false, state: access.error };
   const { user, seller } = access;
 
   const parsed = parseProduct(formData);
-  if (!parsed.ok) return parsed.state;
+  if (!parsed.ok) return { ok: false, state: parsed.state };
   const { data, priceMinor, salePriceMinor } = parsed;
 
   const category = await prisma.category.findFirst({
     where: { id: data.categoryId, isActive: true },
     select: { id: true },
   });
-  if (!category) return errorState("Pick an active category.", { categoryId: "Unknown category." });
+  if (!category) {
+    return {
+      ok: false,
+      state: errorState("Pick an active category.", { categoryId: "Unknown category." }),
+    };
+  }
+
+  if (existingProductId) {
+    const existing = await prisma.product.findFirst({
+      where: { id: existingProductId, sellerId: seller.id },
+      select: {
+        id: true,
+        slug: true,
+        status: true,
+        version: true,
+        versions: { orderBy: { createdAt: "desc" }, take: 1, select: { id: true } },
+      },
+    });
+    if (!existing) {
+      return { ok: false, state: errorState("Draft product not found in your store.") };
+    }
+    if (existing.status !== "DRAFT") {
+      return {
+        ok: false,
+        state: errorState("This listing is no longer in draft state."),
+      };
+    }
+
+    if (data.slug !== existing.slug) {
+      const clash = await prisma.product.findUnique({
+        where: { slug: data.slug },
+        select: { id: true },
+      });
+      if (clash) {
+        return {
+          ok: false,
+          state: errorState("That listing page link slug is already in use.", {
+            slug: "Already in use.",
+          }),
+        };
+      }
+    }
+
+    await prisma.product.update({
+      where: { id: existing.id },
+      data: {
+        categoryId: category.id,
+        title: data.title,
+        slug: data.slug,
+        shortDescription: data.shortDescription,
+        description: data.description,
+        priceMinor,
+        salePriceMinor,
+        currency: data.currency,
+        tags: data.tags,
+        version: data.version,
+        licenseType: data.licenseType,
+        licenseText: emptyToNull(data.licenseText),
+        demoUrl: emptyToNull(data.demoUrl),
+        videoUrl: emptyToNull(data.videoUrl),
+        compatibility: data.compatibility ? data.compatibility : Prisma.DbNull,
+        requirements: data.requirements ? data.requirements : Prisma.DbNull,
+      },
+    });
+
+    await withSchemaFallback(
+      () =>
+        prisma.product.update({
+          where: { id: existing.id },
+          data: { saleEndsAt: salePriceMinor !== null ? (data.saleEndsAt ?? null) : null },
+        }),
+      null,
+    );
+
+    const latestVersion = existing.versions[0] ?? null;
+    if (latestVersion && existing.version !== data.version) {
+      await prisma.productVersion
+        .update({
+          where: { id: latestVersion.id },
+          data: { version: data.version },
+        })
+        .catch(() => undefined);
+    }
+
+    revalidateProduct(existing.id, data.slug);
+    return { ok: true, productId: existing.id, versionId: latestVersion?.id ?? null };
+  }
 
   const clash = await prisma.product.findUnique({
     where: { slug: data.slug },
     select: { id: true },
   });
   if (clash) {
-    return errorState("That product URL is already taken.", { slug: "Already in use." });
+    return {
+      ok: false,
+      state: errorState("That listing page link slug is already in use.", {
+        slug: "Already in use.",
+      }),
+    };
   }
 
   const created = await prisma.product.create({
@@ -211,19 +296,33 @@ export async function createProductAction(
       version: data.version,
       licenseType: data.licenseType,
       licenseText: emptyToNull(data.licenseText),
+      demoUrl: emptyToNull(data.demoUrl),
+      videoUrl: emptyToNull(data.videoUrl),
       compatibility: data.compatibility ? data.compatibility : Prisma.DbNull,
       requirements: data.requirements ? data.requirements : Prisma.DbNull,
     },
     select: { id: true },
   });
 
-  await prisma.productVersion.create({
+  if (salePriceMinor !== null && data.saleEndsAt) {
+    await withSchemaFallback(
+      () =>
+        prisma.product.update({
+          where: { id: created.id },
+          data: { saleEndsAt: data.saleEndsAt ?? null },
+        }),
+      null,
+    );
+  }
+
+  const versionRow = await prisma.productVersion.create({
     data: {
       productId: created.id,
       version: data.version,
       changelog: "Initial release.",
       isLatest: true,
     },
+    select: { id: true },
   });
 
   await recordAudit({
@@ -236,7 +335,16 @@ export async function createProductAction(
   });
 
   revalidateProduct(created.id, data.slug);
-  redirect(`/dashboard/products/${created.id}`);
+  return { ok: true, productId: created.id, versionId: versionRow.id };
+}
+
+export async function createProductAction(
+  _previous: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const result = await saveProductDraftForUploadAction(formData);
+  if (!result.ok) return result.state;
+  redirect(`/dashboard/products/${result.productId}`);
 }
 
 export async function updateProductAction(
@@ -271,7 +379,11 @@ export async function updateProductAction(
       where: { slug: data.slug },
       select: { id: true },
     });
-    if (clash) return errorState("That product URL is already taken.", { slug: "Already in use." });
+    if (clash) {
+      return errorState("That listing page link slug is already in use.", {
+        slug: "Already in use.",
+      });
+    }
   }
 
   // A seller may never approve their own listing: editing a live product sends
@@ -292,6 +404,8 @@ export async function updateProductAction(
       tags: data.tags,
       licenseType: data.licenseType,
       licenseText: emptyToNull(data.licenseText),
+      demoUrl: emptyToNull(data.demoUrl),
+      videoUrl: emptyToNull(data.videoUrl),
       compatibility: data.compatibility ? data.compatibility : Prisma.DbNull,
       requirements: data.requirements ? data.requirements : Prisma.DbNull,
       status,
@@ -299,6 +413,15 @@ export async function updateProductAction(
       rejectionReason: null,
     },
   });
+
+  await withSchemaFallback(
+    () =>
+      prisma.product.update({
+        where: { id: existing.id },
+        data: { saleEndsAt: salePriceMinor !== null ? (data.saleEndsAt ?? null) : null },
+      }),
+    null,
+  );
 
   await recordAudit({
     actorId: user.id,
@@ -318,12 +441,11 @@ export async function updateProductAction(
   );
 }
 
-export async function submitProductForReviewAction(formData: FormData): Promise<void> {
-  const access = await gate();
-  if (!access.ok) return;
+async function submitProductForReviewInternal(
+  access: Extract<SellerGate, { ok: true }>,
+  productId: string,
+): Promise<ActionState> {
   const { user, seller } = access;
-
-  const productId = String(formData.get("productId") ?? "");
   const product = await prisma.product.findFirst({
     where: { id: productId, sellerId: seller.id },
     select: {
@@ -333,13 +455,17 @@ export async function submitProductForReviewAction(formData: FormData): Promise<
       _count: { select: { files: { where: { isActive: true } }, images: true } },
     },
   });
-  if (!product) return;
-  if (product.status === "PUBLISHED" || product.status === "PENDING_REVIEW") return;
-  if (product.status === "SUSPENDED") return;
+  if (!product) return errorState("Product not found in your store.");
+  if (product.status === "PUBLISHED" || product.status === "PENDING_REVIEW") {
+    return errorState("Listing is already submitted or live.");
+  }
+  if (product.status === "SUSPENDED") {
+    return errorState("Suspended listings cannot be submitted.");
+  }
 
   if (product._count.files === 0) {
     // There is nothing to deliver, so it must not go live.
-    return;
+    return errorState("Attach at least one file before submitting for review.");
   }
 
   await prisma.product.update({
@@ -371,6 +497,20 @@ export async function submitProductForReviewAction(formData: FormData): Promise<
   }
 
   revalidateProduct(product.id, product.slug);
+  return successState("Listing submitted for admin review.");
+}
+
+export async function submitCreatedProductForReviewAction(productId: string): Promise<ActionState> {
+  const access = await gate();
+  if (!access.ok) return access.error;
+  return submitProductForReviewInternal(access, productId);
+}
+
+export async function submitProductForReviewAction(formData: FormData): Promise<void> {
+  const access = await gate();
+  if (!access.ok) return;
+  const productId = String(formData.get("productId") ?? "");
+  await submitProductForReviewInternal(access, productId);
 }
 
 export async function archiveProductAction(formData: FormData): Promise<void> {
@@ -465,20 +605,26 @@ export async function createVersionAction(
 
   const productId = String(formData.get("productId") ?? "");
   const version = String(formData.get("version") ?? "").trim();
+  const updateTitle = String(formData.get("updateTitle") ?? "").trim();
   const changelog = String(formData.get("changelog") ?? "").trim();
 
   if (!/^[0-9A-Za-z.\-+]{1,32}$/.test(version)) {
     return errorState("Use a version such as 1.2.0.", { version: "Invalid version." });
   }
-  if (changelog.length < 3 || changelog.length > 4000) {
-    return errorState("Describe what changed (3–4000 characters).", {
+  if (updateTitle.length > 140) {
+    return errorState("Update title must be 140 characters or shorter.", {
+      updateTitle: "140 characters max.",
+    });
+  }
+  if (changelog.length < 3 || changelog.length > 8000) {
+    return errorState("Describe what changed (3–8000 characters).", {
       changelog: "Describe what changed.",
     });
   }
 
   const product = await prisma.product.findFirst({
     where: { id: productId, sellerId: seller.id },
-    select: { id: true, slug: true, status: true },
+    select: { id: true, slug: true, title: true, status: true },
   });
   if (!product) return errorState("Product not found in your store.");
 
@@ -488,13 +634,15 @@ export async function createVersionAction(
   });
   if (clash) return errorState("That version already exists.", { version: "Already published." });
 
+  const encodedChangelog = encodeUpdateChangelog(updateTitle, changelog);
+
   await prisma.$transaction([
     prisma.productVersion.updateMany({
       where: { productId: product.id },
       data: { isLatest: false },
     }),
     prisma.productVersion.create({
-      data: { productId: product.id, version, changelog, isLatest: true },
+      data: { productId: product.id, version, changelog: encodedChangelog, isLatest: true },
     }),
     prisma.product.update({
       where: { id: product.id },
@@ -511,8 +659,187 @@ export async function createVersionAction(
     after: { version },
   });
 
+  const buyers = await prisma.orderItem.findMany({
+    where: {
+      productId: product.id,
+      status: "PAID",
+      order: { status: { in: ["PAID", "PARTIALLY_REFUNDED"] } },
+    },
+    select: { order: { select: { buyerId: true } } },
+  });
+  const buyerIds = [...new Set(buyers.map((row) => row.order.buyerId))].filter(
+    (id) => id !== user.id,
+  );
+  if (buyerIds.length > 0) {
+    const updateBody = formatVersionNotificationBody(encodedChangelog, version);
+    await prisma.notification.createMany({
+      data: buyerIds.map((buyerId) => ({
+        userId: buyerId,
+        type: "ORDER",
+        title: `Update: ${product.title} v${version}`,
+        body: updateBody,
+        href:
+          product.status === "PUBLISHED"
+            ? `/product/${product.slug}?tab=updates`
+            : "/account/orders",
+      })),
+    });
+    await sendProductUpdateEmails({
+      buyerIds,
+      productTitle: product.title,
+      productSlug: product.slug,
+      version,
+      summary: updateBody,
+    });
+  }
+
   revalidateProduct(product.id, product.slug);
+  revalidatePath("/account/orders");
   return successState(`Version ${version} published. Existing buyers can download it.`);
+}
+
+export async function publishProductUpdateFromPageAction(input: {
+  productId: string;
+  version: string;
+  postUpdate: boolean;
+  updateTitle?: string;
+  updateMessage?: string;
+}): Promise<PublishProductUpdateResult> {
+  const access = await gate();
+  if (!access.ok) return { ok: false, state: access.error };
+  const { user, seller } = access;
+
+  const version = input.version.trim();
+  const updateTitle = (input.updateTitle ?? "").trim();
+  const updateMessage = (input.updateMessage ?? "").trim();
+
+  if (!/^[0-9A-Za-z.\-+]{1,32}$/.test(version)) {
+    return {
+      ok: false,
+      state: errorState("Use a version number such as 1.2.0 or 4.1.", {
+        version: "Use 1–32 letters, digits, dots, hyphens, or +.",
+      }),
+    };
+  }
+
+  if (updateTitle.length > 140) {
+    return {
+      ok: false,
+      state: errorState("Update title must be 140 characters or shorter.", {
+        updateTitle: "140 characters max.",
+      }),
+    };
+  }
+
+  if (updateMessage.length > 8000) {
+    return {
+      ok: false,
+      state: errorState("Update message must be 8000 characters or shorter.", {
+        updateMessage: "8000 characters max.",
+      }),
+    };
+  }
+
+  if (input.postUpdate && updateTitle.length < 3 && updateMessage.length < 3) {
+    return {
+      ok: false,
+      state: errorState("Add an update title or update message (at least 3 characters).", {
+        updateMessage: "Add an update title or message.",
+      }),
+    };
+  }
+
+  const product = await prisma.product.findFirst({
+    where: { id: input.productId, sellerId: seller.id },
+    select: { id: true, slug: true, title: true, status: true },
+  });
+  if (!product) {
+    return { ok: false, state: errorState("Product not found in your store.") };
+  }
+
+  const clash = await prisma.productVersion.findUnique({
+    where: { productId_version: { productId: product.id, version } },
+    select: { id: true },
+  });
+  if (clash) {
+    return {
+      ok: false,
+      state: errorState(`Version ${version} already exists.`, {
+        version: "Already published.",
+      }),
+    };
+  }
+
+  const encodedChangelog = input.postUpdate
+    ? encodeUpdateChangelog(updateTitle, updateMessage)
+    : encodeUpdateChangelog(updateTitle || `Release v${version}`, updateMessage);
+
+  const [, createdVersion] = await prisma.$transaction([
+    prisma.productVersion.updateMany({
+      where: { productId: product.id },
+      data: { isLatest: false },
+    }),
+    prisma.productVersion.create({
+      data: {
+        productId: product.id,
+        version,
+        changelog: encodedChangelog,
+        isLatest: true,
+      },
+      select: { id: true },
+    }),
+    prisma.product.update({
+      where: { id: product.id },
+      data: { version, updatedAt: new Date() },
+    }),
+  ]);
+
+  await recordAudit({
+    actorId: user.id,
+    actorRole: user.role,
+    action: "product.version.created",
+    entityType: "Product",
+    entityId: product.id,
+    after: { version, postUpdate: input.postUpdate },
+  });
+
+  const buyers = await prisma.orderItem.findMany({
+    where: {
+      productId: product.id,
+      status: "PAID",
+      order: { status: { in: ["PAID", "PARTIALLY_REFUNDED"] } },
+    },
+    select: { order: { select: { buyerId: true } } },
+  });
+  const buyerIds = [...new Set(buyers.map((row) => row.order.buyerId))].filter(
+    (id) => id !== user.id,
+  );
+  if (buyerIds.length > 0) {
+    const updateBody = formatVersionNotificationBody(encodedChangelog, version);
+    await prisma.notification.createMany({
+      data: buyerIds.map((buyerId) => ({
+        userId: buyerId,
+        type: "ORDER",
+        title: `Update: ${product.title} v${version}`,
+        body: updateBody,
+        href:
+          product.status === "PUBLISHED"
+            ? `/product/${product.slug}?tab=updates`
+            : "/account/orders",
+      })),
+    });
+    await sendProductUpdateEmails({
+      buyerIds,
+      productTitle: product.title,
+      productSlug: product.slug,
+      version,
+      summary: updateBody,
+    });
+  }
+
+  revalidateProduct(product.id, product.slug);
+  revalidatePath("/account/orders");
+  return { ok: true, versionId: createdVersion.id };
 }
 
 // ---------------------------------------------------------------- uploads
@@ -589,6 +916,7 @@ export async function finalizeProductFileAction(input: {
   fileName: string;
   versionId?: string | null;
   note?: string;
+  replacePreviousFiles?: boolean;
 }): Promise<ActionState> {
   const access = await gate();
   if (!access.ok) return access.error;
@@ -637,22 +965,33 @@ export async function finalizeProductFileAction(input: {
     versionId = version?.id ?? null;
   }
 
-  const file = await prisma.productFile.create({
-    data: {
-      productId: product.id,
-      versionId,
-      storageBucket: PRODUCT_FILES_BUCKET,
-      storagePath: canonicalPath,
-      fileName: sanitizeFileName(name),
-      sizeBytes,
-      mimeType: mimeFor(name),
-      scanStatus: isScannerConfigured ? "PENDING" : "SKIPPED",
-      scanNote: isScannerConfigured
-        ? "Automated scan initiated. Results will appear shortly."
-        : "No malware scanner is configured on this deployment, so this file was not scanned. The seller is responsible for its contents.",
-      isActive: true,
-    },
-    select: { id: true },
+  const file = await prisma.$transaction(async (tx) => {
+    const created = await tx.productFile.create({
+      data: {
+        productId: product.id,
+        versionId,
+        storageBucket: PRODUCT_FILES_BUCKET,
+        storagePath: canonicalPath,
+        fileName: sanitizeFileName(name),
+        sizeBytes,
+        mimeType: mimeFor(name),
+        scanStatus: isScannerConfigured ? "PENDING" : "SKIPPED",
+        scanNote: isScannerConfigured
+          ? "Automated scan initiated. Results will appear shortly."
+          : "No malware scanner is configured on this deployment, so this file was not scanned. The seller is responsible for its contents.",
+        isActive: true,
+      },
+      select: { id: true },
+    });
+
+    if (input.replacePreviousFiles) {
+      await tx.productFile.updateMany({
+        where: { productId: product.id, id: { not: created.id }, isActive: true },
+        data: { isActive: false },
+      });
+    }
+
+    return created;
   });
 
   if (isScannerConfigured) {
@@ -670,6 +1009,7 @@ export async function finalizeProductFileAction(input: {
       fileName: sanitizeFileName(name),
       sizeBytes,
       version: input.note ?? null,
+      replacePreviousFiles: Boolean(input.replacePreviousFiles),
     },
   });
 
@@ -991,29 +1331,54 @@ export async function finalizeStoreLogoAction(input: { path: string }): Promise<
 
 // ---------------------------------------------------------------- Stripe Connect
 
-export async function startConnectOnboardingAction(): Promise<void> {
+export async function startConnectOnboardingAction(
+  _previous: ConnectActionState,
+  _formData: FormData,
+): Promise<ConnectActionState> {
   const access = await gate();
-  if (!access.ok) redirect("/dashboard/settings?connect=unavailable");
+  if (!access.ok) {
+    return {
+      status: "error",
+      message: access.error.message ?? "Only approved sellers can connect a payout account.",
+    };
+  }
   const { user, seller } = access;
 
-  const country = (seller.country ?? user.country ?? "").toUpperCase();
+  const country = (seller.country ?? user.country ?? "").trim().toUpperCase();
   if (!isSupportedConnectCountry(country)) {
-    redirect("/dashboard/settings?connect=country");
+    return {
+      status: "error",
+      message:
+        "Add your two-letter ISO country code (for example HR, US, GB, or DE) in Store profile and save it before connecting Stripe.",
+    };
+  }
+
+  const origin = await getRequestOrigin();
+
+  async function provisionExpressAccount(): Promise<string> {
+    const newAccountId = await createConnectAccount({
+      sellerId: seller.id,
+      email: user.email,
+      country,
+      storeName: seller.storeName,
+    });
+    await prisma.sellerProfile.update({
+      where: { id: seller.id },
+      data: {
+        stripeAccountId: newAccountId,
+        stripeChargesEnabled: false,
+        stripePayoutsEnabled: false,
+        stripeDetailsSubmitted: false,
+        stripeOnboardedAt: null,
+      },
+    });
+    return newAccountId;
   }
 
   try {
     let accountId = seller.stripeAccountId;
     if (!accountId) {
-      accountId = await createConnectAccount({
-        sellerId: seller.id,
-        email: user.email,
-        country,
-        storeName: seller.storeName,
-      });
-      await prisma.sellerProfile.update({
-        where: { id: seller.id },
-        data: { stripeAccountId: accountId },
-      });
+      accountId = await provisionExpressAccount();
       await recordAudit({
         actorId: user.id,
         actorRole: user.role,
@@ -1024,21 +1389,55 @@ export async function startConnectOnboardingAction(): Promise<void> {
       });
     }
 
-    const url = await createOnboardingLink(accountId);
-    redirect(url);
-  } catch (error) {
-    if (error instanceof ConnectError) {
-      redirect("/dashboard/settings?connect=unconfigured");
+    let onboardingUrl: string;
+    try {
+      onboardingUrl = await createOnboardingLink(accountId, origin);
+    } catch (error) {
+      if (error instanceof MissingStripeAccountError) {
+        const recreatedId = await provisionExpressAccount();
+        await recordAudit({
+          actorId: user.id,
+          actorRole: user.role,
+          action: "seller.stripe_account.recreated",
+          entityType: "SellerProfile",
+          entityId: seller.id,
+          before: { stripeAccountId: accountId },
+          after: { stripeAccountId: recreatedId },
+        });
+        onboardingUrl = await createOnboardingLink(recreatedId, origin);
+      } else {
+        throw error;
+      }
     }
-    throw error;
+
+    if (!onboardingUrl.startsWith("https://")) {
+      return {
+        status: "error",
+        message: "Stripe did not return a valid onboarding link. Try again in a moment.",
+      };
+    }
+
+    revalidatePath("/dashboard/settings");
+    return { status: "redirect", url: onboardingUrl };
+  } catch (error) {
+    console.error("[seller] startConnectOnboardingAction failed:", error);
+    const message =
+      error instanceof ConnectError ? error.message : formatStripeConnectError(error, country);
+    return { status: "error", message };
   }
 }
 
-export async function refreshConnectStatusAction(): Promise<void> {
+export async function refreshConnectStatusAction(
+  _previous: ActionState,
+  _formData: FormData,
+): Promise<ActionState> {
   const access = await gate();
-  if (!access.ok) return;
+  if (!access.ok) return access.error;
   const { user, seller } = access;
-  if (!seller.stripeAccountId) return;
+
+  if (!seller.stripeAccountId) {
+    return errorState("No Stripe account is linked yet. Click Connect Stripe to get started.");
+  }
 
   try {
     const status = await retrieveConnectStatus(seller.stripeAccountId);
@@ -1061,12 +1460,57 @@ export async function refreshConnectStatusAction(): Promise<void> {
       entityId: seller.id,
       after: status,
     });
-  } catch {
-    // Stripe is unreachable or not configured; the page keeps showing the
-    // last known state instead of inventing a new one.
-  }
 
-  revalidatePath("/dashboard/settings");
+    revalidatePath("/dashboard/settings");
+    revalidatePath("/dashboard/earnings");
+    revalidatePath("/dashboard");
+
+    if (status.payoutsEnabled) {
+      return successState("Stripe verified your payout account. Payouts are enabled.");
+    }
+    if (status.requirementsCurrentlyDue.length > 0) {
+      return successState(
+        `Synced with Stripe (${status.requirementsCurrentlyDue.length} detail${
+          status.requirementsCurrentlyDue.length === 1 ? "" : "s"
+        } still needed). Click Continue onboarding to finish.`,
+      );
+    }
+    if (status.detailsSubmitted) {
+      return successState(
+        "Details submitted to Stripe. Verification is still in progress — check again shortly.",
+      );
+    }
+    return successState("Synced with Stripe. Complete Stripe onboarding to enable payouts.");
+  } catch (error) {
+    if (error instanceof MissingStripeAccountError) {
+      await prisma.sellerProfile.update({
+        where: { id: seller.id },
+        data: {
+          stripeAccountId: null,
+          stripeChargesEnabled: false,
+          stripePayoutsEnabled: false,
+          stripeDetailsSubmitted: false,
+          stripeOnboardedAt: null,
+        },
+      });
+      await recordAudit({
+        actorId: user.id,
+        actorRole: user.role,
+        action: "seller.stripe_account.cleared",
+        entityType: "SellerProfile",
+        entityId: seller.id,
+        before: { stripeAccountId: seller.stripeAccountId },
+      });
+      revalidatePath("/dashboard/settings");
+      revalidatePath("/dashboard/earnings");
+      return errorState(
+        "The saved Stripe account ID was not found in the active Stripe mode and was cleared. Click Connect Stripe to set up a fresh link.",
+      );
+    }
+
+    if (error instanceof ConnectError) return errorState(error.message);
+    return errorState(formatStripeConnectError(error));
+  }
 }
 
 // ---------------------------------------------------------------- payouts
@@ -1134,4 +1578,276 @@ export async function previewCommissionAction(input: {
     bps: rate.rateBps,
     label: `Platform commission ${formatBps(rate.rateBps)} — you keep ${keep}% of each sale.`,
   };
+}
+
+// ---------------------------------------------------------------- coupons
+
+export async function createSellerCouponAction(
+  _previous: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const access = await gate();
+  if (!access.ok) return access.error;
+  const { user, seller } = access;
+
+  const parsed = couponSchema.safeParse(formToObject(formData));
+  if (!parsed.success) {
+    return errorState("Please correct the highlighted fields.", toFieldErrors(parsed.error.issues));
+  }
+  const data = parsed.data;
+
+  const existing = await prisma.coupon.findUnique({
+    where: { code: data.code },
+    select: { id: true },
+  });
+  if (existing) {
+    return errorState("That promo code is already in use.", { code: "Already exists." });
+  }
+
+  const factor = minorUnitFactor(data.currency);
+  const created = await prisma.coupon.create({
+    data: {
+      code: data.code,
+      sellerId: seller.id,
+      discountType: data.discountType,
+      percentOff: data.discountType === "PERCENT" ? Math.round(data.discountValue) : null,
+      amountOffMinor:
+        data.discountType === "FIXED" ? Math.round(data.discountValue * factor) : null,
+      currency: data.currency,
+      minSubtotalMinor:
+        data.minSubtotal !== undefined ? Math.round(data.minSubtotal * factor) : null,
+      maxRedemptions: data.maxRedemptions ?? null,
+      expiresAt: data.expiresAt ? new Date(data.expiresAt) : null,
+      isActive: true,
+    },
+    select: { id: true },
+  });
+
+  await recordAudit({
+    actorId: user.id,
+    actorRole: user.role,
+    action: "seller.coupon.created",
+    entityType: "Coupon",
+    entityId: created.id,
+    after: { code: data.code, discountType: data.discountType, sellerId: seller.id },
+  });
+
+  revalidatePath("/dashboard/coupons");
+  revalidatePath("/cart");
+  return successState(`Promo code ${data.code} created for your store.`);
+}
+
+export async function toggleSellerCouponAction(formData: FormData): Promise<void> {
+  const access = await gate();
+  if (!access.ok) return;
+  const { user, seller } = access;
+
+  const couponId = String(formData.get("couponId") ?? "");
+  const coupon = await prisma.coupon.findFirst({
+    where: { id: couponId, sellerId: seller.id },
+    select: { id: true, code: true, isActive: true },
+  });
+  if (!coupon) return;
+
+  await prisma.coupon.update({
+    where: { id: coupon.id },
+    data: { isActive: !coupon.isActive },
+  });
+
+  await recordAudit({
+    actorId: user.id,
+    actorRole: user.role,
+    action: coupon.isActive ? "seller.coupon.paused" : "seller.coupon.activated",
+    entityType: "Coupon",
+    entityId: coupon.id,
+    after: { code: coupon.code, isActive: !coupon.isActive },
+  });
+
+  revalidatePath("/dashboard/coupons");
+  revalidatePath("/cart");
+}
+
+export async function deleteSellerCouponAction(formData: FormData): Promise<void> {
+  const access = await gate();
+  if (!access.ok) return;
+  const { user, seller } = access;
+
+  const couponId = String(formData.get("couponId") ?? "");
+  const coupon = await prisma.coupon.findFirst({
+    where: { id: couponId, sellerId: seller.id },
+    select: { id: true, code: true },
+  });
+  if (!coupon) return;
+
+  await prisma.coupon.delete({ where: { id: coupon.id } });
+
+  await recordAudit({
+    actorId: user.id,
+    actorRole: user.role,
+    action: "seller.coupon.deleted",
+    entityType: "Coupon",
+    entityId: coupon.id,
+    before: { code: coupon.code },
+  });
+
+  revalidatePath("/dashboard/coupons");
+  revalidatePath("/cart");
+}
+
+// ---------------------------------------------------------------- bundles
+
+export async function createSellerBundleAction(
+  _previous: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const access = await gate();
+  if (!access.ok) return access.error;
+  const { user, seller } = access;
+
+  const parsed = bundleSchema.safeParse(formToObject(formData));
+  if (!parsed.success) {
+    return errorState("Please correct the highlighted fields.", toFieldErrors(parsed.error.issues));
+  }
+  const data = parsed.data;
+  const uniqueProductIds = [...new Set(data.productIds)];
+  if (uniqueProductIds.length < 2) {
+    return errorState("Select at least 2 distinct published products.", {
+      productIds: "Pick at least 2 distinct products.",
+    });
+  }
+
+  const slugClash = await prisma.productBundle.findUnique({
+    where: { slug: data.slug },
+    select: { id: true },
+  });
+  if (slugClash) {
+    return errorState("That bundle URL is already taken.", { slug: "Already in use." });
+  }
+
+  const products = await prisma.product.findMany({
+    where: { id: { in: uniqueProductIds }, sellerId: seller.id, status: "PUBLISHED" },
+    select: { id: true, priceMinor: true, salePriceMinor: true, currency: true },
+  });
+  if (products.length !== uniqueProductIds.length) {
+    return errorState("Every bundled item must be a published product in your store.", {
+      productIds: "Only published products from your store can be bundled.",
+    });
+  }
+
+  const mismatchedCurrency = products.find((p) => p.currency !== data.currency);
+  if (mismatchedCurrency) {
+    return errorState(`All bundled products must use ${data.currency}.`, {
+      currency: `Included items use ${mismatchedCurrency.currency}.`,
+    });
+  }
+
+  const factor = minorUnitFactor(data.currency);
+  const bundlePriceMinor = Math.round(data.price * factor);
+  const combinedMinor = products.reduce(
+    (sum, p) => sum + (p.salePriceMinor ?? p.priceMinor),
+    0,
+  );
+  if (bundlePriceMinor >= combinedMinor) {
+    return errorState(
+      `Bundle price must be lower than the combined individual value (${formatMoney(combinedMinor, data.currency)}).`,
+      { price: "Must discount the combined items." },
+    );
+  }
+
+  const created = await prisma.productBundle.create({
+    data: {
+      sellerId: seller.id,
+      title: data.title,
+      slug: data.slug,
+      description: emptyToNull(data.description),
+      bundlePriceMinor,
+      currency: data.currency,
+      isActive: true,
+      items: {
+        create: uniqueProductIds.map((productId, index) => ({
+          productId,
+          sortOrder: index,
+        })),
+      },
+    },
+    select: { id: true, slug: true },
+  });
+
+  await recordAudit({
+    actorId: user.id,
+    actorRole: user.role,
+    action: "seller.bundle.created",
+    entityType: "ProductBundle",
+    entityId: created.id,
+    after: { slug: data.slug, bundlePriceMinor, productCount: uniqueProductIds.length },
+  });
+
+  revalidatePath("/dashboard/bundles");
+  revalidatePath(`/seller/${seller.slug}`);
+  revalidatePath("/");
+  revalidatePath("/browse");
+  return successState(`Bundle “${data.title}” published.`);
+}
+
+export async function toggleSellerBundleAction(formData: FormData): Promise<void> {
+  const access = await gate();
+  if (!access.ok) return;
+  const { user, seller } = access;
+
+  const bundleId = String(formData.get("bundleId") ?? "");
+  const bundle = await prisma.productBundle.findFirst({
+    where: { id: bundleId, sellerId: seller.id },
+    select: { id: true, slug: true, isActive: true },
+  });
+  if (!bundle) return;
+
+  await prisma.productBundle.update({
+    where: { id: bundle.id },
+    data: { isActive: !bundle.isActive },
+  });
+
+  await recordAudit({
+    actorId: user.id,
+    actorRole: user.role,
+    action: bundle.isActive ? "seller.bundle.paused" : "seller.bundle.activated",
+    entityType: "ProductBundle",
+    entityId: bundle.id,
+    after: { isActive: !bundle.isActive },
+  });
+
+  revalidatePath("/dashboard/bundles");
+  revalidatePath(`/bundle/${bundle.slug}`);
+  revalidatePath(`/seller/${seller.slug}`);
+  revalidatePath("/");
+  revalidatePath("/cart");
+}
+
+export async function deleteSellerBundleAction(formData: FormData): Promise<void> {
+  const access = await gate();
+  if (!access.ok) return;
+  const { user, seller } = access;
+
+  const bundleId = String(formData.get("bundleId") ?? "");
+  const bundle = await prisma.productBundle.findFirst({
+    where: { id: bundleId, sellerId: seller.id },
+    select: { id: true, slug: true, title: true },
+  });
+  if (!bundle) return;
+
+  await prisma.productBundle.delete({ where: { id: bundle.id } });
+
+  await recordAudit({
+    actorId: user.id,
+    actorRole: user.role,
+    action: "seller.bundle.deleted",
+    entityType: "ProductBundle",
+    entityId: bundle.id,
+    before: { title: bundle.title, slug: bundle.slug },
+  });
+
+  revalidatePath("/dashboard/bundles");
+  revalidatePath(`/bundle/${bundle.slug}`);
+  revalidatePath(`/seller/${seller.slug}`);
+  revalidatePath("/");
+  revalidatePath("/cart");
 }

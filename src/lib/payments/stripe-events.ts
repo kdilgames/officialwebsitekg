@@ -2,6 +2,7 @@ import type Stripe from "stripe";
 
 import { prisma } from "@/lib/db";
 import { markOrderPaid, markOrderReversed } from "@/lib/payments/orders";
+import { extractCheckoutTaxDetails } from "@/lib/payments/tax";
 
 export type EventOutcome = {
   status: "PROCESSED" | "IGNORED";
@@ -65,6 +66,7 @@ export async function applyCheckoutCompleted(
 
   const intentId = paymentIntentId(session.payment_intent);
   const receiptUrl = await receiptUrlFor(stripe, intentId);
+  const tax = extractCheckoutTaxDetails(session);
 
   const result = await markOrderPaid({
     orderId: order.id,
@@ -72,6 +74,11 @@ export async function applyCheckoutCompleted(
     receiptUrl,
     // Never infer live mode from the client: the session itself reports it.
     isTestMode: session.livemode === false,
+    taxMinor: tax.taxMinor,
+    billingCountry: tax.billingCountry,
+    customerTaxId: tax.customerTaxId,
+    affiliateCode:
+      typeof session.metadata?.affiliateCode === "string" ? session.metadata.affiliateCode : null,
   });
 
   return {

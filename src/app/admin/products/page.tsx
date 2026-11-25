@@ -115,10 +115,9 @@ export default async function AdminProductsPage({
               </thead>
               <tbody>
                 {result.items.map((product) => {
+                  const effectivePrice = product.salePriceMinor ?? product.priceMinor;
                   const price =
-                    product.salePriceMinor !== null
-                      ? formatMoney(product.salePriceMinor, product.currency)
-                      : formatMoney(product.priceMinor, product.currency);
+                    effectivePrice === 0 ? "Free" : formatMoney(effectivePrice, product.currency);
                   const hasFiles = product._count.files > 0;
 
                   return (

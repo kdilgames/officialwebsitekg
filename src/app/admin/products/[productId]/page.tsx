@@ -5,6 +5,7 @@ import { ArrowLeft, FileWarning } from "lucide-react";
 import { ActionButton, ReasonForm } from "@/components/admin/action-forms";
 import { Alert } from "@/components/ui/alert";
 import { Badge, StatusBadge } from "@/components/ui/badge";
+import { BBCodeContent } from "@/components/ui/bbcode-content";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import {
   approveProductAction,
@@ -13,6 +14,7 @@ import {
   toggleFeaturedProductAction,
 } from "@/lib/admin/actions";
 import { getProductModerationDetail } from "@/lib/admin/queries";
+import { parseUpdateChangelog } from "@/lib/update-format";
 
 export const dynamic = "force-dynamic";
 
@@ -137,9 +139,7 @@ export default async function AdminProductDetailPage({
               {product.shortDescription ? (
                 <p className="text-[13px] text-ink">{product.shortDescription}</p>
               ) : null}
-              <p className="whitespace-pre-wrap text-[12.5px] leading-relaxed text-ink-muted">
-                {product.description}
-              </p>
+              <BBCodeContent value={product.description} className="text-[12.5px]" />
               {product.tags.length > 0 ? (
                 <div className="flex flex-wrap gap-1.5">
                   {product.tags.map((tag) => (
@@ -226,24 +226,30 @@ export default async function AdminProductDetailPage({
               </CardBody>
             ) : (
               <ul className="divide-y divide-line">
-                {product.versions.map((version) => (
-                  <li key={version.id} className="space-y-1 px-4 py-3">
-                    <div className="flex items-center gap-2">
-                      <span className="font-mono text-[12.5px] font-medium">
-                        {version.version}
-                      </span>
-                      {version.isLatest ? <Badge tone="accent">latest</Badge> : null}
-                      <span className="subtle ml-auto text-[11.5px]">
-                        {version.releasedAt.toISOString().slice(0, 10)}
-                      </span>
-                    </div>
-                    {version.changelog ? (
-                      <p className="whitespace-pre-wrap text-[12.5px] text-ink-muted">
-                        {version.changelog}
-                      </p>
-                    ) : null}
-                  </li>
-                ))}
+                {product.versions.map((version) => {
+                  const parsed = parseUpdateChangelog(version.changelog);
+                  return (
+                    <li key={version.id} className="space-y-1.5 px-4 py-3">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="font-mono text-[12.5px] font-medium">
+                          v{version.version}
+                        </span>
+                        {version.isLatest ? <Badge tone="accent">latest</Badge> : null}
+                        {parsed.title ? (
+                          <span className="text-[13px] font-semibold text-ink">
+                            {parsed.title}
+                          </span>
+                        ) : null}
+                        <span className="subtle ml-auto text-[11.5px]">
+                          {version.releasedAt.toISOString().slice(0, 10)}
+                        </span>
+                      </div>
+                      {parsed.body ? (
+                        <BBCodeContent value={parsed.body} className="text-[12.5px]" />
+                      ) : null}
+                    </li>
+                  );
+                })}
               </ul>
             )}
           </Card>

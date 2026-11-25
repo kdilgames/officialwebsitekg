@@ -3,15 +3,21 @@ import type { ReactNode } from "react";
 import { cn } from "@/lib/utils/cn";
 
 export function Card({
+  id,
   className,
   children,
   as: Tag = "div",
 }: {
+  id?: string;
   className?: string;
   children: ReactNode;
   as?: "div" | "section" | "article" | "li";
 }) {
-  return <Tag className={cn("surface", className)}>{children}</Tag>;
+  return (
+    <Tag id={id} className={cn("surface", className)}>
+      {children}
+    </Tag>
+  );
 }
 
 export function CardHeader({

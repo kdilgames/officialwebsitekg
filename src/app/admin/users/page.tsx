@@ -10,7 +10,9 @@ import { Input, Select } from "@/components/ui/form";
 import { Pagination } from "@/components/ui/table";
 import { reinstateUserAction, suspendUserAction, updateUserRoleAction } from "@/lib/admin/actions";
 import { listUsers } from "@/lib/admin/queries";
+import { isOwnerEmail } from "@/lib/auth/admin-access-rules";
 import { getSessionUser } from "@/lib/auth/session";
+import { env } from "@/lib/env";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Users · Admin" };
@@ -45,12 +47,17 @@ export default async function AdminUsersPage({
 
   return (
     <div className="space-y-4">
-      <header>
-        <h1 className="text-[18px] font-semibold tracking-tight">Users</h1>
-        <p className="muted mt-1 text-[12.5px]">
-          Accounts, roles and suspensions. The last active administrator cannot be demoted, and an
-          administrator cannot suspend their own account or another administrator&apos;s.
-        </p>
+      <header className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="text-[18px] font-semibold tracking-tight">Users</h1>
+          <p className="muted mt-1 text-[12.5px]">
+            Accounts, roles and suspensions. The owner email and active administrators cannot be
+            demoted or suspended here.
+          </p>
+        </div>
+        <Link href="/admin/access" className="btn btn-secondary btn-sm">
+          Authorize admin by email
+        </Link>
       </header>
 
       <form action="/admin/users" className="surface flex flex-wrap items-end gap-3 p-3">
@@ -106,8 +113,9 @@ export default async function AdminUsersPage({
                 </tr>
               </thead>
               <tbody>
-                {result.items.map((account: any) => {
+                {result.items.map((account) => {
                   const isSelf = account.id === currentUser?.id;
+                  const isAccountOwner = isOwnerEmail(account.email, env.auth.ownerEmail);
                   return (
                     <tr key={account.id}>
                       <td className="max-w-[280px]">
@@ -149,7 +157,9 @@ export default async function AdminUsersPage({
                       </td>
                       <td className="text-right tabular-nums">{account._count.orders}</td>
                       <td>
-                        {isSelf ? (
+                        {isAccountOwner ? (
+                          <Badge tone="accent">owner · protected</Badge>
+                        ) : isSelf ? (
                           <Badge tone="accent">you · admin</Badge>
                         ) : (
                           <UserRoleForm
@@ -163,6 +173,7 @@ export default async function AdminUsersPage({
                         <div className="flex flex-wrap items-start justify-end gap-1.5">
                           {account.status === "ACTIVE" &&
                           !isSelf &&
+                          !isAccountOwner &&
                           account.role !== "ADMIN" ? (
                             <ReasonForm
                               action={suspendUserAction}
@@ -184,9 +195,11 @@ export default async function AdminUsersPage({
                             </ActionButton>
                           ) : null}
 
-                          {account.role === "ADMIN" && !isSelf ? (
+                          {(account.role === "ADMIN" || isAccountOwner) && !isSelf ? (
                             <span className="subtle self-center text-[11.5px]">
-                              Admin accounts cannot be suspended
+                              {isAccountOwner
+                                ? "Owner account cannot be suspended"
+                                : "Admin accounts cannot be suspended"}
                             </span>
                           ) : null}
                         </div>

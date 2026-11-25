@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { withSchemaFallback } from "@/lib/db-compat";
 import { sweepMaturedEarnings } from "@/lib/payments/payouts";
 
 /**
@@ -162,60 +163,96 @@ export async function listSellerProducts(sellerId: string) {
   });
 }
 
-export async function getSellerProduct(sellerId: string, productId: string) {
-  return prisma.product.findFirst({
-    where: { id: productId, sellerId },
+const SELLER_PRODUCT_BASE_SELECT = {
+  id: true,
+  title: true,
+  slug: true,
+  status: true,
+  rejectionReason: true,
+  shortDescription: true,
+  description: true,
+  priceMinor: true,
+  salePriceMinor: true,
+  currency: true,
+  categoryId: true,
+  tags: true,
+  version: true,
+  licenseType: true,
+  licenseText: true,
+  compatibility: true,
+  requirements: true,
+  thumbnailUrl: true,
+  salesCount: true,
+  viewCount: true,
+  ratingSum: true,
+  ratingCount: true,
+  submittedAt: true,
+  publishedAt: true,
+  updatedAt: true,
+  images: {
+    orderBy: { sortOrder: "asc" as const },
+    select: { id: true, url: true, alt: true, sortOrder: true },
+  },
+  files: {
+    orderBy: { createdAt: "desc" as const },
     select: {
       id: true,
-      title: true,
-      slug: true,
-      status: true,
-      rejectionReason: true,
-      shortDescription: true,
-      description: true,
-      priceMinor: true,
-      salePriceMinor: true,
-      currency: true,
-      categoryId: true,
-      tags: true,
-      version: true,
-      licenseType: true,
-      licenseText: true,
-      compatibility: true,
-      requirements: true,
-      thumbnailUrl: true,
-      salesCount: true,
-      viewCount: true,
-      ratingSum: true,
-      ratingCount: true,
-      submittedAt: true,
-      publishedAt: true,
-      updatedAt: true,
-      images: {
-        orderBy: { sortOrder: "asc" },
-        select: { id: true, url: true, alt: true, sortOrder: true },
-      },
-      files: {
-        orderBy: { createdAt: "desc" },
-        select: {
-          id: true,
-          fileName: true,
-          sizeBytes: true,
-          mimeType: true,
-          scanStatus: true,
-          scanNote: true,
-          isActive: true,
-          createdAt: true,
-          versionId: true,
-          _count: { select: { downloads: true } },
-        },
-      },
-      versions: {
-        orderBy: { releasedAt: "desc" },
-        select: { id: true, version: true, changelog: true, isLatest: true, releasedAt: true },
-      },
+      fileName: true,
+      sizeBytes: true,
+      mimeType: true,
+      scanStatus: true,
+      scanNote: true,
+      isActive: true,
+      createdAt: true,
+      versionId: true,
+      _count: { select: { downloads: true } },
     },
-  });
+  },
+  versions: {
+    orderBy: { releasedAt: "desc" as const },
+    select: { id: true, version: true, changelog: true, isLatest: true, releasedAt: true },
+  },
+};
+
+export async function getSellerProduct(sellerId: string, productId: string) {
+  return withSchemaFallback(
+    () =>
+      prisma.product.findFirst({
+        where: { id: productId, sellerId },
+        select: {
+          ...SELLER_PRODUCT_BASE_SELECT,
+          demoUrl: true,
+          videoUrl: true,
+          questions: {
+            orderBy: { createdAt: "desc" },
+            take: 40,
+            select: {
+              id: true,
+              question: true,
+              answer: true,
+              isHidden: true,
+              answeredAt: true,
+              createdAt: true,
+              user: { select: { displayName: true, username: true } },
+            },
+          },
+        },
+      }),
+    async () => {
+      const legacy = await prisma.product.findFirst({
+        where: { id: productId, sellerId },
+        select: SELLER_PRODUCT_BASE_SELECT,
+      });
+      return legacy
+        ? {
+            ...legacy,
+            demoUrl: null as string | null,
+            videoUrl: null as string | null,
+            questions: [],
+          }
+        : null;
+    },
+  );
 }
 
 export type SellerProductDetail = NonNullable<Awaited<ReturnType<typeof getSellerProduct>>>;
@@ -325,6 +362,82 @@ export async function listActiveCategories() {
   return prisma.category.findMany({
     where: { isActive: true },
     orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
-    select: { id: true, name: true, slug: true },
+    select: { id: true, name: true, slug: true, parentId: true },
+  });
+}
+
+export async function listSellerCoupons(sellerId: string) {
+  return withSchemaFallback(
+    () =>
+      prisma.coupon.findMany({
+        where: { sellerId },
+        orderBy: { createdAt: "desc" },
+        select: {
+          id: true,
+          code: true,
+          discountType: true,
+          percentOff: true,
+          amountOffMinor: true,
+          currency: true,
+          minSubtotalMinor: true,
+          maxRedemptions: true,
+          redemptionCount: true,
+          isActive: true,
+          expiresAt: true,
+          createdAt: true,
+        },
+      }),
+    [],
+  );
+}
+
+export async function listSellerBundles(sellerId: string) {
+  return withSchemaFallback(
+    () =>
+      prisma.productBundle.findMany({
+        where: { sellerId },
+        orderBy: { createdAt: "desc" },
+        select: {
+          id: true,
+          title: true,
+          slug: true,
+          description: true,
+          bundlePriceMinor: true,
+          currency: true,
+          isActive: true,
+          createdAt: true,
+          items: {
+            orderBy: { sortOrder: "asc" },
+            select: {
+              product: {
+                select: {
+                  id: true,
+                  title: true,
+                  slug: true,
+                  status: true,
+                  priceMinor: true,
+                  salePriceMinor: true,
+                  currency: true,
+                },
+              },
+            },
+          },
+        },
+      }),
+    [],
+  );
+}
+
+export async function listSellerPublishedProductsForBundles(sellerId: string) {
+  return prisma.product.findMany({
+    where: { sellerId, status: "PUBLISHED" },
+    orderBy: { title: "asc" },
+    select: {
+      id: true,
+      title: true,
+      priceMinor: true,
+      salePriceMinor: true,
+      currency: true,
+    },
   });
 }

@@ -27,29 +27,65 @@ function positiveInt(value: string | undefined, fallback: number): number {
  * (encrypt but do not verify the CA chain), which is what Supabase's pooler
  * requires: its certificate chain is rooted in a private CA.
  */
-function resolveDatabaseUrl(): string | undefined {
-  const explicit = optional(process.env.DATABASE_URL) ?? optional(process.env.DIRECT_URL);
+export function resolveDatabaseUrlFromEnv(source: Record<string, string | undefined>): string | undefined {
+  const explicit = optional(source.DATABASE_URL) ?? optional(source.DIRECT_URL);
   if (explicit && !explicit.includes("[YOUR-PASSWORD]")) return explicit;
 
-  const raw =
-    optional(process.env.SUPABASE_POOLER_URL) ?? optional(process.env.SUPABASE_DB_URL);
+  const raw = optional(source.SUPABASE_POOLER_URL) ?? optional(source.SUPABASE_DB_URL);
   if (!raw) return undefined;
 
-  const password = optional(process.env.SUPABASE_DB_PASS);
-  const url = new URL(raw.includes("[YOUR-PASSWORD]") ? raw.replace("[YOUR-PASSWORD]", "") : raw);
-  if (password) url.password = password;
-  url.searchParams.set("sslmode", "require");
-  url.searchParams.set("uselibpqcompat", "true");
-  return url.toString();
+  const password = optional(source.SUPABASE_DB_PASS);
+  try {
+    const url = new URL(raw.includes("[YOUR-PASSWORD]") ? raw.replace("[YOUR-PASSWORD]", "") : raw);
+    if (password) url.password = password;
+    url.searchParams.set("sslmode", "require");
+    url.searchParams.set("uselibpqcompat", "true");
+    return url.toString();
+  } catch {
+    return undefined;
+  }
 }
+
+function resolveDatabaseUrl(): string | undefined {
+  return resolveDatabaseUrlFromEnv(process.env);
+}
+
+function resolveSiteUrl(): string {
+  const explicit =
+    optional(process.env.SITE_URL) ??
+    optional(process.env.NEXT_PUBLIC_SITE_URL) ??
+    (optional(process.env.VERCEL_URL) ? `https://${optional(process.env.VERCEL_URL)}` : undefined);
+
+  if (!explicit) return "http://localhost:3000";
+  const normalized = /^https?:\/\//i.test(explicit) ? explicit : `https://${explicit}`;
+  try {
+    return new URL(normalized).origin;
+  } catch {
+    return "http://localhost:3000";
+  }
+}
+
+function parseEmailList(value: string | undefined): string[] {
+  const raw = optional(value);
+  if (!raw) return [];
+  const emails = raw
+    .split(",")
+    .map((entry) => entry.trim().toLowerCase())
+    .filter((entry) => entry.includes("@"));
+  return [...new Set(emails)];
+}
+
+export const DEFAULT_OWNER_EMAIL = "kdilgames@gmail.com";
 
 export const env = {
   nodeEnv: process.env.NODE_ENV ?? "development",
 
-  siteUrl:
-    optional(process.env.SITE_URL) ??
-    optional(process.env.NEXT_PUBLIC_SITE_URL) ??
-    "http://localhost:3000",
+  siteUrl: resolveSiteUrl(),
+
+  auth: {
+    ownerEmail: (optional(process.env.ADMIN_OWNER_EMAIL) ?? DEFAULT_OWNER_EMAIL).toLowerCase(),
+    adminEmails: parseEmailList(process.env.ADMIN_EMAILS),
+  },
 
   database: {
     // Derived from the pooler URL plus SUPABASE_DB_PASS; see resolveDatabaseUrl.
@@ -73,18 +109,42 @@ export const env = {
     secretKey: optional(process.env.STRIPE_SECRET_KEY),
     publishableKey: optional(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY),
     webhookSecret: optional(process.env.STRIPE_WEBHOOK_SECRET),
+    automaticTax: optional(process.env.STRIPE_AUTOMATIC_TAX) === "true",
+    taxCode: optional(process.env.STRIPE_TAX_CODE) ?? "txcd_10000000",
   },
 
   marketplace: {
     defaultCommissionBps: positiveInt(process.env.PLATFORM_COMMISSION_BPS, 1500),
     earningsHoldDays: positiveInt(process.env.EARNINGS_HOLD_DAYS, 7),
     platformName: "KDILGAMES",
+    discordUrl: optional(process.env.NEXT_PUBLIC_DISCORD_URL),
   },
 
   cronSecret: optional(process.env.CRON_SECRET),
 
   malwareScanner: {
     virusTotalApiKey: optional(process.env.VIRUSTOTAL_API_KEY),
+  },
+
+  sentry: {
+    dsn: optional(process.env.SENTRY_DSN) ?? optional(process.env.NEXT_PUBLIC_SENTRY_DSN),
+    publicDsn: optional(process.env.NEXT_PUBLIC_SENTRY_DSN),
+    environment:
+      optional(process.env.SENTRY_ENVIRONMENT) ??
+      optional(process.env.VERCEL_ENV) ??
+      process.env.NODE_ENV ??
+      "development",
+  },
+
+  turnstile: {
+    siteKey: optional(process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY),
+    secretKey: optional(process.env.TURNSTILE_SECRET_KEY),
+  },
+
+  email: {
+    resendApiKey: optional(process.env.RESEND_API_KEY),
+    from: optional(process.env.EMAIL_FROM) ?? "KDILGAMES <noreply@kdilgames.com>",
+    supportEmail: optional(process.env.SUPPORT_EMAIL) ?? optional(process.env.ADMIN_OWNER_EMAIL) ?? DEFAULT_OWNER_EMAIL,
   },
 
   uploads: {
@@ -110,6 +170,11 @@ export const isSupabaseAdminConfigured = Boolean(
 );
 export const isStripeConfigured = Boolean(env.stripe.secretKey);
 export const isScannerConfigured = Boolean(env.malwareScanner.virusTotalApiKey);
+export const isSentryConfigured = Boolean(env.sentry.dsn);
+export const isTurnstileConfigured = Boolean(
+  env.turnstile.siteKey && env.turnstile.secretKey,
+);
+export const isEmailConfigured = Boolean(env.email.resendApiKey);
 
 /**
  * Throws a descriptive error when a required configuration block is missing.

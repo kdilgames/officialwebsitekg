@@ -10,10 +10,13 @@ import {
   toFieldErrors,
   type ActionState,
 } from "@/lib/action-state";
-import { notify, recordAudit } from "@/lib/audit";
+import { getRequestContext, notify, recordAudit } from "@/lib/audit";
 import { requireUser } from "@/lib/auth/session";
 import { prisma } from "@/lib/db";
+import { sendTicketReplyEmail } from "@/lib/email/notifications";
+import { env } from "@/lib/env";
 import { rateLimit } from "@/lib/rate-limit";
+import { verifyTurnstileFromFormData } from "@/lib/turnstile";
 import { ticketReplySchema, ticketSchema } from "@/lib/validation";
 
 /** Ticket numbers are human-readable references; the id remains the real key. */
@@ -39,6 +42,12 @@ export async function createTicketAction(
     return errorState("Please correct the highlighted fields.", toFieldErrors(parsed.error.issues));
   }
   const { subject, body, priority, orderId } = parsed.data;
+
+  const context = await getRequestContext();
+  const turnstile = await verifyTurnstileFromFormData(formData, context.ipAddress);
+  if (!turnstile.ok) {
+    return errorState(turnstile.message ?? "Verification failed. Please try again.");
+  }
 
   const limit = await rateLimit(`ticket:${user.id}`, 6, 60 * 60);
   if (!limit.ok) {
@@ -109,7 +118,7 @@ export async function replyToTicketAction(
 
   const ticket = await prisma.supportTicket.findFirst({
     where: { id: parsed.data.ticketId, userId: user.id },
-    select: { id: true, status: true, assignedToId: true, ticketNumber: true },
+    select: { id: true, status: true, assignedToId: true, ticketNumber: true, subject: true },
   });
   if (!ticket) return errorState("Ticket not found.");
   if (ticket.status === "CLOSED") {
@@ -134,6 +143,15 @@ export async function replyToTicketAction(
       href: "/admin/tickets",
     });
   }
+
+  await sendTicketReplyEmail({
+    recipientEmail: env.email.supportEmail,
+    ticketNumber: ticket.ticketNumber,
+    subject: ticket.subject,
+    authorLabel: `@${user.username}`,
+    replyBody: parsed.data.body,
+    hrefPath: "/admin/tickets",
+  });
 
   revalidatePath(`/support/${ticket.ticketNumber}`);
   return successState("Reply sent. Platform staff have been notified.");

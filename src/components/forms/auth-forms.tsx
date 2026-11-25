@@ -1,8 +1,10 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import Link from "next/link";
+import { KeyRound, Mail } from "lucide-react";
 
+import { TurnstileWidget } from "@/components/forms/turnstile-widget";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Field, Input } from "@/components/ui/form";
@@ -19,47 +21,124 @@ function FormAlert({ state }: { state: ActionState }) {
 
 export function LoginForm({
   action,
+  magicLinkAction,
   next,
 }: {
   action: AuthAction;
+  magicLinkAction?: AuthAction;
   next?: string;
 }) {
-  const [state, formAction, pending] = useActionState(action, idleState);
+  const [mode, setMode] = useState<"password" | "link">("password");
+  const [passwordState, passwordFormAction, passwordPending] = useActionState(action, idleState);
+  const [linkState, linkFormAction, linkPending] = useActionState(
+    magicLinkAction ?? action,
+    idleState,
+  );
 
   return (
-    <form action={formAction} className="space-y-3.5">
-      {next ? <input type="hidden" name="next" value={next} /> : null}
-      <FormAlert state={state} />
+    <div className="space-y-4">
+      {magicLinkAction ? (
+        <div
+          className="grid grid-cols-2 gap-1 rounded-[9px] border border-line bg-elevated p-1"
+          role="tablist"
+          aria-label="Sign-in method"
+        >
+          <button
+            type="button"
+            role="tab"
+            aria-selected={mode === "password"}
+            onClick={() => setMode("password")}
+            className={`flex items-center justify-center gap-1.5 rounded-[7px] px-3 py-1.5 text-[12.5px] font-medium transition-colors ${
+              mode === "password"
+                ? "bg-surface text-ink shadow-xs"
+                : "text-ink-muted hover:text-ink"
+            }`}
+          >
+            <KeyRound className="size-3.5" aria-hidden />
+            Password
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={mode === "link"}
+            onClick={() => setMode("link")}
+            className={`flex items-center justify-center gap-1.5 rounded-[7px] px-3 py-1.5 text-[12.5px] font-medium transition-colors ${
+              mode === "link"
+                ? "bg-surface text-ink shadow-xs"
+                : "text-ink-muted hover:text-ink"
+            }`}
+          >
+            <Mail className="size-3.5" aria-hidden />
+            Email link
+          </button>
+        </div>
+      ) : null}
 
-      <Field label="Email" htmlFor="email" error={state.fieldErrors?.email}>
-        <Input
-          id="email"
-          name="email"
-          type="email"
-          autoComplete="email"
-          required
-          placeholder="you@studio.com"
-        />
-      </Field>
+      {mode === "password" || !magicLinkAction ? (
+        <form action={passwordFormAction} className="space-y-3.5">
+          {next ? <input type="hidden" name="next" value={next} /> : null}
+          <FormAlert state={passwordState} />
 
-      <Field label="Password" htmlFor="password" error={state.fieldErrors?.password}>
-        <Input
-          id="password"
-          name="password"
-          type="password"
-          autoComplete="current-password"
-          required
-        />
-      </Field>
+          <Field label="Email" htmlFor="email" error={passwordState.fieldErrors?.email}>
+            <Input
+              id="email"
+              name="email"
+              type="email"
+              autoComplete="email"
+              required
+              placeholder="you@studio.com"
+            />
+          </Field>
 
-      <div className="flex items-center justify-between pt-1">
-        <Link href="/forgot-password" className="text-[12.5px] text-ink-muted hover:text-ink">
-          Forgot password?
-        </Link>
-        <Button type="submit" variant="primary" disabled={pending}>
-          {pending ? "Signing in…" : "Sign in"}
-        </Button>
-      </div>
+          <Field label="Password" htmlFor="password" error={passwordState.fieldErrors?.password}>
+            <Input
+              id="password"
+              name="password"
+              type="password"
+              autoComplete="current-password"
+              required
+            />
+          </Field>
+
+          <TurnstileWidget action="login" />
+
+          <div className="flex items-center justify-between pt-1">
+            <Link href="/forgot-password" className="text-[12.5px] text-ink-muted hover:text-ink">
+              Forgot password?
+            </Link>
+            <Button type="submit" variant="primary" disabled={passwordPending}>
+              {passwordPending ? "Signing in…" : "Sign in"}
+            </Button>
+          </div>
+        </form>
+      ) : (
+        <form action={linkFormAction} className="space-y-3.5">
+          {next ? <input type="hidden" name="next" value={next} /> : null}
+          <FormAlert state={linkState} />
+
+          <Field
+            label="Email address"
+            htmlFor="magic-email"
+            error={linkState.fieldErrors?.email}
+            hint="We send a one-click sign-in link directly to your inbox. Authorized owner and staff emails can sign in immediately."
+          >
+            <Input
+              id="magic-email"
+              name="email"
+              type="email"
+              autoComplete="email"
+              required
+              placeholder="you@studio.com"
+            />
+          </Field>
+
+          <TurnstileWidget action="magic_link" />
+
+          <Button type="submit" variant="primary" className="w-full" disabled={linkPending}>
+            {linkPending ? "Sending link…" : "Send sign-in link"}
+          </Button>
+        </form>
+      )}
 
       <p className="muted pt-1 text-center text-[12.5px]">
         No account yet?{" "}
@@ -67,7 +146,7 @@ export function LoginForm({
           Create one
         </Link>
       </p>
-    </form>
+    </div>
   );
 }
 
@@ -161,6 +240,8 @@ export function RegisterForm({ action }: { action: AuthAction }) {
         </label>
       </fieldset>
 
+      <TurnstileWidget action="register" />
+
       <Button type="submit" variant="primary" className="w-full" disabled={pending}>
         {pending ? "Creating account…" : "Create account"}
       </Button>
@@ -184,6 +265,7 @@ export function ForgotPasswordForm({ action }: { action: AuthAction }) {
       <Field label="Email" htmlFor="email" error={state.fieldErrors?.email}>
         <Input id="email" name="email" type="email" autoComplete="email" required />
       </Field>
+      <TurnstileWidget action="forgot_password" />
       <Button type="submit" variant="primary" className="w-full" disabled={pending}>
         {pending ? "Sending…" : "Send reset link"}
       </Button>

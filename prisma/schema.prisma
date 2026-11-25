@@ -166,10 +166,16 @@ enum TicketPriority {
 enum NotificationType {
   ORDER
   REVIEW
+  QUESTION
   PAYOUT
   MODERATION
   TICKET
   SYSTEM
+}
+
+enum CouponDiscountType {
+  PERCENT
+  FIXED
 }
 
 // ---------------------------------------------------------------- identity
@@ -215,7 +221,12 @@ model User {
   refundsRequested  Refund[]         @relation("RefundRequester")
   payoutsInitiated  Payout[]         @relation("PayoutInitiator")
   settingsUpdated   SiteSetting[]
-  legalPagesUpdated LegalPage[]
+  legalPagesUpdated  LegalPage[]
+  productQuestions   ProductQuestion[]
+  licenseKeys        LicenseKey[]
+  buyerConversations Conversation[]    @relation("BuyerConversations")
+  sentMessages       DirectMessage[]
+  affiliateAccount   AffiliateAccount?
 
   @@index([role, status])
   @@index([createdAt])
@@ -257,6 +268,10 @@ model SellerProfile {
   earnings      SellerEarning[]
   payouts       Payout[]
   followers     Follow[]
+  coupons       Coupon[]
+  bundles       ProductBundle[]
+  licenseKeys   LicenseKey[]
+  conversations Conversation[]
 
   @@index([status, createdAt])
 }
@@ -306,10 +321,13 @@ model Product {
   description      String
   priceMinor       Int
   salePriceMinor   Int?
+  saleEndsAt       DateTime?
   currency         String        @default("EUR") @db.Char(3)
   status           ProductStatus @default(DRAFT)
   rejectionReason  String?
   thumbnailUrl     String?
+  demoUrl          String?
+  videoUrl         String?
   tags             String[]      @default([])
   version          String        @default("1.0.0")
   compatibility    Json?
@@ -328,17 +346,22 @@ model Product {
   createdAt        DateTime      @default(now())
   updatedAt        DateTime      @updatedAt
 
-  seller     SellerProfile    @relation(fields: [sellerId], references: [id], onDelete: Cascade)
-  category   Category         @relation(fields: [categoryId], references: [id], onDelete: Restrict)
-  reviewedBy User?            @relation("ProductReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
-  images     ProductImage[]
-  files      ProductFile[]
-  versions   ProductVersion[]
-  reviews    Review[]
-  orderItems OrderItem[]
-  wishlisted WishlistItem[]
-  cartItems  CartItem[]
-  downloads  DownloadRecord[]
+  seller        SellerProfile       @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+  category      Category            @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  reviewedBy    User?               @relation("ProductReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+  images        ProductImage[]
+  files         ProductFile[]
+  versions      ProductVersion[]
+  reviews       Review[]
+  questions     ProductQuestion[]
+  bundleItems   ProductBundleItem[]
+  orderItems    OrderItem[]
+  wishlisted    WishlistItem[]
+  cartItems     CartItem[]
+  downloads     DownloadRecord[]
+  dmcaNotices   DmcaNotice[]
+  licenseKeys   LicenseKey[]
+  conversations Conversation[]
 
   @@index([status, publishedAt])
   @@index([categoryId, status])
@@ -426,13 +449,15 @@ model Review {
 // ---------------------------------------------------------------- cart & orders
 
 model Cart {
-  id        String   @id @default(uuid()) @db.Uuid
-  userId    String   @unique @db.Uuid
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id         String   @id @default(uuid()) @db.Uuid
+  userId     String   @unique @db.Uuid
+  couponCode String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
-  user  User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  items CartItem[]
+  user    User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items   CartItem[]
+  bundles CartBundle[]
 }
 
 model CartItem {
@@ -469,9 +494,14 @@ model Order {
   currency                String      @default("EUR") @db.Char(3)
   subtotalMinor           Int
   discountMinor           Int         @default(0)
+  taxMinor                Int         @default(0)
   totalMinor              Int
   platformFeeMinor        Int         @default(0)
   sellerNetMinor          Int         @default(0)
+  billingCountry          String?     @db.Char(2)
+  customerTaxId           String?
+  couponId                String?     @db.Uuid
+  couponCodeSnapshot      String?
   stripeCheckoutSessionId String?     @unique
   stripePaymentIntentId   String?     @unique
   receiptUrl              String?
@@ -485,12 +515,14 @@ model Order {
   updatedAt               DateTime    @updatedAt
 
   buyer     User           @relation(fields: [buyerId], references: [id], onDelete: Restrict)
+  coupon    Coupon?        @relation(fields: [couponId], references: [id], onDelete: SetNull)
   items     OrderItem[]
   payment   Payment?
   refunds   Refund[]
   dispute   Dispute?
-  downloads DownloadRecord[]
-  tickets   SupportTicket[]
+  downloads         DownloadRecord[]
+  tickets           SupportTicket[]
+  affiliateReferral AffiliateReferral?
 
   @@index([buyerId, createdAt])
   @@index([status, createdAt])
@@ -513,13 +545,14 @@ model OrderItem {
   createdAt         DateTime        @default(now())
   updatedAt         DateTime        @updatedAt
 
-  order     Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  product   Product        @relation(fields: [productId], references: [id], onDelete: Restrict)
-  seller    SellerProfile  @relation(fields: [sellerId], references: [id], onDelete: Restrict)
-  review    Review?
-  earning   SellerEarning?
-  refunds   Refund[]
-  downloads DownloadRecord[]
+  order      Order            @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product    Product          @relation(fields: [productId], references: [id], onDelete: Restrict)
+  seller     SellerProfile    @relation(fields: [sellerId], references: [id], onDelete: Restrict)
+  review     Review?
+  earning    SellerEarning?
+  refunds    Refund[]
+  downloads  DownloadRecord[]
+  licenseKey LicenseKey?
 
   @@unique([orderId, productId])
   @@index([sellerId, createdAt])
@@ -831,6 +864,94 @@ model Notification {
   @@index([userId, readAt, createdAt])
 }
 
+model ProductQuestion {
+  id         String    @id @default(uuid()) @db.Uuid
+  productId  String    @db.Uuid
+  userId     String    @db.Uuid
+  question   String
+  answer     String?
+  answeredAt DateTime?
+  isHidden   Boolean   @default(false)
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([productId, isHidden, createdAt])
+  @@index([userId])
+}
+
+model Coupon {
+  id               String             @id @default(uuid()) @db.Uuid
+  code             String             @unique
+  sellerId         String?            @db.Uuid
+  discountType     CouponDiscountType @default(PERCENT)
+  percentOff       Int?
+  amountOffMinor   Int?
+  currency         String             @default("EUR") @db.Char(3)
+  minSubtotalMinor Int?
+  maxRedemptions   Int?
+  redemptionCount  Int                @default(0)
+  isActive         Boolean            @default(true)
+  expiresAt        DateTime?
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+
+  seller SellerProfile? @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+  orders Order[]
+
+  @@index([code, isActive])
+  @@index([sellerId, isActive])
+}
+
+model ProductBundle {
+  id               String   @id @default(uuid()) @db.Uuid
+  sellerId         String   @db.Uuid
+  title            String
+  slug             String   @unique
+  description      String?
+  bundlePriceMinor Int
+  currency         String   @default("EUR") @db.Char(3)
+  isActive         Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  seller    SellerProfile       @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+  items     ProductBundleItem[]
+  cartItems CartBundle[]
+
+  @@index([sellerId, isActive])
+  @@index([isActive, createdAt])
+}
+
+model ProductBundleItem {
+  id        String   @id @default(uuid()) @db.Uuid
+  bundleId  String   @db.Uuid
+  productId String   @db.Uuid
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+
+  bundle  ProductBundle @relation(fields: [bundleId], references: [id], onDelete: Cascade)
+  product Product       @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([bundleId, productId])
+  @@index([productId])
+}
+
+model CartBundle {
+  id        String   @id @default(uuid()) @db.Uuid
+  cartId    String   @db.Uuid
+  bundleId  String   @db.Uuid
+  createdAt DateTime @default(now())
+
+  cart   Cart          @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  bundle ProductBundle @relation(fields: [bundleId], references: [id], onDelete: Cascade)
+
+  @@unique([cartId, bundleId])
+  @@index([bundleId])
+}
+
 /// Fixed-window rate limiting backed by Postgres so no extra infrastructure is required.
 model RateLimitBucket {
   key         String   @id
@@ -839,4 +960,181 @@ model RateLimitBucket {
   expiresAt   DateTime
 
   @@index([expiresAt])
+}
+
+/// Public studio rankings for KDILGAMES Software Studios mobile games & apps.
+model StudioLeaderboardEntry {
+  id                String   @id @default(uuid()) @db.Uuid
+  appSlug           String
+  playerKey         String
+  companyName       String
+  lifetimeEarnings  Float    @default(0)
+  techTokens        BigInt   @default(0)
+  facilityLevel     Int      @default(0)
+  activeServers     Int      @default(0)
+  contractsDone     Int      @default(0)
+  holdingRegions    Int      @default(1)
+  megaProjectsDone  Int      @default(0)
+  weeklySprintKey   String   @default("")
+  weeklySprintScore Float    @default(0)
+  appVersion        String   @default("1.6.0")
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@unique([appSlug, playerKey])
+  @@index([appSlug, lifetimeEarnings(sort: Desc), techTokens(sort: Desc)])
+  @@index([appSlug, weeklySprintKey, weeklySprintScore(sort: Desc)])
+}
+
+enum DmcaStatus {
+  RECEIVED
+  UNDER_REVIEW
+  REMOVED
+  DISMISSED
+  COUNTER_NOTICED
+}
+
+/// Copyright / DMCA & EU DSA takedown notices submitted against marketplace listings.
+model DmcaNotice {
+  id                 String     @id @default(uuid()) @db.Uuid
+  noticeNumber       String     @unique
+  claimantName       String
+  claimantEmail      String
+  claimantCompany    String?
+  productId          String?    @db.Uuid
+  productUrl         String
+  originalWorkUrl    String
+  description        String
+  goodFaithStatement Boolean    @default(true)
+  accuracyStatement  Boolean    @default(true)
+  signature          String
+  status             DmcaStatus @default(RECEIVED)
+  adminNotes         String?
+  reviewedById       String?    @db.Uuid
+  resolvedAt         DateTime?
+  ipAddress          String?
+  createdAt          DateTime   @default(now())
+  updatedAt          DateTime   @updatedAt
+
+  product Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+
+  @@index([status, createdAt])
+  @@index([productId])
+}
+
+enum LicenseStatus {
+  ACTIVE
+  REVOKED
+  SUSPENDED
+}
+
+/// Unique software license key issued per paid or claimed order item.
+model LicenseKey {
+  id               String        @id @default(uuid()) @db.Uuid
+  key              String        @unique
+  orderItemId      String        @unique @db.Uuid
+  productId        String        @db.Uuid
+  buyerId          String        @db.Uuid
+  sellerId         String        @db.Uuid
+  status           LicenseStatus @default(ACTIVE)
+  activationsCount Int           @default(0)
+  maxActivations   Int           @default(3)
+  lastVerifiedAt   DateTime?
+  revokedAt        DateTime?
+  createdAt        DateTime      @default(now())
+
+  orderItem OrderItem     @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
+  product   Product       @relation(fields: [productId], references: [id], onDelete: Cascade)
+  buyer     User          @relation(fields: [buyerId], references: [id], onDelete: Cascade)
+  seller    SellerProfile @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+
+  @@index([buyerId, createdAt])
+  @@index([sellerId, createdAt])
+  @@index([productId])
+}
+
+/// Buyer <-> Seller direct messaging thread.
+model Conversation {
+  id            String   @id @default(uuid()) @db.Uuid
+  buyerId       String   @db.Uuid
+  sellerId      String   @db.Uuid
+  productId     String?  @db.Uuid
+  subject       String
+  lastMessageAt DateTime @default(now())
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  buyer    User            @relation("BuyerConversations", fields: [buyerId], references: [id], onDelete: Cascade)
+  seller   SellerProfile   @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+  product  Product?        @relation(fields: [productId], references: [id], onDelete: SetNull)
+  messages DirectMessage[]
+
+  @@index([buyerId, lastMessageAt])
+  @@index([sellerId, lastMessageAt])
+  @@index([productId])
+}
+
+model DirectMessage {
+  id             String    @id @default(uuid()) @db.Uuid
+  conversationId String    @db.Uuid
+  senderId       String    @db.Uuid
+  body           String
+  readAt         DateTime?
+  createdAt      DateTime  @default(now())
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender       User         @relation(fields: [senderId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, createdAt])
+  @@index([senderId])
+}
+
+/// Creator & community affiliate referral accounts.
+model AffiliateAccount {
+  id            String   @id @default(uuid()) @db.Uuid
+  userId        String   @unique @db.Uuid
+  code          String   @unique
+  commissionBps Int      @default(1000)
+  clicks        Int      @default(0)
+  conversions   Int      @default(0)
+  earnedMinor   Int      @default(0)
+  currency      String   @default("EUR") @db.Char(3)
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  user      User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  referrals AffiliateReferral[]
+
+  @@index([code])
+}
+
+model AffiliateReferral {
+  id              String   @id @default(uuid()) @db.Uuid
+  affiliateId     String   @db.Uuid
+  orderId         String   @unique @db.Uuid
+  commissionMinor Int
+  currency        String   @default("EUR") @db.Char(3)
+  status          String   @default("APPROVED")
+  createdAt       DateTime @default(now())
+
+  affiliate AffiliateAccount @relation(fields: [affiliateId], references: [id], onDelete: Cascade)
+  order     Order            @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([affiliateId, createdAt])
+}
+
+/// Newsletter subscribers for game releases, marketplace drops, and dev updates.
+model NewsletterSubscriber {
+  id               String    @id @default(uuid()) @db.Uuid
+  email            String    @unique
+  locale           String    @default("en") @db.VarChar(8)
+  source           String    @default("homepage")
+  status           String    @default("SUBSCRIBED")
+  unsubscribeToken String    @unique
+  confirmedAt      DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@index([status, createdAt])
 }
