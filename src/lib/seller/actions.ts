@@ -20,6 +20,7 @@ import { encodeUpdateChangelog, formatVersionNotificationBody } from "@/lib/upda
 import { notify, recordAudit } from "@/lib/audit";
 import { getSessionUser, type SessionUser } from "@/lib/auth/session";
 import { prisma } from "@/lib/db";
+import { withSchemaFallback } from "@/lib/db-compat";
 import { sendProductUpdateEmails } from "@/lib/email/notifications";
 import { env, isScannerConfigured } from "@/lib/env";
 import { triggerFileScan } from "@/lib/scanner";
@@ -243,6 +244,15 @@ export async function saveProductDraftForUploadAction(
       },
     });
 
+    await withSchemaFallback(
+      () =>
+        prisma.product.update({
+          where: { id: existing.id },
+          data: { saleEndsAt: salePriceMinor !== null ? (data.saleEndsAt ?? null) : null },
+        }),
+      null,
+    );
+
     const latestVersion = existing.versions[0] ?? null;
     if (latestVersion && existing.version !== data.version) {
       await prisma.productVersion
@@ -293,6 +303,17 @@ export async function saveProductDraftForUploadAction(
     },
     select: { id: true },
   });
+
+  if (salePriceMinor !== null && data.saleEndsAt) {
+    await withSchemaFallback(
+      () =>
+        prisma.product.update({
+          where: { id: created.id },
+          data: { saleEndsAt: data.saleEndsAt ?? null },
+        }),
+      null,
+    );
+  }
 
   const versionRow = await prisma.productVersion.create({
     data: {
@@ -392,6 +413,15 @@ export async function updateProductAction(
       rejectionReason: null,
     },
   });
+
+  await withSchemaFallback(
+    () =>
+      prisma.product.update({
+        where: { id: existing.id },
+        data: { saleEndsAt: salePriceMinor !== null ? (data.saleEndsAt ?? null) : null },
+      }),
+    null,
+  );
 
   await recordAudit({
     actorId: user.id,

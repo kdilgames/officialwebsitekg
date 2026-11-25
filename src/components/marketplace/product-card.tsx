@@ -1,8 +1,14 @@
 import Link from "next/link";
-import { BadgeCheck, Star } from "lucide-react";
+import { BadgeCheck, ExternalLink, Star } from "lucide-react";
 
 import { getCategoryVisual } from "@/components/marketplace/category-visuals";
+import { FlashSaleBadge } from "@/components/marketplace/flash-sale-badge";
 import { Badge } from "@/components/ui/badge";
+import {
+  getEffectivePriceMinor,
+  isFlashSaleActive,
+  isSaleActive,
+} from "@/lib/marketplace/flash-sale";
 import { formatMoney } from "@/lib/money";
 
 export type ProductCardData = {
@@ -11,6 +17,8 @@ export type ProductCardData = {
   thumbnailUrl: string | null;
   priceMinor: number;
   salePriceMinor: number | null;
+  saleEndsAt?: Date | string | null;
+  demoUrl?: string | null;
   currency: string;
   ratingSum: number;
   ratingCount: number;
@@ -20,13 +28,20 @@ export type ProductCardData = {
 };
 
 export function ProductCard({ product }: { product: ProductCardData }) {
-  const price = product.salePriceMinor ?? product.priceMinor;
+  const price = getEffectivePriceMinor(product);
   const isFree = price === 0;
-  const onSale = product.salePriceMinor !== null && product.salePriceMinor < product.priceMinor;
+  const onSale = isSaleActive(product);
+  const flashActive = isFlashSaleActive(product);
   const discountPercent =
     onSale && product.priceMinor > 0
       ? Math.round(((product.priceMinor - price) / product.priceMinor) * 100)
       : 0;
+  const saleEndsIso =
+    flashActive && product.saleEndsAt
+      ? typeof product.saleEndsAt === "string"
+        ? product.saleEndsAt
+        : product.saleEndsAt.toISOString()
+      : null;
 
   const visual = getCategoryVisual(product.category.slug);
   const CategoryIcon = visual.icon;
@@ -55,11 +70,20 @@ export function ProductCard({ product }: { product: ProductCardData }) {
             <span className="subtle text-[11px] font-medium">{product.category.name}</span>
           </div>
         )}
-        {isFree ? (
-          <span className="badge badge-positive absolute left-2.5 top-2.5 shadow-xs">Free</span>
-        ) : onSale ? (
-          <span className="badge badge-accent absolute left-2.5 top-2.5 shadow-xs">
-            {discountPercent > 0 ? `-${discountPercent}%` : "Sale"}
+        <div className="absolute left-2.5 top-2.5 flex flex-wrap items-center gap-1.5">
+          {isFree ? (
+            <span className="badge badge-positive shadow-xs">Free</span>
+          ) : onSale ? (
+            <span className="badge badge-accent shadow-xs">
+              {discountPercent > 0 ? `-${discountPercent}%` : "Sale"}
+            </span>
+          ) : null}
+          {saleEndsIso ? <FlashSaleBadge saleEndsAt={saleEndsIso} compact /> : null}
+        </div>
+        {product.demoUrl ? (
+          <span className="badge absolute right-2.5 top-2.5 bg-surface/90 text-[10.5px] shadow-xs backdrop-blur-xs">
+            <ExternalLink className="size-2.5" aria-hidden />
+            Live demo
           </span>
         ) : null}
       </div>

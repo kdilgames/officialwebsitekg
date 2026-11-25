@@ -193,6 +193,15 @@ export const productSchema = z
     description: z.string().trim().min(60, "Describe the product in at least 60 characters.").max(20000),
     price: z.coerce.number().finite().min(0, "Price cannot be negative.").max(100000),
     salePrice: optionalNumber,
+    saleEndsAt: z
+      .string()
+      .trim()
+      .optional()
+      .transform((val) => {
+        if (!val) return undefined;
+        const parsed = new Date(val);
+        return Number.isNaN(parsed.getTime()) ? undefined : parsed;
+      }),
     currency: z.string().trim().toUpperCase().length(3).default("EUR"),
     licenseType: z.enum(["PERSONAL", "STANDARD", "EXTENDED", "CUSTOM"]).default("STANDARD"),
     licenseText: z.string().trim().max(8000).optional().or(z.literal("").transform(() => undefined)),

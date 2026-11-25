@@ -77,6 +77,8 @@ export async function applyCheckoutCompleted(
     taxMinor: tax.taxMinor,
     billingCountry: tax.billingCountry,
     customerTaxId: tax.customerTaxId,
+    affiliateCode:
+      typeof session.metadata?.affiliateCode === "string" ? session.metadata.affiliateCode : null,
   });
 
   return {

@@ -16,6 +16,8 @@ import {
   Star,
 } from "lucide-react";
 
+import { FlashSaleBadge } from "@/components/marketplace/flash-sale-badge";
+import { MessageSellerForm } from "@/components/marketplace/message-forms";
 import {
   AddToCartButton,
   AnswerQuestionForm,
@@ -32,6 +34,7 @@ import {
 import { ProductGallery } from "@/components/marketplace/product-gallery";
 import { ProductCard } from "@/components/marketplace/product-card";
 import { ProductUpdateModalTrigger } from "@/components/marketplace/product-update-modal";
+import { SellerBadges } from "@/components/marketplace/seller-badges";
 import { Alert, EmptyState } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { BBCodeContent } from "@/components/ui/bbcode-content";
@@ -46,7 +49,14 @@ import {
   submitReviewAction,
   toggleWishlistAction,
 } from "@/lib/marketplace/actions";
+import {
+  getEffectivePriceMinor,
+  isFlashSaleActive,
+  isSaleActive,
+} from "@/lib/marketplace/flash-sale";
+import { startConversationAction } from "@/lib/messages/actions";
 import { claimFreeProductAction } from "@/lib/payments/actions";
+import { computeSellerBadges } from "@/lib/seller/badges";
 import { getSessionUser } from "@/lib/auth/session";
 import { prisma } from "@/lib/db";
 import { withSchemaFallback } from "@/lib/db-compat";
@@ -140,15 +150,32 @@ async function loadProduct(slug: string) {
           ...PRODUCT_BASE_SELECT,
           demoUrl: true,
           videoUrl: true,
+          saleEndsAt: true,
         },
       }),
-    async () => {
-      const legacy = await prisma.product.findFirst({
-        where: { slug, status: "PUBLISHED" },
-        select: PRODUCT_BASE_SELECT,
-      });
-      return legacy ? { ...legacy, demoUrl: null, videoUrl: null } : null;
-    },
+    async () =>
+      withSchemaFallback(
+        async () => {
+          const mid = await prisma.product.findFirst({
+            where: { slug, status: "PUBLISHED" },
+            select: {
+              ...PRODUCT_BASE_SELECT,
+              demoUrl: true,
+              videoUrl: true,
+            },
+          });
+          return mid ? { ...mid, saleEndsAt: null as Date | null } : null;
+        },
+        async () => {
+          const legacy = await prisma.product.findFirst({
+            where: { slug, status: "PUBLISHED" },
+            select: PRODUCT_BASE_SELECT,
+          });
+          return legacy
+            ? { ...legacy, demoUrl: null, videoUrl: null, saleEndsAt: null as Date | null }
+            : null;
+        },
+      ),
   );
 }
 
@@ -299,14 +326,26 @@ export default async function ProductPage({ params, searchParams }: PageProps) {
 
   const isOwnProduct = user?.sellerProfile?.id === product.sellerId;
   const canManageQuestions = isOwnProduct || user?.role === "ADMIN";
-  const price = product.salePriceMinor ?? product.priceMinor;
+  const price = getEffectivePriceMinor(product);
   const isFree = price === 0;
-  const onSale = product.salePriceMinor !== null && product.salePriceMinor < product.priceMinor;
+  const onSale = isSaleActive(product);
+  const flashSaleActive = isFlashSaleActive(product);
+  const flashSaleEndsIso =
+    flashSaleActive && product.saleEndsAt ? product.saleEndsAt.toISOString() : null;
   const discountPercent =
     onSale && product.priceMinor > 0
       ? Math.round(((product.priceMinor - price) / product.priceMinor) * 100)
       : 0;
   const rating = product.ratingCount > 0 ? product.ratingSum / product.ratingCount : null;
+  const sellerBadges = computeSellerBadges({
+    isApproved: product.seller.status === "APPROVED",
+    salesCount: product.salesCount,
+    publishedProductsCount: product.seller._count.products,
+    ratingAverage: rating,
+    ratingCount: product.ratingCount,
+    createdAt: product.seller.user.createdAt,
+    latestUpdateAt: product.versions[0]?.releasedAt ?? null,
+  });
   const hasReview = reviews.some((review) => review.user.username === user?.username);
   const canBuy = product.seller.status === "APPROVED" && product.seller.user.status === "ACTIVE";
   const safeDemoUrl = safeHttpUrl(product.demoUrl);
@@ -812,6 +851,8 @@ export default async function ProductPage({ params, searchParams }: PageProps) {
                 ) : null}
               </div>
 
+              {flashSaleEndsIso ? <FlashSaleBadge saleEndsAt={flashSaleEndsIso} /> : null}
+
               <div className="flex flex-wrap items-center gap-1.5">
                 <Badge tone="accent">{product.licenseType.toLowerCase()} license</Badge>
                 <Badge>v{product.version}</Badge>
@@ -1005,6 +1046,22 @@ export default async function ProductPage({ params, searchParams }: PageProps) {
                   </span>
                 </span>
               </Link>
+
+              <div className="mt-3">
+                <SellerBadges badges={sellerBadges} />
+              </div>
+
+              {user && !isOwnProduct ? (
+                <div className="mt-3">
+                  <MessageSellerForm
+                    action={startConversationAction}
+                    sellerId={product.seller.id}
+                    sellerName={product.seller.storeName}
+                    productId={product.id}
+                    defaultSubject={`Question about ${product.title}`}
+                  />
+                </div>
+              ) : null}
 
               <div className="divider my-4" />
 

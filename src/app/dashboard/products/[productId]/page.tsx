@@ -18,6 +18,7 @@ import { Card, CardBody, CardHeader, StatCard } from "@/components/ui/card";
 import { requireSeller } from "@/lib/auth/session";
 import { bpsToPercent, formatBps, resolveCommissionRate } from "@/lib/commission";
 import { prisma } from "@/lib/db";
+import { withSchemaFallback } from "@/lib/db-compat";
 import { env } from "@/lib/env";
 import {
   answerProductQuestionAction,
@@ -102,6 +103,18 @@ export default async function ManageProductPage({
     url: image.url,
     alt: image.alt,
   }));
+
+  const saleEndsAtRow = await withSchemaFallback(
+    () =>
+      prisma.product.findUnique({
+        where: { id: product.id },
+        select: { saleEndsAt: true },
+      }),
+    null,
+  );
+  const saleEndsAtDefault = saleEndsAtRow?.saleEndsAt
+    ? saleEndsAtRow.saleEndsAt.toISOString().slice(0, 16)
+    : "";
 
   return (
     <div className="space-y-5">
@@ -203,6 +216,7 @@ export default async function ManageProductPage({
                 product.salePriceMinor === null
                   ? ""
                   : minorToDecimalString(product.salePriceMinor, product.currency),
+              saleEndsAt: saleEndsAtDefault,
               currency: product.currency,
               licenseType: product.licenseType,
               licenseText: product.licenseText ?? "",

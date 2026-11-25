@@ -122,6 +122,20 @@ export default async function OrdersPage({
     );
   }
 
+  const allOrderItemIds = orders.flatMap((o) => o.items.map((i) => i.id));
+  const licenseRows =
+    allOrderItemIds.length > 0
+      ? await withSchemaFallback(
+          () =>
+            prisma.licenseKey.findMany({
+              where: { orderItemId: { in: allOrderItemIds }, buyerId: user.id },
+              select: { orderItemId: true, key: true, status: true },
+            }),
+          [],
+        )
+      : [];
+  const licenseByItemId = new Map(licenseRows.map((row) => [row.orderItemId, row]));
+
   return (
     <div className="space-y-4">
       <header>
@@ -184,7 +198,9 @@ export default async function OrdersPage({
             />
 
             <ul className="divide-y divide-line">
-              {order.items.map((item) => (
+              {order.items.map((item) => {
+                const license = licenseByItemId.get(item.id);
+                return (
                 <li key={item.id} className="flex flex-wrap items-center gap-3 px-4 py-3">
                   <div className="min-w-0 flex-1">
                     <Link
@@ -199,6 +215,17 @@ export default async function OrdersPage({
                         ? "Free"
                         : formatMoney(item.priceMinor, order.currency)}
                     </p>
+                    {unlocked && license ? (
+                      <p className="mt-1 flex flex-wrap items-center gap-1.5 text-[11.5px]">
+                        <span className="subtle">License key:</span>
+                        <code className="select-all rounded border border-line bg-elevated px-1.5 py-0.5 font-mono text-[11px] text-ink">
+                          {license.key}
+                        </code>
+                        {license.status !== "ACTIVE" ? (
+                          <Badge tone="critical">{license.status}</Badge>
+                        ) : null}
+                      </p>
+                    ) : null}
                   </div>
 
                   {unlocked ? (
@@ -228,7 +255,8 @@ export default async function OrdersPage({
                     <span className="subtle text-[11.5px]">Locked until payment is confirmed</span>
                   )}
                 </li>
-              ))}
+                );
+              })}
             </ul>
 
             <CardBody className="flex flex-wrap items-center gap-3 border-t border-line py-3">

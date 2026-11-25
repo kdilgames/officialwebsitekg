@@ -12,6 +12,9 @@ import {
 } from "@/lib/payments/pricing";
 import { isStripeTaxNotConfiguredError } from "@/lib/payments/tax";
 import { sendOrderReceiptEmail } from "@/lib/email/notifications";
+import { issueLicenseKeysForOrder } from "@/lib/licenses/service";
+import { getEffectivePriceMinor } from "@/lib/marketplace/flash-sale";
+import { creditAffiliateForPaidOrder, readAffiliateCookieCode } from "@/lib/affiliate/actions";
 
 export class CheckoutError extends Error {}
 
@@ -260,7 +263,21 @@ export async function previewCart(userId: string): Promise<OrderPreview> {
     });
   }
 
-  // 2. Process individual cart items.
+  // 2. Process individual cart items (respecting active flash sale deadlines safely pre-migration).
+  const cartProductIds = cart.items.map((item) => item.product.id);
+  const saleDeadlineRows =
+    cartProductIds.length > 0
+      ? await withSchemaFallback(
+          () =>
+            prisma.product.findMany({
+              where: { id: { in: cartProductIds } },
+              select: { id: true, saleEndsAt: true },
+            }),
+          [],
+        )
+      : [];
+  const saleEndsAtById = new Map(saleDeadlineRows.map((row) => [row.id, row.saleEndsAt]));
+
   for (const item of cart.items) {
     const product = item.product;
 
@@ -285,7 +302,11 @@ export async function previewCart(userId: string): Promise<OrderPreview> {
       continue;
     }
 
-    const unitPriceMinor = product.salePriceMinor ?? product.priceMinor;
+    const unitPriceMinor = getEffectivePriceMinor({
+      priceMinor: product.priceMinor,
+      salePriceMinor: product.salePriceMinor,
+      saleEndsAt: saleEndsAtById.get(product.id) ?? null,
+    });
     if (unitPriceMinor < 0) {
       issues.push(`“${product.title}” has an invalid price and was skipped.`);
       continue;
@@ -618,6 +639,7 @@ export async function claimFreeOrderFromCart(params: {
     });
   }
 
+  await issueLicenseKeysForOrder(orderId);
   await sendOrderReceiptEmail(orderId);
 
   return { orderId, couponCode: preview.coupon?.code ?? null };
@@ -745,6 +767,7 @@ export async function claimFreeSingleProduct(params: {
     href: "/dashboard/orders",
   });
 
+  await issueLicenseKeysForOrder(orderId);
   await sendOrderReceiptEmail(orderId);
 
   return { orderId, productSlug: product.slug, productTitle: product.title };
@@ -803,6 +826,8 @@ export async function createCheckoutSession(params: {
     throw new CheckoutError("Order total is below Stripe's minimum card charge.");
   }
 
+  const affiliateCode = await readAffiliateCookieCode();
+
   const baseSessionPayload = {
     mode: "payment" as const,
     // The platform is the merchant of record for the charge; sellers are paid
@@ -813,6 +838,7 @@ export async function createCheckoutSession(params: {
       orderId: order.id,
       orderNumber: order.orderNumber,
       ...(order.couponCodeSnapshot ? { couponCode: order.couponCodeSnapshot } : {}),
+      ...(affiliateCode ? { affiliateCode } : {}),
     },
     payment_intent_data: {
       metadata: { orderId: order.id, orderNumber: order.orderNumber },
@@ -891,12 +917,15 @@ export async function markOrderPaid(params: {
   taxMinor?: number;
   billingCountry?: string | null;
   customerTaxId?: string | null;
+  affiliateCode?: string | null;
 }): Promise<{ alreadyPaid: boolean }> {
   const baseOrderSelect = {
     id: true,
     status: true,
     currency: true,
     buyerId: true,
+    totalMinor: true,
+    platformFeeMinor: true,
     sellerNetMinor: true,
     items: {
       select: {
@@ -1050,6 +1079,15 @@ export async function markOrderPaid(params: {
     });
   }
 
+  await issueLicenseKeysForOrder(order.id);
+  await creditAffiliateForPaidOrder({
+    orderId: order.id,
+    buyerId: order.buyerId,
+    orderTotalMinor: order.totalMinor,
+    platformFeeMinor: order.platformFeeMinor,
+    currency: order.currency,
+    affiliateCode: params.affiliateCode,
+  });
   await sendOrderReceiptEmail(order.id);
 
   return { alreadyPaid: false };

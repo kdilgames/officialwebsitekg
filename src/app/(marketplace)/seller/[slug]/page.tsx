@@ -4,17 +4,20 @@ import { notFound } from "next/navigation";
 import { BadgeCheck, CalendarDays, Globe, Mail } from "lucide-react";
 
 import { BundleCard } from "@/components/marketplace/bundle-card";
+import { MessageSellerForm } from "@/components/marketplace/message-forms";
 import { ProductGrid } from "@/components/marketplace/product-card";
 import { FollowButton } from "@/components/marketplace/product-actions";
+import { SellerBadges } from "@/components/marketplace/seller-badges";
 import { Alert, EmptyState } from "@/components/ui/alert";
-import { Badge } from "@/components/ui/badge";
 import { Card, CardBody, CardHeader, StatCard } from "@/components/ui/card";
 import { Pagination } from "@/components/ui/table";
 import { toggleFollowAction } from "@/lib/marketplace/actions";
+import { startConversationAction } from "@/lib/messages/actions";
 import { getSessionUser } from "@/lib/auth/session";
 import { prisma } from "@/lib/db";
 import { browseProducts, listPublishedBundles } from "@/lib/queries/products";
 import { formatMoney } from "@/lib/money";
+import { computeSellerBadges } from "@/lib/seller/badges";
 
 export const dynamic = "force-dynamic";
 
@@ -60,7 +63,7 @@ export default async function SellerPage({ params, searchParams }: PageProps) {
 
   const page = Number.parseInt(query.page ?? "1", 10) || 1;
 
-  const [products, bundles, user, ratingAggregate, salesAggregate] = await Promise.all([
+  const [products, bundles, user, ratingAggregate, salesAggregate, latestVersion] = await Promise.all([
     browseProducts({ seller: slug, page, sort: "newest" }),
     listPublishedBundles(6, seller.id),
     getSessionUser(),
@@ -73,6 +76,11 @@ export default async function SellerPage({ params, searchParams }: PageProps) {
       where: { sellerId: seller.id, status: { in: ["PAID", "REFUNDED"] } },
       _sum: { priceMinor: true },
       _count: { _all: true },
+    }),
+    prisma.productVersion.findFirst({
+      where: { product: { sellerId: seller.id } },
+      orderBy: { releasedAt: "desc" },
+      select: { releasedAt: true },
     }),
   ]);
 
@@ -90,6 +98,15 @@ export default async function SellerPage({ params, searchParams }: PageProps) {
   const grossSalesMinor = salesAggregate._sum.priceMinor ?? 0;
   const salesCount = salesAggregate._count._all;
   const coverImage = seller.bannerUrl ?? seller.logoUrl;
+  const badges = computeSellerBadges({
+    isApproved: true,
+    salesCount,
+    publishedProductsCount: seller._count.products,
+    ratingAverage: rating,
+    ratingCount,
+    createdAt: seller.createdAt,
+    latestUpdateAt: latestVersion?.releasedAt ?? null,
+  });
 
   return (
     <div className="mx-auto max-w-[1400px] px-4 py-8 sm:px-6">
@@ -115,10 +132,12 @@ export default async function SellerPage({ params, searchParams }: PageProps) {
               <div className="flex flex-wrap items-center gap-2">
                 <h1 className="text-[22px] font-bold tracking-tight text-ink">{seller.storeName}</h1>
                 <BadgeCheck className="size-4 text-accent" aria-hidden />
-                <Badge tone="positive">Verified seller</Badge>
+              </div>
+              <div className="mt-1.5">
+                <SellerBadges badges={badges} />
               </div>
               {seller.tagline ? (
-                <p className="muted mt-1 text-[13.5px]">{seller.tagline}</p>
+                <p className="muted mt-1.5 text-[13.5px]">{seller.tagline}</p>
               ) : null}
               <div className="subtle mt-2.5 flex flex-wrap items-center gap-4 text-[12.5px]">
                 <span className="flex items-center gap-1.5">
@@ -151,7 +170,16 @@ export default async function SellerPage({ params, searchParams }: PageProps) {
           </div>
 
           {user && user.id !== seller.user.id ? (
-            <FollowButton action={toggleFollowAction} sellerId={seller.id} active={isFollowing} />
+            <div className="flex flex-col items-end gap-2">
+              <FollowButton action={toggleFollowAction} sellerId={seller.id} active={isFollowing} />
+              <div className="w-full min-w-[240px] max-w-[320px]">
+                <MessageSellerForm
+                  action={startConversationAction}
+                  sellerId={seller.id}
+                  sellerName={seller.storeName}
+                />
+              </div>
+            </div>
           ) : null}
         </CardBody>
       </Card>

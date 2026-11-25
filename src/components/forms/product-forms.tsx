@@ -89,6 +89,7 @@ export type ProductFormDefaults = {
   description: string;
   price: string;
   salePrice: string;
+  saleEndsAt?: string;
   currency: string;
   licenseType: string;
   licenseText: string;
@@ -752,6 +753,20 @@ export function ProductForm({
           </Select>
         </Field>
       </div>
+
+      <Field
+        label="Flash sale ends at (optional)"
+        htmlFor="saleEndsAt"
+        error={state.fieldErrors?.saleEndsAt}
+        hint="Set a countdown end date/time when running a limited-time flash sale. Price automatically returns to regular after this time."
+      >
+        <Input
+          id="saleEndsAt"
+          name="saleEndsAt"
+          type="datetime-local"
+          defaultValue={defaults.saleEndsAt ?? ""}
+        />
+      </Field>
 
       <div className="space-y-2">
         <Field

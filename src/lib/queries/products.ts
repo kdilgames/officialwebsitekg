@@ -157,8 +157,39 @@ export async function browseProducts(params: BrowseParams) {
     prisma.product.count({ where }),
   ]);
 
+  const slugs = items.map((item) => item.slug);
+  const extras =
+    slugs.length > 0
+      ? await withSchemaFallback(
+          () =>
+            prisma.product.findMany({
+              where: { slug: { in: slugs } },
+              select: { slug: true, demoUrl: true, saleEndsAt: true },
+            }),
+          async () => {
+            const legacyDemo = await withSchemaFallback(
+              () =>
+                prisma.product.findMany({
+                  where: { slug: { in: slugs } },
+                  select: { slug: true, demoUrl: true },
+                }),
+              [],
+            );
+            return legacyDemo.map((row) => ({ ...row, saleEndsAt: null as Date | null }));
+          },
+        )
+      : [];
+  const extraBySlug = new Map(extras.map((row) => [row.slug, row]));
+
   return {
-    items,
+    items: items.map((item) => {
+      const extra = extraBySlug.get(item.slug);
+      return {
+        ...item,
+        demoUrl: safeHttpUrl(extra?.demoUrl ?? null),
+        saleEndsAt: extra?.saleEndsAt ?? null,
+      };
+    }),
     total,
     page,
     perPage,

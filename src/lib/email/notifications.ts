@@ -20,7 +20,7 @@ export async function sendOrderReceiptEmail(orderId: string): Promise<void> {
       totalMinor: true,
       receiptUrl: true,
       buyer: { select: { email: true, displayName: true, username: true } },
-      items: { select: { titleSnapshot: true, priceMinor: true } },
+      items: { select: { id: true, titleSnapshot: true, priceMinor: true } },
     };
 
     const order = await withSchemaFallback(
@@ -37,6 +37,16 @@ export async function sendOrderReceiptEmail(orderId: string): Promise<void> {
 
     if (!order?.buyer?.email) return;
 
+    const licenseRows = await withSchemaFallback(
+      () =>
+        prisma.licenseKey.findMany({
+          where: { orderItemId: { in: order.items.map((item) => item.id) } },
+          select: { orderItemId: true, key: true },
+        }),
+      [],
+    );
+    const licenseByItemId = new Map(licenseRows.map((row) => [row.orderItemId, row.key]));
+
     const template = renderOrderReceiptEmail({
       siteUrl: env.siteUrl,
       buyerName: order.buyer.displayName || order.buyer.username,
@@ -50,6 +60,7 @@ export async function sendOrderReceiptEmail(orderId: string): Promise<void> {
       items: order.items.map((item) => ({
         title: item.titleSnapshot,
         priceMinor: item.priceMinor,
+        licenseKey: licenseByItemId.get(item.id) ?? null,
       })),
     });
 
