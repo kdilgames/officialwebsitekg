@@ -3,6 +3,7 @@ import { JetBrains_Mono, Plus_Jakarta_Sans } from "next/font/google";
 
 import { CookieBanner } from "@/components/layout/cookie-banner";
 import { env } from "@/lib/env";
+import { getServerLocale } from "@/lib/i18n/server";
 
 import "./globals.css";
 
@@ -32,10 +33,12 @@ export const metadata: Metadata = {
 
 const THEME_INIT_SCRIPT = `(function(){try{var s=localStorage.getItem("kdil-theme");var t=s==="dark"||s==="light"?s:"light";document.documentElement.dataset.theme=t;document.documentElement.style.colorScheme=t;}catch(e){}})();`;
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const locale = await getServerLocale();
+
   return (
     <html
-      lang="en"
+      lang={locale}
       data-theme="light"
       suppressHydrationWarning
       className={`${plusJakarta.variable} ${jetbrainsMono.variable}`}

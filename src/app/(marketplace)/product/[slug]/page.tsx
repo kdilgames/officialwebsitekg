@@ -180,14 +180,6 @@ async function loadProduct(slug: string) {
   );
 }
 
-function safeOgImageUrl(raw: string | null | undefined): string | undefined {
-  if (typeof raw !== "string") return undefined;
-  const trimmed = raw.trim();
-  if (!trimmed) return undefined;
-  if (trimmed.startsWith("/") && !trimmed.startsWith("//")) return trimmed;
-  return safeHttpUrl(trimmed) ?? undefined;
-}
-
 export async function generateMetadata({
   params,
 }: {
@@ -197,12 +189,10 @@ export async function generateMetadata({
   try {
     const product = await prisma.product.findFirst({
       where: { slug, status: "PUBLISHED" },
-      select: { title: true, shortDescription: true, thumbnailUrl: true },
+      select: { title: true, shortDescription: true },
     });
 
     if (!product) return { title: "Product not found" };
-
-    const ogImage = safeOgImageUrl(product.thumbnailUrl);
 
     return {
       title: product.title,
@@ -210,7 +200,6 @@ export async function generateMetadata({
       openGraph: {
         title: product.title,
         description: product.shortDescription,
-        images: ogImage ? [ogImage] : undefined,
       },
     };
   } catch {
